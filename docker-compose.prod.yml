@@ -93,20 +93,6 @@ services:
       retries: 5
       start_period: 20s
 
-  db-importer:
-    build:
-      context: .
-      dockerfile: Dockerfile.importer
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgresql://mip:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/mip
-      MIGRATION_TOKEN: ${MIGRATION_TOKEN:?set MIGRATION_TOKEN}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    expose:
-      - "8090"
-
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
