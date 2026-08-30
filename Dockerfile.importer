@@ -1,0 +1,8 @@
+FROM postgres:16-alpine
+
+RUN apk add --no-cache python3
+WORKDIR /opt/importer
+COPY deploy/db_importer.py ./db_importer.py
+USER postgres
+EXPOSE 8090
+CMD ["python3", "/opt/importer/db_importer.py"]
