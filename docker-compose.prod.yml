@@ -31,7 +31,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?set INITIAL_ADMIN_EMAIL}
-      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?set INITIAL_ADMIN_PASSWORD}
+      # Required only while creating the first admin. Remove it from Coolify
+      # after the first healthy deployment; future seeds preserve the account.
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       LIVE_X_API: ${LIVE_X_API:-false}
       X_DRY_RUN: ${X_DRY_RUN:-true}
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
