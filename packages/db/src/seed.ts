@@ -287,6 +287,26 @@ async function main() {
               ON CONFLICT DO NOTHING`;
   }
 
+  // A production database may be restored from a developer workstation.
+  // Never leave the well-known local demo accounts usable after that restore.
+  if (isProduction) {
+    await sql`
+      UPDATE refresh_tokens
+      SET revoked_at = now()
+      WHERE revoked_at IS NULL
+        AND user_id IN (
+          SELECT id FROM users
+          WHERE lower(email) IN ('admin@mip.local', 'viewer@mip.local')
+            AND lower(email) <> ${adminEmail}
+        )`;
+    await sql`
+      UPDATE users
+      SET is_active = false, failed_login_attempts = 0, locked_until = NULL,
+          updated_at = now()
+      WHERE lower(email) IN ('admin@mip.local', 'viewer@mip.local')
+        AND lower(email) <> ${adminEmail}`;
+  }
+
   // A read-only demo account so the RBAC split is visible immediately.
   const viewerPassword = process.env.INITIAL_VIEWER_PASSWORD ?? (isProduction ? '' : 'Viewer@12345');
   if (viewerPassword) {
