@@ -1,4 +1,5 @@
 import { sql, normalizeArabic, contentHash } from '@mip/db';
+import { config } from '@mip/config';
 import { xApiGateway } from '@mip/x-collector';
 import { loadDictionary, classify } from './classification/classifier.js';
 import { containsSensitiveData } from '../lib/privacy.js';
@@ -55,7 +56,14 @@ export async function collectQuery(queryId: string, triggeredBy?: string): Promi
     SELECT id, compiled FROM query_versions WHERE id = ${query.current_version_id}::uuid`;
   if (!version) throw new CollectionError('لا توجد نسخة فعالة للاستعلام', 'NO_VERSION');
 
-  const safeCompiled = excludeOfficialAuthors(version.compiled, query.official_accounts);
+  const globallyExcludedAccounts = config.AUTO_COLLECTION_EXCLUDED_USERS
+    .split(',')
+    .map((username) => username.trim())
+    .filter(Boolean);
+  const safeCompiled = excludeOfficialAuthors(
+    version.compiled,
+    [...query.official_accounts, ...globallyExcludedAccounts],
+  );
   if (safeCompiled.length > X_QUERY_MAX_LENGTH) {
     throw new CollectionError(
       'تعذر تشغيل الاستعلام بأمان: إضافة استبعاد الحسابات الرسمية تجاوزت حد X',

@@ -307,6 +307,23 @@ async function main() {
         AND lower(email) <> ${adminEmail}`;
   }
 
+  // Global X account exclusions apply retroactively as well as to future
+  // collection. Keep the rows for referential integrity and auditability, but
+  // redact them from every user-facing feed and statistic.
+  const excludedXUsernames = (process.env.AUTO_COLLECTION_EXCLUDED_USERS ?? '')
+    .split(',')
+    .map((username) => username.trim().replace(/^@/, '').toLowerCase())
+    .filter(Boolean);
+  if (excludedXUsernames.length > 0) {
+    await sql`
+      UPDATE posts p
+      SET is_redacted = true, redacted_at = COALESCE(p.redacted_at, now())
+      FROM authors a
+      WHERE p.author_id = a.id
+        AND lower(a.username) = ANY(${excludedXUsernames}::text[])
+        AND NOT p.is_redacted`;
+  }
+
   // A read-only demo account so the RBAC split is visible immediately.
   const viewerPassword = process.env.INITIAL_VIEWER_PASSWORD ?? (isProduction ? '' : 'Viewer@12345');
   if (viewerPassword) {
