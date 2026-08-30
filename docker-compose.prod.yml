@@ -1,0 +1,125 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health | grep -q '\"ok\":true'"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Riyadh
+      API_PORT: "3001"
+      APP_URL: https://monitoring.interactivedashboardpages.com
+      DATABASE_URL: postgresql://mip:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/mip
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:?set INITIAL_ADMIN_EMAIL}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?set INITIAL_ADMIN_PASSWORD}
+      LIVE_X_API: ${LIVE_X_API:-false}
+      X_DRY_RUN: ${X_DRY_RUN:-true}
+      X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
+      AUTO_COLLECTION_ENABLED: ${AUTO_COLLECTION_ENABLED:-false}
+      AUTO_COLLECTION_TICK_SECONDS: ${AUTO_COLLECTION_TICK_SECONDS:-30}
+      AUTO_COLLECTION_INTERVAL_MINUTES: ${AUTO_COLLECTION_INTERVAL_MINUTES:-15}
+      AUTO_COLLECTION_MAX_RESULTS: ${AUTO_COLLECTION_MAX_RESULTS:-10}
+      AI_SERVICE_URL: http://ai:8000
+      AI_API_KEY: ${AI_API_KEY:?set AI_API_KEY}
+      ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI: ${ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI:-false}
+      AUTO_CLASSIFICATION_ENABLED: ${AUTO_CLASSIFICATION_ENABLED:-false}
+      AUTO_CLASSIFICATION_TICK_SECONDS: ${AUTO_CLASSIFICATION_TICK_SECONDS:-300}
+      AUTO_CLASSIFICATION_BATCH_SIZE: ${AUTO_CLASSIFICATION_BATCH_SIZE:-20}
+      NEWS_FETCH_ENABLED: ${NEWS_FETCH_ENABLED:-false}
+      NEWS_FETCH_TICK_SECONDS: ${NEWS_FETCH_TICK_SECONDS:-30}
+      NEWS_FETCH_INTERVAL_MINUTES: ${NEWS_FETCH_INTERVAL_MINUTES:-5}
+      NEWS_FETCH_BATCH_SIZE: ${NEWS_FETCH_BATCH_SIZE:-25}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+
+  ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    restart: unless-stopped
+    environment:
+      AI_API_KEY: ${AI_API_KEY:?set AI_API_KEY}
+      EMBEDDING_PROVIDER: siliconflow
+      EMBEDDING_DIMENSIONS: "1024"
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:?set SILICONFLOW_API_KEY}
+      SILICONFLOW_BASE_URL: https://api.siliconflow.com/v1
+      SILICONFLOW_EMBEDDING_MODEL: Qwen/Qwen3-Embedding-8B
+      LABEL_PROVIDER: deepseek
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:?set DEEPSEEK_API_KEY}
+      DEEPSEEK_BASE_URL: https://api.deepseek.com
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: mip
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mip -d mip"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:

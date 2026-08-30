@@ -1,0 +1,76 @@
+{
+  "source": {
+    "file": "Oct 2025 to Jan 2026.xlsx",
+    "sheet": "تحليل",
+    "messageColumn": "Message",
+    "rowsReviewed": 111321,
+    "twitterMentionsReviewed": 9151,
+    "policy": "precision_first"
+  },
+  "rules": {
+    "required": "A post must match an official handle or an exact brand phrase.",
+    "excluded": "A post matching any exclusion is rejected before relevance scoring.",
+    "doNotMonitor": "Do not use customer Screen name values as collection handles; they are personal accounts and would import unrelated posts."
+  },
+  "programs": {
+    "ejar": {
+      "officialHandles": ["@Ejar_Sa"],
+      "exactBrandPhrases": ["منصة إيجار", "منصة ايجار", "شبكة إيجار", "شبكة ايجار"],
+      "excludedStandaloneTerms": ["إيجار", "ايجار"]
+    },
+    "rega": {
+      "officialHandles": [
+        "@REGA_CARES",
+        "@REGA_KSA",
+        "@SpokespRega",
+        "@SRE_Institute",
+        "@Subdivision_SA",
+        "@RERSaudi",
+        "@RERSaudi_care"
+      ],
+      "exactBrandPhrases": [
+        "الهيئة العامة للعقار",
+        "هيئة العقار",
+        "المعهد العقاري السعودي",
+        "منصة فرز الوحدات العقارية"
+      ],
+      "excludedStandaloneTerms": ["REGA", "عقار", "فرز", "ترخيص"]
+    },
+    "mullak": {
+      "officialHandles": ["@Mullak_SA"],
+      "exactBrandPhrases": ["منصة ملاك", "برنامج ملاك", "جمعيات ملاك"],
+      "excludedStandaloneTerms": ["ملاك", "اتحاد الملاك"]
+    },
+    "mostadam": {
+      "officialHandles": ["@Mostadam_SA"],
+      "exactBrandPhrases": [
+        "منصة البناء المستدام",
+        "برنامج البناء المستدام",
+        "منصة مستدام",
+        "شهادة مستدام",
+        "تقييم مستدام"
+      ],
+      "excludedStandaloneTerms": ["مستدام", "البناء المستدام", "Mostadam"]
+    }
+  },
+  "globalExclusions": [
+    "للبيع",
+    "للإيجار",
+    "إعلان",
+    "عروض",
+    "للتواصل واتساب",
+    "تمويل شخصي",
+    "إعادة تمويل",
+    "شراء مديونية",
+    "تداول",
+    "فوركس",
+    "كريبتو",
+    "USDT",
+    "crypto",
+    "trading",
+    "مطلوب مسوق",
+    "تقديم العروض والطلبات",
+    "خدمات الضيافة",
+    "القهوة السعودية"
+  ]
+}

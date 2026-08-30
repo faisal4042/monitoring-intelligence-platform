@@ -1,0 +1,17 @@
+{
+  "name": "@mip/x-collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@mip/config": "workspace:*",
+    "@mip/logger": "workspace:*",
+    "@mip/shared": "workspace:*",
+    "@mip/db": "workspace:*",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": { "typescript": "^5.9.2", "@types/node": "^22.10.5" }
+}

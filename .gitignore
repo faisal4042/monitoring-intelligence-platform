@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# apps/ai (Python)
+.venv/
+__pycache__/
+*.egg-info/
+
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Runtime artifacts
+uploads/
+reports-output/
+models_cache/
+*.log
+.DS_Store
+.claude/

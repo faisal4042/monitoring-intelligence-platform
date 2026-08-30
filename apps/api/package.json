@@ -1,0 +1,34 @@
+{
+  "name": "@mip/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts"
+  },
+  "dependencies": {
+    "fastify": "^5.2.1",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/jwt": "^9.0.3",
+    "@fastify/rate-limit": "^10.2.2",
+    "argon2": "^0.41.1",
+    "zod": "^3.24.1",
+    "fast-xml-parser": "^4.5.1",
+    "robots-parser": "^3.0.1",
+    "@mip/config": "workspace:*",
+    "@mip/logger": "workspace:*",
+    "@mip/shared": "workspace:*",
+    "@mip/db": "workspace:*",
+    "@mip/x-collector": "workspace:*",
+    "fastify-plugin": "^5.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "tsx": "^4.20.3",
+    "@types/node": "^22.10.5"
+  }
+}

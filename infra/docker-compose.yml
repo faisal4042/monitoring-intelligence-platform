@@ -1,0 +1,39 @@
+name: mip
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mip-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mip
+      POSTGRES_PASSWORD: mip_dev_password
+      POSTGRES_DB: mip
+    ports:
+      - "5433:5432"          # 5433 to avoid clashing with a local Postgres
+    volumes:
+      - mip-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mip -d mip"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mip-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"          # 6380 to avoid clashing with a local Redis
+    volumes:
+      - mip-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mip-pgdata:
+  mip-redisdata:

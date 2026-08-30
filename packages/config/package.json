@@ -1,0 +1,11 @@
+{
+  "name": "@mip/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": { "dotenv": "^16.4.7", "zod": "^3.24.1" },
+  "devDependencies": { "typescript": "^5.9.2", "@types/node": "^22.10.5" }
+}
