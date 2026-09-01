@@ -4,6 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtNum, fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { Plus, Rss, X } from 'lucide-react';
 
 interface NewsSource {
   id: string; program_id: string | null; program_name: string | null;
@@ -143,12 +144,12 @@ export default function NewsSources() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">مصادر الأخبار</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><Rss size={22} className="text-brand-500" /> مصادر الأخبار</h1>
           <p className="text-sm muted">تسجيل واختبار المصادر فقط في هذه المرحلة — لا جلب دوري بعد</p>
         </div>
         {canManage && (
           <button className="btn-primary" onClick={() => setShowForm((v) => !v)}>
-            {showForm ? 'إلغاء' : '+ إضافة مصدر'}
+            {showForm ? <><X size={15} /> إلغاء</> : <><Plus size={15} /> إضافة مصدر</>}
           </button>
         )}
       </div>

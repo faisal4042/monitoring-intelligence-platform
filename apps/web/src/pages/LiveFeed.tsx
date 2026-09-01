@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { Post } from '../lib/types';
+import { Radio } from 'lucide-react';
 import AuthorHistoryModal from '../components/AuthorHistoryModal';
 import PostCard from '../components/PostCard';
 import Lightbox from '../components/Lightbox';
@@ -43,9 +44,11 @@ export default function LiveFeed() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">الرصد المباشر</h1>
-        <p className="text-sm muted">كل الفلاتر تُطبَّق على الخادم — المتصفح لا يستقبل الجدول كاملاً</p>
+      <div className="page-heading">
+        <div>
+          <h1 className="flex items-center gap-2.5"><Radio size={22} className="text-brand-500" /> الرصد المباشر</h1>
+          <p>كل الفلاتر تُطبَّق على الخادم — المتصفح لا يستقبل الجدول كاملاً</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">

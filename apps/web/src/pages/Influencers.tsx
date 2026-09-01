@@ -4,6 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import type { Post } from '../lib/types';
 import { PERMISSIONS } from '@mip/shared';
+import { Check, Pencil, Plus, UsersRound, X } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import PostCard from '../components/PostCard';
 import Lightbox from '../components/Lightbox';
@@ -70,7 +71,7 @@ export default function Influencers() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">العملاء المؤثرون</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><UsersRound size={22} className="text-brand-500" /> العملاء المؤثرون</h1>
           <p className="text-sm muted">
             متابعة حسابات محدَّدة — تُجلب تغريداتها فقط إن طابقت قاموس أحد برامجنا، تماماً كأي منشور آخر.
             {data && <> {withPosts} من {data.items.length} تكلّموا عن برامجنا حتى الآن.</>}
@@ -82,9 +83,9 @@ export default function Influencers() {
               className={editMode ? 'btn-primary' : 'btn-ghost'}
               onClick={() => setEditMode((v) => !v)}
             >
-              {editMode ? 'تم' : 'تعديل'}
+              {editMode ? <Check size={15} /> : <Pencil size={15} />} {editMode ? 'تم' : 'تعديل'}
             </button>
-            <button className="btn-primary" onClick={() => setAdding(true)}>+ إضافة حسابات</button>
+            <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> إضافة حسابات</button>
           </div>
         )}
       </div>
@@ -118,10 +119,10 @@ export default function Influencers() {
                 <span
                   role="button"
                   tabIndex={-1}
-                  className="text-red-600 hover:text-red-700 font-bold"
+                  className="text-red-600 hover:text-red-700"
                   onClick={(e) => { e.stopPropagation(); remove.mutate(inf.id); }}
                   title="إزالة من المتابعة"
-                >×</span>
+                ><X size={12} /></span>
               )}
             </button>
           ))}

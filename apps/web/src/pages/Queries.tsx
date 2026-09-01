@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtNum, fmtPct, fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { FlaskConical, Play, Plus, SearchCode } from 'lucide-react';
 
 interface Row {
   id: string; name: string; status: string; program_name: string; program_color: string;
@@ -35,11 +36,11 @@ export default function Queries() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold">الاستعلامات</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><SearchCode size={22} className="text-brand-500" /> الاستعلامات</h1>
           <p className="text-sm muted">لا يصل استعلام إلى الإنتاج قبل اجتياز اختبار Sandbox بدقة ≥ 70%</p>
         </div>
         {can(PERMISSIONS.QUERIES_WRITE) && (
-          <Link to="/queries/new" className="btn-primary">+ استعلام جديد</Link>
+          <Link to="/queries/new" className="btn-primary"><Plus size={16} /> استعلام جديد</Link>
         )}
       </div>
 
@@ -75,10 +76,10 @@ export default function Queries() {
                        style={{ background: 'var(--surface-2)', direction: 'ltr', textAlign: 'left' }}>{q.compiled}</pre>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <Link to={`/queries/${q.id}/test`} className="btn-ghost !text-xs">اختبار</Link>
+                  <Link to={`/queries/${q.id}/test`} className="btn-ghost !text-xs"><FlaskConical size={14} /> اختبار</Link>
                   {q.status === 'active' && can(PERMISSIONS.QUERIES_WRITE) && (
                     <button className="btn-primary !text-xs" disabled={collect.isPending}
-                            onClick={() => collect.mutate(q.id)}>جمع الآن</button>
+                            onClick={() => collect.mutate(q.id)}><Play size={14} /> جمع الآن</button>
                   )}
                 </div>
               </div>
@@ -96,7 +97,7 @@ export default function Queries() {
         {!data?.items?.length && (
           <div className="card p-10 text-center">
             <p className="muted mb-3">لا توجد استعلامات بعد.</p>
-            {can(PERMISSIONS.QUERIES_WRITE) && <Link to="/queries/new" className="btn-primary">أنشئ أول استعلام</Link>}
+            {can(PERMISSIONS.QUERIES_WRITE) && <Link to="/queries/new" className="btn-primary"><Plus size={16} /> أنشئ أول استعلام</Link>}
           </div>
         )}
       </div>

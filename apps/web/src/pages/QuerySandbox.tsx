@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtPct, fmtMoney, fmtNum, fmtDateTime } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { ArrowRight, FlaskConical, ListChecks, Lightbulb, Rocket } from 'lucide-react';
 
 interface TestPost {
   id: string; text: string; author?: string; authorName?: string; followers?: number;
@@ -68,8 +69,8 @@ export default function QuerySandbox() {
     <div className="space-y-5 max-w-6xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Link to="/queries" className="text-sm text-brand-600 hover:underline">← الاستعلامات</Link>
-          <h1 className="text-xl font-bold mt-1">اختبار الاستعلام — {query?.name}</h1>
+          <Link to="/queries" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline"><ArrowRight size={14} /> الاستعلامات</Link>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold mt-1"><FlaskConical size={20} className="text-brand-500" /> اختبار الاستعلام — {query?.name}</h1>
           <p className="text-sm muted">{query?.program_name} · الإصدار {query?.version}</p>
         </div>
         <span className={`badge ${query?.status === 'active' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-[var(--surface-3)]'}`}>
@@ -150,7 +151,7 @@ export default function QuerySandbox() {
 
           {result.recommendations.length > 0 && (
             <div className="card p-5">
-              <h2 className="font-semibold mb-3">التوصيات</h2>
+              <h2 className="flex items-center gap-2 font-semibold mb-3"><Lightbulb size={17} className="text-brand-500" /> التوصيات</h2>
               <div className="space-y-2">
                 {result.recommendations.map((r, i) => (
                   <div
@@ -237,7 +238,7 @@ export default function QuerySandbox() {
               disabled={!can(PERMISSIONS.QUERY_PROMOTE) || precision === null || precision < 0.7 || promote.isPending}
               onClick={() => promote.mutate()}
             >
-              ترقية للإنتاج
+              <Rocket size={16} /> ترقية للإنتاج
             </button>
           </div>
           {promote.error && (
@@ -248,8 +249,8 @@ export default function QuerySandbox() {
 
       {!!history?.items?.length && (
         <div className="card overflow-hidden">
-          <div className="px-4 py-3 border-b font-semibold" style={{ borderColor: 'var(--border)' }}>
-            سجل الاختبارات
+          <div className="px-4 py-3 border-b font-semibold flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
+            <ListChecks size={16} className="text-brand-500" /> سجل الاختبارات
           </div>
           <table className="w-full">
             <thead style={{ background: 'var(--surface-2)' }}>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtNum, fmtRelative } from '../lib/format';
+import { Clock3, MessageCircle, Share2, Sparkles, TrendingUp } from 'lucide-react';
 import Avatar from '../components/Avatar';
 
 interface Program { id: string; name_ar: string; color: string }
@@ -113,7 +114,7 @@ export default function Signals() {
               <div className="flex min-h-[240px] flex-col items-center justify-center border-b px-8 py-10 text-center lg:min-h-[300px]" style={{ borderColor: 'var(--border)' }}>
                 <div className="mb-7 flex w-full items-center justify-center gap-4 text-xs text-blue-600">
                   <span>{fmtRelative(selected.last_seen_at)}</span>
-                  <button className="rounded-full bg-blue-600 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-500/20" onClick={() => shareStory(selected)}>مشاركة ↗</button>
+                  <button className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-500/20" onClick={() => shareStory(selected)}><Share2 size={15} /> مشاركة</button>
                 </div>
                 <h1 className="max-w-4xl text-3xl font-black leading-tight tracking-tight lg:text-5xl">{selected.title_ar}</h1>
                 <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
@@ -124,9 +125,9 @@ export default function Signals() {
               <div className="border-b px-6 py-4 lg:px-10" style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
                 <div className="mb-2 text-sm font-bold">آخر التحديثات</div>
                 <div className="space-y-2 text-sm leading-6">
-                  <p><span className="ms-2 inline-block h-5 w-5 rounded-md bg-blue-500/15 text-center text-[10px] text-blue-600">ج</span>{selected.why_ar}</p>
-                  <p><span className="ms-2 inline-block h-5 w-5 rounded-md bg-emerald-500/15 text-center text-[10px] text-emerald-600">↗</span>أكد القصة {fmtNum(selected.family_count)} مصادر مستقلة، عبر {fmtNum(selected.author_count)} حسابات.</p>
-                  <p><span className="ms-2 inline-block h-5 w-5 rounded-md bg-amber-500/15 text-center text-[10px] text-amber-600">⏳</span>أضيف {fmtNum(selected.posts_added_1h)} تفاعل خلال الساعة الأخيرة، وآخر نشاط {fmtRelative(selected.last_seen_at)}.</p>
+                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-blue-500/15 text-blue-600"><MessageCircle size={12} /></span>{selected.why_ar}</p>
+                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-emerald-500/15 text-emerald-600"><TrendingUp size={12} /></span>أكد القصة {fmtNum(selected.family_count)} مصادر مستقلة، عبر {fmtNum(selected.author_count)} حسابات.</p>
+                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-amber-500/15 text-amber-600"><Clock3 size={12} /></span>أضيف {fmtNum(selected.posts_added_1h)} تفاعل خلال الساعة الأخيرة، وآخر نشاط {fmtRelative(selected.last_seen_at)}.</p>
                 </div>
               </div>
               <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b px-6 py-2 backdrop-blur lg:px-10" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--surface) 90%, transparent)' }}>
@@ -157,7 +158,7 @@ export default function Signals() {
 
         <aside className="order-1 flex min-h-0 flex-col lg:order-2" dir="rtl" style={{ background: 'var(--surface-2)' }}>
           <div className="shrink-0 border-b p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-            <div className="mb-3 flex items-center justify-between"><div><h2 className="font-bold">أهم القصص الآن</h2><p className="text-xs muted">{fmtNum(data?.stats.signals)} قصة مؤكدة · {fmtNum(data?.stats.families)} مصادر</p></div><span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">تحديث كل 5 دقائق</span></div>
+            <div className="mb-3 flex items-center justify-between"><div><h2 className="flex items-center gap-1.5 font-bold"><Sparkles size={16} className="text-brand-500" /> أهم القصص الآن</h2><p className="text-xs muted">{fmtNum(data?.stats.signals)} قصة مؤكدة · {fmtNum(data?.stats.families)} مصادر</p></div><span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">تحديث كل 5 دقائق</span></div>
             <div className="flex gap-2"><select className="input min-w-0 flex-1 !py-1.5 !text-xs" value={programId} onChange={(event) => setProgramId(event.target.value)}><option value="">كل البرامج</option>{(programs?.items ?? []).map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}</select><label className="flex shrink-0 items-center gap-1.5 rounded-lg border px-2 text-[11px]" style={{ borderColor: 'var(--border)' }}><input type="checkbox" checked={includeCandidates} onChange={(event) => setIncludeCandidates(event.target.checked)} />الأولية</label></div>
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">

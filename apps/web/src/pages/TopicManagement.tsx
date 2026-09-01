@@ -4,6 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtNum, fmtPct, fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { BookOpenText, Plus, X } from 'lucide-react';
 import Avatar from '../components/Avatar';
 
 interface Program { id: string; name_ar: string; color: string }
@@ -192,10 +193,10 @@ export default function TopicManagement() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold">إدارة المواضيع</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><BookOpenText size={22} className="text-brand-500" /> إدارة المواضيع</h1>
           <p className="mt-1 text-sm muted">إدارة شجرة المواضيع والكلمات والدمج والمراجعة مع سجل كامل لكل قرار.</p>
         </div>
-        {canManage && <button className="btn-primary" onClick={() => setShowCreate(true)} disabled={!programId}>+ موضوع جديد</button>}
+        {canManage && <button className="btn-primary" onClick={() => setShowCreate(true)} disabled={!programId}><Plus size={16} /> موضوع جديد</button>}
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -293,7 +294,7 @@ export default function TopicManagement() {
                   <div className="flex flex-wrap gap-2">
                     {selected.keywords.map((keyword) => <span key={keyword.id} className={`badge ${keyword.kind === 'exclude' ? 'bg-red-500/15 text-red-600' : keyword.kind === 'include' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-brand-500/15 text-brand-600'}`}>
                       <span className="text-[10px] opacity-70">{keywordLabels[keyword.kind]}</span> {keyword.term}
-                      {canManage && selected.is_active && <button className="ms-1 opacity-60 hover:opacity-100" onClick={() => removeKeyword.mutate(keyword.id)}>×</button>}
+                      {canManage && selected.is_active && <button className="ms-1 opacity-60 hover:opacity-100" onClick={() => removeKeyword.mutate(keyword.id)}><X size={11} /></button>}
                     </span>)}
                     {!selected.keywords.length && <span className="text-xs muted">لا توجد كلمات مرتبطة.</span>}
                   </div>

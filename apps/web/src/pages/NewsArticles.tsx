@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { fmtRelative } from '../lib/format';
 import { useAuth } from '../lib/auth';
 import { PERMISSIONS } from '@mip/shared';
+import { Newspaper, RefreshCw } from 'lucide-react';
 
 interface Program { id: string; name_ar: string; color: string }
 
@@ -77,7 +78,7 @@ export default function NewsArticles() {
               <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
               تحديث حي كل 5 دقائق
             </div>
-            <h1 className="text-2xl font-black sm:text-3xl">الأخبار العقارية</h1>
+            <h1 className="flex items-center gap-2.5 text-2xl font-black sm:text-3xl"><Newspaper size={24} className="text-brand-500" /> الأخبار العقارية</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة مباشرة بالهيئة وبرامجها وخدماتها فقط، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
           </div>
 
@@ -93,7 +94,8 @@ export default function NewsArticles() {
               <option value="180">آخر 6 أشهر</option>
               <option value="365">آخر سنة</option>
             </select>
-            <button className="btn btn-secondary" onClick={refresh} disabled={isFetching || fetchNow.isPending}>
+            <button className="btn-primary" onClick={refresh} disabled={isFetching || fetchNow.isPending}>
+              <RefreshCw size={15} className={isFetching || fetchNow.isPending ? 'animate-spin' : ''} />
               {fetchNow.isPending ? 'جارٍ طلب الأخبار…' : isFetching ? 'جارٍ التحديث…' : 'سحب الأخبار الآن'}
             </button>
           </div>

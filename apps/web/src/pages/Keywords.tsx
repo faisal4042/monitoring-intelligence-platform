@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtPct, fmtNum } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { Plus, Tags, X } from 'lucide-react';
 
 interface Program { id: string; name_ar: string; color: string }
 interface Group { id: string; name_ar: string; type: string; program_name: string; keyword_count: number }
@@ -56,11 +57,11 @@ export default function Keywords() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">قاموس الكلمات</h1>
-        <p className="text-sm muted">
-          الكلمات تُعدَّل من هنا بلا لمس الكود. تعديل مجموعة يُحدِّث كل استعلام يستخدمها تلقائياً.
-        </p>
+      <div className="page-heading">
+        <div>
+          <h1 className="flex items-center gap-2.5"><Tags size={22} className="text-brand-500" /> قاموس الكلمات</h1>
+          <p>الكلمات تُعدَّل من هنا بلا لمس الكود. تعديل مجموعة يُحدِّث كل استعلام يستخدمها تلقائياً.</p>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -112,7 +113,7 @@ export default function Keywords() {
                           className="opacity-0 group-hover:opacity-100 transition hover:text-red-600"
                           onClick={() => remove.mutate(k.id)}
                           title="حذف"
-                        >×</button>
+                        ><X size={11} /></button>
                       )}
                     </span>
                   );
@@ -121,7 +122,7 @@ export default function Keywords() {
               </div>
 
               {can(PERMISSIONS.KEYWORDS_WRITE) && (
-                <button className="btn-ghost w-full !py-1.5 !text-xs" onClick={() => setAdding(g)}>+ إضافة كلمة</button>
+                <button className="btn-ghost w-full !py-1.5 !text-xs" onClick={() => setAdding(g)}><Plus size={13} /> إضافة كلمة</button>
               )}
             </div>
           );

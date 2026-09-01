@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
+import { ScrollText, Settings2 } from 'lucide-react';
 
 interface Health {
   database: { ok: boolean; latencyMs: number };
@@ -46,9 +47,11 @@ export default function Admin() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">لوحة النظام</h1>
-        <p className="text-sm muted">حالة الخدمات والاستهلاك وسجل التدقيق</p>
+      <div className="page-heading">
+        <div>
+          <h1 className="flex items-center gap-2.5"><Settings2 size={22} className="text-brand-500" /> لوحة النظام</h1>
+          <p>حالة الخدمات والاستهلاك وسجل التدقيق</p>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
@@ -147,8 +150,8 @@ export default function Admin() {
       )}
 
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b font-semibold" style={{ borderColor: 'var(--border)' }}>
-          سجل التدقيق
+        <div className="px-4 py-3 border-b font-semibold flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
+          <ScrollText size={16} className="text-brand-500" /> سجل التدقيق
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">

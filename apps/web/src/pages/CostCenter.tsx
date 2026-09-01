@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtNum, fmtMoney, fmtPct, fmtDateTime } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { BadgeDollarSign, Ban, SearchCode, Wallet } from 'lucide-react';
 
 interface Overview {
   spentTodayUnits: number; spentTodayCost: number;
@@ -57,9 +58,11 @@ export default function CostCenter() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold">مركز التكلفة</h1>
-        <p className="text-sm muted">الاستهلاك بوحدات الحصة (عدد المنشورات) — وهي العملة الحقيقية لـ X API</p>
+      <div className="page-heading">
+        <div>
+          <h1 className="flex items-center gap-2.5"><BadgeDollarSign size={22} className="text-brand-500" /> مركز التكلفة</h1>
+          <p>الاستهلاك بوحدات الحصة (عدد المنشورات) — وهي العملة الحقيقية لـ X API</p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -125,15 +128,15 @@ export default function CostCenter() {
       )}
 
       <div className="flex gap-1 border-b" style={{ borderColor: 'var(--border)' }}>
-        {([['queries', 'استهلاك الاستعلامات'], ['budgets', 'الميزانيات'], ['denials', 'الطلبات المرفوضة']] as const).map(([k, label]) => (
+        {([['queries', 'استهلاك الاستعلامات', SearchCode], ['budgets', 'الميزانيات', Wallet], ['denials', 'الطلبات المرفوضة', Ban]] as const).map(([k, label, Icon]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`px-4 py-2 text-sm border-b-2 -mb-px transition ${
+            className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 -mb-px transition ${
               tab === k ? 'border-brand-600 text-brand-600 font-medium' : 'border-transparent muted hover:text-[var(--text)]'
             }`}
           >
-            {label}
+            <Icon size={15} /> {label}
           </button>
         ))}
       </div>

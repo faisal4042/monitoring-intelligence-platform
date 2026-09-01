@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { fmtMoney } from '../lib/format';
 import type { QueryNode, QueryEstimate } from '@mip/shared';
+import { Wand2 } from 'lucide-react';
 
 interface Program { id: string; name_ar: string }
 interface Group { id: string; name_ar: string; type: string; program_name: string; keyword_count: number }
@@ -127,11 +128,11 @@ export default function QueryBuilder() {
 
   return (
     <div className="space-y-5 max-w-5xl">
-      <div>
-        <h1 className="text-xl font-bold">بناء استعلام</h1>
-        <p className="text-sm muted">
-          التقدير أدناه مجاني تماماً — لا يُرسل أي طلب إلى X. الاختبار الفعلي يأتي في الخطوة التالية.
-        </p>
+      <div className="page-heading">
+        <div>
+          <h1 className="flex items-center gap-2.5"><Wand2 size={22} className="text-brand-500" /> بناء استعلام</h1>
+          <p>التقدير أدناه مجاني تماماً — لا يُرسل أي طلب إلى X. الاختبار الفعلي يأتي في الخطوة التالية.</p>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">

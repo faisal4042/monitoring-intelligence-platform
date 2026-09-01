@@ -4,6 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtPct, fmtRelative, fmtNum } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import { ChartNoAxesCombined, Check, Plus, X, Zap } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import AuthorHistoryModal from '../components/AuthorHistoryModal';
 
@@ -225,7 +226,7 @@ export default function InteractionClassification() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold">تصنيف التفاعلات</h1>
+        <h1 className="flex items-center gap-2.5 text-xl font-bold"><ChartNoAxesCombined size={22} className="text-brand-500" /> تصنيف التفاعلات</h1>
         <p className="text-sm muted">
           يربط كل منشور بموضوع عبر تشابه المتجهات (Qwen3-Embedding-8B) — مهما ارتفعت النسبة فهي درجة تشابه وليست يقيناً
           مطلقاً؛ لهذا لا يُربط أي منشور تحت الحد الأدنى المختار بدلاً من التخمين.
@@ -320,14 +321,14 @@ export default function InteractionClassification() {
         {canManage && (
           <>
             {view === 'approved' && <button className="btn-ghost" onClick={openCreateTopic} disabled={!programs?.items.length}>
-              + موضوع جديد
+              <Plus size={15} /> موضوع جديد
             </button>}
             <button
               className="btn-primary"
               disabled={runClassification.isPending}
               onClick={() => runClassification.mutate()}
             >
-              {runClassification.isPending ? 'جارٍ التصنيف…' : '⚡ تشغيل التصنيف'}
+              <Zap size={15} /> {runClassification.isPending ? 'جارٍ التصنيف…' : 'تشغيل التصنيف'}
             </button>
           </>
         )}
@@ -588,8 +589,8 @@ export default function InteractionClassification() {
                 <span>{fmtRelative(it.posted_at)}</span>
                 {canManage && (
                   <div className="ms-auto flex flex-wrap justify-end gap-1.5">
-                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-emerald-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: true })}>✓ التصنيف صحيح</button>
-                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-red-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: false })}>× التصنيف خاطئ</button>
+                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-emerald-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: true })}><Check size={13} /> التصنيف صحيح</button>
+                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-red-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: false })}><X size={13} /> التصنيف خاطئ</button>
                     <select
                       className="input !w-44 !py-1 !text-xs"
                       value={moveTargets[it.id] ?? ''}
