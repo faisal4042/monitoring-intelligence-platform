@@ -1,7 +1,58 @@
+import crypto from 'node:crypto';
+import { config } from '@mip/config';
 import { sql } from '@mip/db';
-import { encryptJson, decryptJson } from '../../lib/crypto.js';
-import { sendEmail, sendTelegram, type EmailConfig, type TelegramConfig } from './providers.js';
+import { encryptJson, decryptJson, telegramWebhookSecret } from '../../lib/crypto.js';
+import {
+  sendEmail, sendTelegram, telegramGetMe, telegramSetWebhook,
+  type EmailConfig, type TelegramConfig,
+} from './providers.js';
 import { alertLogger as log } from '@mip/logger';
+
+const LINK_CODE_TTL_MINUTES = 15;
+
+/** Registers the bot's webhook (idempotent — Telegram just overwrites) and issues a one-time /start code for this channel. */
+export async function createTelegramLink(channelId: string): Promise<{ botUsername: string; deepLink: string; expiresInMinutes: number }> {
+  const [channel] = await sql<{ config_encrypted: string }[]>`
+    SELECT config_encrypted FROM notification_channels WHERE id = ${channelId}::uuid AND type = 'telegram'`;
+  if (!channel) throw new Error('القناة غير موجودة');
+
+  const cfg = decryptJson<TelegramConfig>(channel.config_encrypted);
+  const me = await telegramGetMe(cfg.botToken);
+  const webhookUrl = `${config.APP_URL.replace(/\/$/, '')}/api/v1/notify/telegram-webhook`;
+  await telegramSetWebhook(cfg.botToken, webhookUrl, telegramWebhookSecret);
+
+  const code = crypto.randomBytes(16).toString('base64url');
+  await sql`DELETE FROM telegram_link_codes WHERE channel_id = ${channelId}::uuid`;
+  await sql`
+    INSERT INTO telegram_link_codes (code, channel_id, expires_at)
+    VALUES (${code}, ${channelId}::uuid, now() + (${LINK_CODE_TTL_MINUTES} || ' minutes')::interval)`;
+
+  return { botUsername: me.username, deepLink: `https://t.me/${me.username}?start=${code}`, expiresInMinutes: LINK_CODE_TTL_MINUTES };
+}
+
+/** Called from the (unauthenticated, secret-header-verified) Telegram webhook route. */
+export async function resolveTelegramStart(startCode: string, chatId: number): Promise<boolean> {
+  const [pending] = await sql<{ channel_id: string }[]>`
+    DELETE FROM telegram_link_codes WHERE code = ${startCode} AND expires_at > now() RETURNING channel_id`;
+  if (!pending) return false;
+
+  const [channel] = await sql<{ config_encrypted: string }[]>`
+    SELECT config_encrypted FROM notification_channels WHERE id = ${pending.channel_id}::uuid`;
+  if (!channel) return false;
+
+  const cfg = decryptJson<TelegramConfig>(channel.config_encrypted);
+  const updated: TelegramConfig = { ...cfg, chatId: String(chatId) };
+  await sql`
+    UPDATE notification_channels SET config_encrypted = ${encryptJson(updated)}, updated_at = now()
+    WHERE id = ${pending.channel_id}::uuid`;
+
+  try {
+    await sendTelegram(updated, '✅ تم ربط حسابك بنجاح — من الآن بتوصلك تنبيهات منصة الرصد هنا.');
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, 'telegram link confirmation send failed');
+  }
+  return true;
+}
 
 export type ChannelType = 'email' | 'telegram';
 

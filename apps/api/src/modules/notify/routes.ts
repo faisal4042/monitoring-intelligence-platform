@@ -4,15 +4,16 @@ import { sql } from '@mip/db';
 import { PERMISSIONS } from '@mip/shared';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { audit } from '../../lib/audit.js';
-import { encryptJson } from '../../lib/crypto.js';
-import { dispatchToChannel, evaluateRules } from './service.js';
+import { encryptJson, decryptJson } from '../../lib/crypto.js';
+import { dispatchToChannel, evaluateRules, createTelegramLink } from './service.js';
+import type { TelegramConfig } from './providers.js';
 
 const emailConfigSchema = z.object({
   host: z.string().min(1), port: z.coerce.number().int().min(1).max(65535),
   secure: z.boolean().default(true), user: z.string().min(1), pass: z.string().min(1),
   from: z.string().optional().default(''), to: z.string().email(),
 });
-const telegramConfigSchema = z.object({ botToken: z.string().min(1), chatId: z.string().min(1) });
+const telegramConfigSchema = z.object({ botToken: z.string().min(1), chatId: z.string().default('') });
 
 const createChannelSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('email'), name: z.string().min(1).max(120), config: emailConfigSchema }),
@@ -34,11 +35,19 @@ export default async function notifyRoutes(app: FastifyInstance) {
 
   app.get('/channels', {
     preHandler: [app.requirePermission(PERMISSIONS.ALERTS_READ)],
-  }, async () => ({
-    items: await sql`
-      SELECT id, type, name, is_active, last_test_at, last_test_ok, created_at
-      FROM notification_channels ORDER BY created_at DESC`,
-  }));
+  }, async () => {
+    const rows = await sql<{
+      id: string; type: 'email' | 'telegram'; name: string; is_active: boolean;
+      last_test_at: string | null; last_test_ok: boolean | null; created_at: string; config_encrypted: string;
+    }[]>`SELECT id, type, name, is_active, last_test_at, last_test_ok, created_at, config_encrypted
+         FROM notification_channels ORDER BY created_at DESC`;
+    return {
+      items: rows.map(({ config_encrypted, ...c }) => ({
+        ...c,
+        is_linked: c.type === 'email' || Boolean(decryptJson<TelegramConfig>(config_encrypted).chatId),
+      })),
+    };
+  });
 
   app.post('/channels', {
     preHandler: [app.requirePermission(PERMISSIONS.ALERTS_WRITE)],
@@ -103,6 +112,17 @@ export default async function notifyRoutes(app: FastifyInstance) {
     } catch (err) {
       await sql`UPDATE notification_channels SET last_test_at = now(), last_test_ok = false WHERE id = ${id}::uuid`;
       throw badRequest(err instanceof Error ? err.message : 'تعذّر إرسال رسالة الاختبار');
+    }
+  });
+
+  app.post('/channels/:id/telegram-link', {
+    preHandler: [app.requirePermission(PERMISSIONS.ALERTS_WRITE)],
+  }, async (req) => {
+    const { id } = req.params as { id: string };
+    try {
+      return await createTelegramLink(id);
+    } catch (err) {
+      throw badRequest(err instanceof Error ? err.message : 'تعذّر إنشاء رابط الربط — تأكد من صحة Bot Token');
     }
   });
 

@@ -6,7 +6,7 @@ export interface EmailConfig {
   user: string; pass: string; from: string; to: string;
 }
 export interface TelegramConfig {
-  botToken: string; chatId: string;
+  botToken: string; chatId: string; botUsername?: string;
 }
 
 export async function sendEmail(cfg: EmailConfig, subject: string, body: string): Promise<void> {
@@ -18,6 +18,7 @@ export async function sendEmail(cfg: EmailConfig, subject: string, body: string)
 }
 
 export async function sendTelegram(cfg: TelegramConfig, text: string): Promise<void> {
+  if (!cfg.chatId) throw new Error('لم يُربط حساب تيليجرام بعد — استخدم زر "ربط الحساب"');
   const res = await fetch(`https://api.telegram.org/bot${cfg.botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -27,4 +28,23 @@ export async function sendTelegram(cfg: TelegramConfig, text: string): Promise<v
     const body = await res.text().catch(() => '');
     throw new Error(`Telegram API ${res.status}: ${body.slice(0, 200)}`);
   }
+}
+
+async function telegramApi<T>(botToken: string, method: string, params?: Record<string, unknown>): Promise<T> {
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params ?? {}),
+  });
+  const body = (await res.json()) as { ok: boolean; result?: T; description?: string };
+  if (!body.ok) throw new Error(body.description ?? `Telegram API ${method} failed`);
+  return body.result as T;
+}
+
+export async function telegramGetMe(botToken: string): Promise<{ username: string }> {
+  return telegramApi<{ username: string }>(botToken, 'getMe');
+}
+
+export async function telegramSetWebhook(botToken: string, url: string, secretToken: string): Promise<void> {
+  await telegramApi(botToken, 'setWebhook', { url, secret_token: secretToken, allowed_updates: ['message'] });
 }

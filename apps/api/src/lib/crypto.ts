@@ -9,6 +9,9 @@ import { config } from '@mip/config';
 
 const key = crypto.createHash('sha256').update(`notify:${config.JWT_SECRET}`).digest();
 
+/** Validates the Telegram webhook actually came from Telegram (X-Telegram-Bot-Api-Secret-Token). */
+export const telegramWebhookSecret = crypto.createHash('sha256').update(`notify-webhook:${config.JWT_SECRET}`).digest('hex');
+
 export function encryptJson(value: unknown): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);

@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../lib/api';
 import { fmtRelative } from '../lib/format';
 import {
-  Bell, Check, MailPlus, Play, Plus, Send, Trash2, X,
+  Bell, Check, ExternalLink, Link2, MailPlus, Play, Plus, Send, Trash2, X,
 } from 'lucide-react';
 
 interface Channel {
-  id: string; type: 'email' | 'telegram'; name: string; is_active: boolean;
+  id: string; type: 'email' | 'telegram'; name: string; is_active: boolean; is_linked: boolean;
   last_test_at: string | null; last_test_ok: boolean | null; created_at: string;
 }
 interface Rule {
@@ -31,7 +31,7 @@ const CONDITION_LABELS: Record<string, string> = {
 
 const TEMPLATE_HINT = 'المتغيرات المتاحة: {{author}} {{username}} {{text}} {{followers}} {{url}} {{program}} {{topic}} {{rule}}';
 
-const emptyChannelForm = { type: 'email' as 'email' | 'telegram', name: '', host: '', port: 465, secure: true, user: '', pass: '', from: '', to: '', botToken: '', chatId: '' };
+const emptyChannelForm = { type: 'email' as 'email' | 'telegram', name: '', host: '', port: 465, secure: true, user: '', pass: '', from: '', to: '', botToken: '' };
 const emptyRuleForm = { name: '', conditionType: 'keyword_match', keywords: '', minFollowers: 1000, programId: '', messageTemplate: '', channelIds: [] as string[] };
 
 export default function Notifications() {
@@ -42,21 +42,39 @@ export default function Notifications() {
   const [addingRule, setAddingRule] = useState(false);
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
 
-  const { data: channels } = useQuery({ queryKey: ['notify-channels'], queryFn: () => api.get<{ items: Channel[] }>('/notify/channels') });
+  const [linking, setLinking] = useState<{ channel: Channel; botUsername: string; deepLink: string } | null>(null);
+  const { data: channels } = useQuery({
+    queryKey: ['notify-channels'], queryFn: () => api.get<{ items: Channel[] }>('/notify/channels'),
+    refetchInterval: linking ? 3000 : false,
+  });
   const { data: rules } = useQuery({ queryKey: ['notify-rules'], queryFn: () => api.get<{ items: Rule[] }>('/notify/rules') });
   const { data: deliveries } = useQuery({
     queryKey: ['notify-deliveries'], queryFn: () => api.get<{ items: Delivery[] }>('/notify/deliveries?limit=100'), enabled: tab === 'log',
   });
   const { data: programs } = useQuery({ queryKey: ['programs'], queryFn: () => api.get<{ items: Program[] }>('/programs') });
 
+  useEffect(() => {
+    if (!linking) return;
+    if (channels?.items.find((c) => c.id === linking.channel.id)?.is_linked) setLinking(null);
+  }, [channels, linking]);
+
   const createChannel = useMutation({
     mutationFn: () => {
       const config = channelForm.type === 'email'
         ? { host: channelForm.host, port: Number(channelForm.port), secure: channelForm.secure, user: channelForm.user, pass: channelForm.pass, from: channelForm.from, to: channelForm.to }
-        : { botToken: channelForm.botToken, chatId: channelForm.chatId };
-      return api.post('/notify/channels', { type: channelForm.type, name: channelForm.name, config });
+        : { botToken: channelForm.botToken };
+      return api.post<Channel>('/notify/channels', { type: channelForm.type, name: channelForm.name, config });
     },
-    onSuccess: () => { setAddingChannel(false); setChannelForm(emptyChannelForm); qc.invalidateQueries({ queryKey: ['notify-channels'] }); },
+    onSuccess: async (created) => {
+      setAddingChannel(false); setChannelForm(emptyChannelForm);
+      await qc.invalidateQueries({ queryKey: ['notify-channels'] });
+      if (created.type === 'telegram') startLink.mutate(created);
+    },
+  });
+
+  const startLink = useMutation({
+    mutationFn: (channel: Channel) => api.post<{ botUsername: string; deepLink: string }>(`/notify/channels/${channel.id}/telegram-link`).then((r) => ({ channel, ...r })),
+    onSuccess: (r) => setLinking(r),
   });
   const testChannel = useMutation({ mutationFn: (id: string) => api.post(`/notify/channels/${id}/test`), onSuccess: () => qc.invalidateQueries({ queryKey: ['notify-channels'] }) });
   const toggleChannel = useMutation({
@@ -123,10 +141,17 @@ export default function Notifications() {
                     {c.type === 'email' ? <MailPlus size={17} className="text-brand-500" /> : <Send size={17} className="text-brand-500" />}
                     <span className="font-semibold">{c.name}</span>
                   </div>
-                  <button
-                    className={`badge ${c.is_active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/15 text-slate-500'}`}
-                    onClick={() => toggleChannel.mutate({ id: c.id, isActive: !c.is_active })}
-                  >{c.is_active ? 'مفعّلة' : 'معطّلة'}</button>
+                  <div className="flex items-center gap-1.5">
+                    {c.type === 'telegram' && (
+                      <span className={`badge ${c.is_linked ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/15 text-amber-600'}`}>
+                        {c.is_linked ? 'مربوط' : 'غير مربوط'}
+                      </span>
+                    )}
+                    <button
+                      className={`badge ${c.is_active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/15 text-slate-500'}`}
+                      onClick={() => toggleChannel.mutate({ id: c.id, isActive: !c.is_active })}
+                    >{c.is_active ? 'مفعّلة' : 'معطّلة'}</button>
+                  </div>
                 </div>
                 <div className="text-xs muted mb-3">
                   {c.last_test_at
@@ -136,11 +161,20 @@ export default function Notifications() {
                     : 'لم يُختبر بعد'}
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-ghost !text-xs flex-1" disabled={testChannel.isPending} onClick={() => testChannel.mutate(c.id)}>اختبار الاتصال</button>
+                  {c.type === 'telegram' && !c.is_linked ? (
+                    <button className="btn-primary !text-xs flex-1" disabled={startLink.isPending} onClick={() => startLink.mutate(c)}>
+                      <Link2 size={13} /> ربط الحساب
+                    </button>
+                  ) : (
+                    <button className="btn-ghost !text-xs flex-1" disabled={testChannel.isPending} onClick={() => testChannel.mutate(c.id)}>اختبار الاتصال</button>
+                  )}
                   <button className="icon-button !w-9 !h-9 !text-red-600" title="حذف" onClick={() => deleteChannel.mutate(c.id)}><Trash2 size={14} /></button>
                 </div>
                 {testChannel.isError && testChannel.variables === c.id && (
                   <div className="text-xs text-red-600 mt-2">{(testChannel.error as ApiError).message}</div>
+                )}
+                {startLink.isError && startLink.variables?.id === c.id && (
+                  <div className="text-xs text-red-600 mt-2">{(startLink.error as ApiError).message}</div>
                 )}
               </div>
             ))}
@@ -243,13 +277,9 @@ export default function Notifications() {
             ) : (
               <>
                 <label className="block text-sm mb-1">Bot Token</label>
-                <input className="input mb-3" style={{ direction: 'ltr' }} value={channelForm.botToken} onChange={(e) => setChannelForm({ ...channelForm, botToken: e.target.value })} placeholder="123456:ABC-DEF..." required />
-                <label className="block text-sm mb-1">المستلم</label>
-                <input className="input mb-2" style={{ direction: 'ltr' }} value={channelForm.chatId} onChange={(e) => setChannelForm({ ...channelForm, chatId: e.target.value })} placeholder="@my_channel أو -1001234567890" required />
+                <input className="input mb-2" style={{ direction: 'ltr' }} value={channelForm.botToken} onChange={(e) => setChannelForm({ ...channelForm, botToken: e.target.value })} placeholder="123456:ABC-DEF..." required />
                 <p className="text-xs muted mb-4 leading-relaxed">
-                  أنشئ البوت عبر @BotFather أولاً. بعدها:
-                  <br />• قناة أو مجموعة <span className="num">عامة</span> لها معرّف: اكتب <span className="num">@اسم_القناة</span> مباشرة.
-                  <br />• محادثة خاصة معك أو مجموعة بلا معرّف عام: تيليجرام يمنع البوت من مراسلة أي شخص باليوزر لأسباب خصوصية — لازم ترسل أي رسالة للبوت أولاً (أو تضيفه للمجموعة)، ثم تاخذ رقم <span className="num">Chat ID</span> من @userinfobot أو رابط <span className="num">getUpdates</span> الخاص بالبوت.
+                  أنشئ البوت عبر @BotFather أولاً وخذ الـ Token من هناك. بعد الحفظ راح تلقى رابط "ربط الحساب" — تضغطه، يفتح تيليجرام، تضغط زر Start، وخلاص. ما تحتاج تدخل أي Chat ID يدوياً.
                 </p>
               </>
             )}
@@ -319,6 +349,22 @@ export default function Notifications() {
             </div>
             {createRule.error && <div className="text-xs text-red-600 mt-3">{(createRule.error as ApiError).message}</div>}
           </form>
+        </div>
+      )}
+
+      {linking && (
+        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={() => setLinking(null)}>
+          <div className="card p-5 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+            <Link2 size={28} className="text-brand-500 mx-auto mb-3" />
+            <h3 className="font-bold mb-1">اربط "{linking.channel.name}" بحسابك</h3>
+            <p className="text-xs muted mb-5 leading-relaxed">
+              اضغط الزر، بيفتح تيليجرام على محادثة البوت <span className="num">@{linking.botUsername}</span>، اضغط <span className="num">Start</span> بالأسفل — وخلاص، بيرتبط تلقائياً. الرابط صالح 15 دقيقة.
+            </p>
+            <a href={linking.deepLink} target="_blank" rel="noreferrer" className="btn-primary w-full mb-3">
+              <ExternalLink size={16} /> افتح تيليجرام واضغط Start
+            </a>
+            <button className="btn-ghost w-full" onClick={() => { setLinking(null); qc.invalidateQueries({ queryKey: ['notify-channels'] }); }}>تم — أغلق</button>
+          </div>
         </div>
       )}
     </div>

@@ -18,6 +18,7 @@ import adminRoutes from './modules/admin.routes.js';
 import signalRoutes from './modules/signals/routes.js';
 import newsRoutes from './modules/news/routes.js';
 import notifyRoutes from './modules/notify/routes.js';
+import notifyWebhookRoutes from './modules/notify/webhook.routes.js';
 import { HttpError } from './lib/errors.js';
 import { ensureAutomaticQueries, startCollectionWorker } from './workers/collection.worker.js';
 import { startClassificationWorker } from './workers/classification.worker.js';
@@ -81,6 +82,7 @@ async function main() {
   await app.register(signalRoutes, { prefix: '/api/v1/signals' });
   await app.register(newsRoutes, { prefix: '/api/v1/news' });
   await app.register(notifyRoutes, { prefix: '/api/v1/notify' });
+  await app.register(notifyWebhookRoutes, { prefix: '/api/v1/notify' });
 
   await app.listen({ port: config.API_PORT, host: '0.0.0.0' });
 
