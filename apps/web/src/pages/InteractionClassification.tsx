@@ -80,6 +80,7 @@ export default function InteractionClassification() {
   const [minConfidence, setMinConfidence] = useState(0.84);
   const [view, setView] = useState<'approved' | 'suggestions' | 'unclassified'>('approved');
   const [creating, setCreating] = useState(false);
+  const [createProgramId, setCreateProgramId] = useState('');
   const [nameAr, setNameAr] = useState('');
   const [description, setDescription] = useState('');
   const [parentId, setParentId] = useState('');
@@ -99,6 +100,12 @@ export default function InteractionClassification() {
   const { data: topics } = useQuery({
     queryKey: ['topics', programId],
     queryFn: () => api.get<{ items: Topic[] }>(`/topics${programId ? `?programId=${programId}` : ''}`),
+  });
+
+  const { data: createParentTopics } = useQuery({
+    queryKey: ['create-topic-parents', createProgramId],
+    queryFn: () => api.get<{ items: Topic[] }>(`/topics?programId=${createProgramId}`),
+    enabled: creating && !!createProgramId,
   });
 
   const { data: stats } = useQuery({
@@ -135,9 +142,33 @@ export default function InteractionClassification() {
   });
 
   const createTopic = useMutation({
-    mutationFn: () => api.post('/topics', { programId, parentId: parentId || undefined, nameAr, description: description || undefined }),
-    onSuccess: () => { setNameAr(''); setDescription(''); setParentId(''); setCreating(false); qc.invalidateQueries({ queryKey: ['topics'] }); },
+    mutationFn: () => api.post('/topics', {
+      programId: createProgramId,
+      parentId: parentId || undefined,
+      nameAr: nameAr.trim(),
+      description: description.trim() || undefined,
+    }),
+    onSuccess: () => {
+      setProgramId(createProgramId);
+      setTopicId('');
+      setNameAr('');
+      setDescription('');
+      setParentId('');
+      setCreating(false);
+      qc.invalidateQueries({ queryKey: ['topics'] });
+      qc.invalidateQueries({ queryKey: ['create-topic-parents'] });
+      qc.invalidateQueries({ queryKey: ['classification-stats'] });
+    },
   });
+
+  const openCreateTopic = () => {
+    createTopic.reset();
+    setCreateProgramId(programId);
+    setNameAr('');
+    setDescription('');
+    setParentId('');
+    setCreating(true);
+  };
 
   const computeCentroid = useMutation({
     mutationFn: (id: string) => api.post(`/topics/${id}/centroid`),
@@ -288,7 +319,7 @@ export default function InteractionClassification() {
 
         {canManage && (
           <>
-            {view === 'approved' && <button className="btn-ghost" onClick={() => setCreating(true)} disabled={!programId} title={!programId ? 'اختر برنامجاً أولاً' : ''}>
+            {view === 'approved' && <button className="btn-ghost" onClick={openCreateTopic} disabled={!programs?.items.length}>
               + موضوع جديد
             </button>}
             <button
@@ -588,23 +619,39 @@ export default function InteractionClassification() {
           <form
             className="card p-5 w-full max-w-sm"
             onClick={(e) => e.stopPropagation()}
-            onSubmit={(e) => { e.preventDefault(); if (nameAr.trim()) createTopic.mutate(); }}
+            onSubmit={(e) => { e.preventDefault(); if (createProgramId && nameAr.trim()) createTopic.mutate(); }}
           >
             <h3 className="font-bold mb-1">موضوع جديد</h3>
             <p className="text-xs muted mb-4">
-              الاسم والوصف يُستخدمان لحساب centroid أولي — التصنيف يعتمد عليهما مباشرة.
+              اختر البرنامج ثم أضف اسمًا واضحًا ووصفًا يساعد على تصنيف التفاعلات بدقة.
             </p>
-            <input className="input mb-3" value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="اسم الموضوع" autoFocus />
+            <label className="mb-3 block text-xs font-medium">
+              البرنامج <span className="text-red-500">*</span>
+              <select
+                className="input mt-1.5"
+                value={createProgramId}
+                onChange={(e) => { setCreateProgramId(e.target.value); setParentId(''); }}
+                autoFocus
+              >
+                <option value="">اختر البرنامج…</option>
+                {(programs?.items ?? []).map((program) => (
+                  <option key={program.id} value={program.id}>{program.name_ar}</option>
+                ))}
+              </select>
+            </label>
+            <input className="input mb-3" value={nameAr} onChange={(e) => setNameAr(e.target.value)} placeholder="اسم الموضوع" />
             <textarea className="input mb-4" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="وصف مختصر (اختياري لكن يُحسّن الدقة)" />
-            <select className="input mb-4" value={parentId} onChange={(e) => setParentId(e.target.value)}>
+            <select className="input mb-4" value={parentId} onChange={(e) => setParentId(e.target.value)} disabled={!createProgramId}>
               <option value="">موضوع رئيسي</option>
-              {(topics?.items ?? []).filter((topic) => topic.program_id === programId && topic.level === 1).map((topic) => (
+              {(createParentTopics?.items ?? []).filter((topic) => topic.level === 1).map((topic) => (
                 <option key={topic.id} value={topic.id}>فرعي تحت: {topic.name_ar}</option>
               ))}
             </select>
             <div className="flex gap-2 justify-end">
               <button type="button" className="btn-ghost" onClick={() => setCreating(false)}>إلغاء</button>
-              <button className="btn-primary" disabled={!nameAr.trim() || createTopic.isPending}>إنشاء</button>
+              <button className="btn-primary" disabled={!createProgramId || !nameAr.trim() || createTopic.isPending}>
+                {createTopic.isPending ? 'جارٍ الإنشاء…' : 'إنشاء الموضوع'}
+              </button>
             </div>
             {createTopic.error && <div className="text-xs text-red-600 mt-3">{(createTopic.error as ApiError).message}</div>}
           </form>
