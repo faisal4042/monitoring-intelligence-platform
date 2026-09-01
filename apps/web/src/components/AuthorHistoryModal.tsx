@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime, fmtNum, fmtRelative } from '../lib/format';
 import Avatar from './Avatar';
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -212,10 +213,10 @@ export default function AuthorHistoryModal({
               )}
               <div className="history-item-footer">
                 {engagement > 0 && (
-                  <div className="flex items-center gap-3">
-                    <span>♡ <span className="num">{fmtNum(item.like_count)}</span></span>
-                    <span>↻ <span className="num">{fmtNum(item.repost_count)}</span></span>
-                    <span>◯ <span className="num">{fmtNum(item.reply_count)}</span></span>
+                  <div className="interaction-metrics">
+                    <span className="post-metric" title="الردود"><MessageCircle className="post-metric-icon" size={17} strokeWidth={1.8} aria-hidden="true" /><span className="num">{fmtNum(item.reply_count)}</span></span>
+                    <span className="post-metric" title="إعادات النشر"><Repeat2 className="post-metric-icon" size={18} strokeWidth={1.8} aria-hidden="true" /><span className="num">{fmtNum(item.repost_count)}</span></span>
+                    <span className="post-metric" title="الإعجابات"><Heart className="post-metric-icon" size={17} strokeWidth={1.8} aria-hidden="true" /><span className="num">{fmtNum(item.like_count)}</span></span>
                   </div>
                 )}
                 {item.matched_keywords?.length ? (

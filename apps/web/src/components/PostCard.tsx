@@ -2,6 +2,7 @@ import { useState, useLayoutEffect, useRef } from 'react';
 import { fmtNum, fmtRelative } from '../lib/format';
 import type { Post } from '../lib/types';
 import Avatar from './Avatar';
+import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 const REL: Record<string, { text: string; cls: string }> = {
   relevant:      { text: 'مرتبط',     cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
@@ -149,17 +150,17 @@ export default function PostCard({
             )}
 
             <div className="flex items-center gap-3 sm:ms-auto">
-              <span className="post-metric" title="الإعجابات">
-                <span aria-hidden="true">♡</span>
-                <span className="num">{fmtNum(p.like_count)}</span>
+              <span className="post-metric" title="الردود" aria-label={`${fmtNum(p.reply_count)} ردود`}>
+                <MessageCircle className="post-metric-icon" size={17} strokeWidth={1.8} aria-hidden="true" />
+                <span className="num">{fmtNum(p.reply_count)}</span>
               </span>
               <span className="post-metric" title="إعادات النشر">
-                <span aria-hidden="true">↻</span>
+                <Repeat2 className="post-metric-icon" size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span className="num">{fmtNum(p.repost_count)}</span>
               </span>
-              <span className="post-metric" title="الردود">
-                <span aria-hidden="true">◯</span>
-                <span className="num">{fmtNum(p.reply_count)}</span>
+              <span className="post-metric" title="الإعجابات">
+                <Heart className="post-metric-icon" size={17} strokeWidth={1.8} aria-hidden="true" />
+                <span className="num">{fmtNum(p.like_count)}</span>
               </span>
             </div>
 
