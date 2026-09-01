@@ -43,7 +43,7 @@ export default function Notifications() {
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
   const [linkCopied, setLinkCopied] = useState(false);
 
-  const [linking, setLinking] = useState<{ channel: Channel; botUsername: string; deepLink: string } | null>(null);
+  const [linking, setLinking] = useState<{ channel: Channel; botUsername: string; deepLink: string; countBefore: number } | null>(null);
   const { data: channels } = useQuery({
     queryKey: ['notify-channels'], queryFn: () => api.get<{ items: Channel[] }>('/notify/channels'),
     refetchInterval: linking ? 3000 : false,
@@ -56,7 +56,8 @@ export default function Notifications() {
 
   useEffect(() => {
     if (!linking) return;
-    if (channels?.items.find((c) => c.id === linking.channel.id)?.is_linked) setLinking(null);
+    const current = channels?.items.find((c) => c.id === linking.channel.id)?.linked_count ?? 0;
+    if (current > linking.countBefore) setLinking(null);
   }, [channels, linking]);
 
   const createChannel = useMutation({
@@ -74,7 +75,7 @@ export default function Notifications() {
   });
 
   const startLink = useMutation({
-    mutationFn: (channel: Channel) => api.post<{ botUsername: string; deepLink: string }>(`/notify/channels/${channel.id}/telegram-link`).then((r) => ({ channel, ...r })),
+    mutationFn: (channel: Channel) => api.post<{ botUsername: string; deepLink: string }>(`/notify/channels/${channel.id}/telegram-link`).then((r) => ({ channel, ...r, countBefore: channel.linked_count ?? 0 })),
     onSuccess: (r) => setLinking(r),
   });
   const testChannel = useMutation({ mutationFn: (id: string) => api.post(`/notify/channels/${id}/test`), onSuccess: () => qc.invalidateQueries({ queryKey: ['notify-channels'] }) });
