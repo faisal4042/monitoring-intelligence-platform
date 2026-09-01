@@ -31,8 +31,37 @@ const CONDITION_LABELS: Record<string, string> = {
 
 const TEMPLATE_HINT = 'المتغيرات المتاحة: {{author}} {{username}} {{text}} {{followers}} {{url}} {{program}} {{topic}} {{rule}}';
 
+interface MessageTemplate { id: string; label: string; conditionType: string; template: string }
+
+const MESSAGE_TEMPLATES: MessageTemplate[] = [
+  {
+    id: 'keyword_pro', label: 'كلمات محدّدة — احترافي', conditionType: 'keyword_match',
+    template: '🔔 {{rule}}\n\nتم رصد كلمة مطابقة في منشور جديد.\n\n👤 الحساب: {{author}} (@{{username}})\n📊 المتابعون: {{followers}}\n🏷️ البرنامج: {{program}}\n\n📝 النص:\n{{text}}\n\n🔗 {{url}}',
+  },
+  {
+    id: 'keyword_brief', label: 'كلمات محدّدة — موجز', conditionType: 'keyword_match',
+    template: '🔔 {{rule}}: {{author}} — {{text}}\n{{url}}',
+  },
+  {
+    id: 'followers_pro', label: 'عدد متابعين — احترافي', conditionType: 'follower_threshold',
+    template: '⭐ {{rule}}\n\nحساب بعدد متابعين كبير نشر عن أحد برامجنا.\n\n👤 الحساب: {{author}} (@{{username}})\n📊 المتابعون: {{followers}}\n🏷️ البرنامج: {{program}}\n\n📝 النص:\n{{text}}\n\n🔗 {{url}}',
+  },
+  {
+    id: 'influencer_pro', label: 'نشاط عميل مؤثر — احترافي', conditionType: 'influencer_activity',
+    template: '🌟 {{rule}}\n\nأحد العملاء المؤثرين المتابَعين نشر تغريدة جديدة.\n\n👤 الحساب: {{author}} (@{{username}})\n🏷️ البرنامج: {{program}}\n\n📝 النص:\n{{text}}\n\n🔗 {{url}}',
+  },
+  {
+    id: 'topic_pro', label: 'ارتفاع موضوع/قصة — احترافي', conditionType: 'topic_rising',
+    template: '📈 {{rule}}\n\nقصة بدأت ترتفع بشكل ملحوظ الآن.\n\n🏷️ البرنامج: {{program}}\n📌 الموضوع: {{topic}}\n\n📝 التفاصيل:\n{{text}}',
+  },
+  {
+    id: 'topic_brief', label: 'ارتفاع موضوع/قصة — موجز', conditionType: 'topic_rising',
+    template: '📈 {{rule}}: {{topic}} ({{program}}) — {{text}}',
+  },
+];
+
 const emptyChannelForm = { type: 'email' as 'email' | 'telegram', name: '', host: '', port: 465, secure: true, user: '', pass: '', from: '', to: '', botToken: '' };
-const emptyRuleForm = { name: '', conditionType: 'keyword_match', keywords: '', minFollowers: 1000, programId: '', messageTemplate: '', channelIds: [] as string[] };
+const emptyRuleForm = { name: '', conditionType: 'keyword_match', keywords: '', minFollowers: 1000, programId: '', messageTemplate: MESSAGE_TEMPLATES[0].template, channelIds: [] as string[] };
 
 export default function Notifications() {
   const qc = useQueryClient();
@@ -302,7 +331,15 @@ export default function Notifications() {
             <input className="input mb-3" value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} placeholder="مثال: تنبيه شكاوى إيجار" required autoFocus />
 
             <label className="block text-sm mb-1">نوع الشرط</label>
-            <select className="input mb-3" value={ruleForm.conditionType} onChange={(e) => setRuleForm({ ...ruleForm, conditionType: e.target.value })}>
+            <select
+              className="input mb-3"
+              value={ruleForm.conditionType}
+              onChange={(e) => {
+                const conditionType = e.target.value;
+                const firstTemplate = MESSAGE_TEMPLATES.find((t) => t.conditionType === conditionType)?.template ?? '';
+                setRuleForm({ ...ruleForm, conditionType, messageTemplate: firstTemplate });
+              }}
+            >
               {Object.entries(CONDITION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
 
@@ -325,8 +362,27 @@ export default function Notifications() {
               {(programs?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.name_ar}</option>)}
             </select>
 
-            <label className="block text-sm mb-1">نص التنبيه</label>
-            <textarea className="input mb-1" rows={3} value={ruleForm.messageTemplate} onChange={(e) => setRuleForm({ ...ruleForm, messageTemplate: e.target.value })} placeholder="تنبيه: {{author}} نشر عن {{program}}: {{text}}" required />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm">نص التنبيه</label>
+              <select
+                className="input !w-auto !min-h-0 !py-1 !text-xs"
+                value=""
+                onChange={(e) => {
+                  const tpl = MESSAGE_TEMPLATES.find((t) => t.id === e.target.value);
+                  if (tpl) setRuleForm({ ...ruleForm, messageTemplate: tpl.template });
+                }}
+              >
+                <option value="" disabled>📋 اختر قالباً جاهزاً…</option>
+                {Object.entries(CONDITION_LABELS).map(([conditionType, label]) => (
+                  <optgroup key={conditionType} label={label}>
+                    {MESSAGE_TEMPLATES.filter((t) => t.conditionType === conditionType).map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <textarea className="input mb-1 font-mono text-xs" style={{ direction: 'rtl' }} rows={6} value={ruleForm.messageTemplate} onChange={(e) => setRuleForm({ ...ruleForm, messageTemplate: e.target.value })} placeholder="تنبيه: {{author}} نشر عن {{program}}: {{text}}" required />
             <p className="text-xs muted mb-3 leading-relaxed">{TEMPLATE_HINT}</p>
 
             <label className="block text-sm mb-1.5">القنوات</label>
