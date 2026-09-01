@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
-import { ScrollText, Settings2 } from 'lucide-react';
+import { ChevronDown, ScrollText, Settings2 } from 'lucide-react';
+
+const AUDIT_PAGE_SIZE = 10;
 
 interface Health {
   database: { ok: boolean; latencyMs: number };
@@ -32,8 +35,9 @@ export default function Admin() {
   });
   const { data: audit } = useQuery({
     queryKey: ['audit'],
-    queryFn: () => api.get<{ items: Array<Record<string, string>> }>('/admin/audit-log?limit=60'),
+    queryFn: () => api.get<{ items: Array<Record<string, string>> }>('/admin/audit-log?limit=200'),
   });
+  const [auditVisible, setAuditVisible] = useState(AUDIT_PAGE_SIZE);
 
   const Dot = ({ ok }: { ok: boolean }) => (
     <span className={`inline-block w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-slate-400'}`} />
@@ -165,7 +169,7 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {(audit?.items ?? []).map((a) => (
+              {(audit?.items ?? []).slice(0, auditVisible).map((a) => (
                 <tr key={a.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                   <td className="td text-xs muted">{fmtDateTime(a.occurred_at)}</td>
                   <td className="td text-xs">{a.user_email ?? '—'}</td>
@@ -186,6 +190,15 @@ export default function Admin() {
             </tbody>
           </table>
         </div>
+        {!!audit?.items?.length && audit.items.length > auditVisible && (
+          <button
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium muted hover:text-[var(--text)] hover:bg-[var(--surface-2)] border-t transition"
+            style={{ borderColor: 'var(--border)' }}
+            onClick={() => setAuditVisible((v) => v + AUDIT_PAGE_SIZE)}
+          >
+            <ChevronDown size={14} /> عرض المزيد ({audit.items.length - auditVisible} متبقٍ)
+          </button>
+        )}
       </div>
     </div>
   );
