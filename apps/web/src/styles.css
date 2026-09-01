@@ -398,8 +398,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   flex: 0 0 auto;
   padding: 1rem 1.25rem;
 }
+.history-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.55rem;
+}
 .history-close {
-  order: 3;
   display: grid;
   width: 2rem;
   height: 2rem;
@@ -419,21 +424,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 0.8rem;
-  background: var(--text);
+  background: #000;
   padding: 0.6rem 0.85rem;
-  color: var(--surface);
+  color: #fff;
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1;
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--text) 16%, transparent);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 24%);
   transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
 }
 .history-x-button:hover {
   transform: translateY(-1px);
-  opacity: 0.9;
-  box-shadow: 0 11px 26px color-mix(in srgb, var(--text) 22%, transparent);
+  background: #171717;
+  box-shadow: 0 11px 26px rgb(0 0 0 / 32%);
 }
 .history-x-button:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--color-brand-500) 38%, transparent);
@@ -448,6 +453,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-size: 0.9rem;
   font-weight: 900;
   line-height: 1;
+  color: #fff;
 }
 .history-x-external { opacity: 0.65; }
 .history-profile-bio {
@@ -596,6 +602,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .history-backdrop { padding: 0; }
   .history-modal { max-height: 100vh; height: 100vh; border: 0; border-radius: 0; }
   .history-header { align-items: flex-start; padding: 1rem; }
+  .history-header-actions { gap: 0.25rem; }
   .history-x-button { min-width: 2.75rem; padding-inline: 0.65rem; }
   .history-x-label,
   .history-x-external { display: none; }

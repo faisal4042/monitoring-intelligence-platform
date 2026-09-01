@@ -108,7 +108,6 @@ export default function AuthorHistoryModal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="history-header">
-          <button className="history-close" onClick={onClose} aria-label="إغلاق">×</button>
           <div className="flex min-w-0 items-center gap-3">
             <Avatar
               src={author?.profile_image_url}
@@ -129,20 +128,23 @@ export default function AuthorHistoryModal({
               </div>
             </div>
           </div>
-          {author?.username && (
-            <a
-              className="history-x-button"
-              href={`https://x.com/${author.username}`}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={`فتح حساب @${author.username} في X في نافذة جديدة`}
-              title={`فتح @${author.username} في X`}
-            >
-              <span className="history-x-mark" aria-hidden="true">X</span>
-              <span className="history-x-label">فتح في X</span>
-              <ExternalLink className="history-x-external" size={15} strokeWidth={2} aria-hidden="true" />
-            </a>
-          )}
+          <div className="history-header-actions">
+            {author?.username && (
+              <a
+                className="history-x-button"
+                href={`https://x.com/${author.username}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`فتح حساب @${author.username} في X في نافذة جديدة`}
+                title={`فتح @${author.username} في X`}
+              >
+                <span className="history-x-mark" aria-hidden="true">X</span>
+                <span className="history-x-label">فتح في X</span>
+                <ExternalLink className="history-x-external" size={15} strokeWidth={2} aria-hidden="true" />
+              </a>
+            )}
+            <button className="history-close" onClick={onClose} aria-label="إغلاق">×</button>
+          </div>
         </header>
 
         {author?.description && <p className="history-profile-bio muted">{author.description}</p>}
