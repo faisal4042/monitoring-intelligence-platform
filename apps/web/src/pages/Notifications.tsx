@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../lib/api';
 import { fmtRelative } from '../lib/format';
 import {
-  Bell, Check, ExternalLink, Link2, MailPlus, Play, Plus, Send, Trash2, X,
+  Bell, Check, Copy, ExternalLink, Link2, MailPlus, Play, Plus, Send, Trash2, X,
 } from 'lucide-react';
 
 interface Channel {
@@ -41,6 +41,7 @@ export default function Notifications() {
   const [channelForm, setChannelForm] = useState(emptyChannelForm);
   const [addingRule, setAddingRule] = useState(false);
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const [linking, setLinking] = useState<{ channel: Channel; botUsername: string; deepLink: string } | null>(null);
   const { data: channels } = useQuery({
@@ -356,13 +357,20 @@ export default function Notifications() {
         <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={() => setLinking(null)}>
           <div className="card p-5 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
             <Link2 size={28} className="text-brand-500 mx-auto mb-3" />
-            <h3 className="font-bold mb-1">اربط "{linking.channel.name}" بحسابك</h3>
+            <h3 className="font-bold mb-1">رابط ربط "{linking.channel.name}"</h3>
             <p className="text-xs muted mb-5 leading-relaxed">
-              اضغط الزر، بيفتح تيليجرام على محادثة البوت <span className="num">@{linking.botUsername}</span>، اضغط <span className="num">Start</span> بالأسفل — وخلاص، بيرتبط تلقائياً. الرابط صالح 15 دقيقة.
+              افتح الرابط بنفسك لتربط حسابك، أو انسخه وأرسله لأي شخص (واتساب مثلاً) ليربط حسابه هو بنفسه — كل واحد يضغط <span className="num">Start</span> بمحادثة البوت <span className="num">@{linking.botUsername}</span> على جواله. الرابط صالح 15 دقيقة ولمرة واحدة فقط.
             </p>
-            <a href={linking.deepLink} target="_blank" rel="noreferrer" className="btn-primary w-full mb-3">
+            <a href={linking.deepLink} target="_blank" rel="noreferrer" className="btn-primary w-full mb-2">
               <ExternalLink size={16} /> افتح تيليجرام واضغط Start
             </a>
+            <button
+              type="button"
+              className="btn-ghost w-full mb-3"
+              onClick={() => { navigator.clipboard.writeText(linking!.deepLink); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }}
+            >
+              {linkCopied ? <><Check size={16} /> تم النسخ</> : <><Copy size={16} /> نسخ الرابط لإرساله لشخص آخر</>}
+            </button>
             <button className="btn-ghost w-full" onClick={() => { setLinking(null); qc.invalidateQueries({ queryKey: ['notify-channels'] }); }}>تم — أغلق</button>
           </div>
         </div>
