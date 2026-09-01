@@ -244,9 +244,13 @@ export default function Notifications() {
               <>
                 <label className="block text-sm mb-1">Bot Token</label>
                 <input className="input mb-3" style={{ direction: 'ltr' }} value={channelForm.botToken} onChange={(e) => setChannelForm({ ...channelForm, botToken: e.target.value })} placeholder="123456:ABC-DEF..." required />
-                <label className="block text-sm mb-1">Chat ID</label>
-                <input className="input mb-4" style={{ direction: 'ltr' }} value={channelForm.chatId} onChange={(e) => setChannelForm({ ...channelForm, chatId: e.target.value })} placeholder="-1001234567890" required />
-                <p className="text-xs muted mb-4 leading-relaxed">أنشئ بوت عبر @BotFather على تيليجرام، وخذ الـ Chat ID من @userinfobot أو من رابط API الخاص بالبوت.</p>
+                <label className="block text-sm mb-1">المستلم</label>
+                <input className="input mb-2" style={{ direction: 'ltr' }} value={channelForm.chatId} onChange={(e) => setChannelForm({ ...channelForm, chatId: e.target.value })} placeholder="@my_channel أو -1001234567890" required />
+                <p className="text-xs muted mb-4 leading-relaxed">
+                  أنشئ البوت عبر @BotFather أولاً. بعدها:
+                  <br />• قناة أو مجموعة <span className="num">عامة</span> لها معرّف: اكتب <span className="num">@اسم_القناة</span> مباشرة.
+                  <br />• محادثة خاصة معك أو مجموعة بلا معرّف عام: تيليجرام يمنع البوت من مراسلة أي شخص باليوزر لأسباب خصوصية — لازم ترسل أي رسالة للبوت أولاً (أو تضيفه للمجموعة)، ثم تاخذ رقم <span className="num">Chat ID</span> من @userinfobot أو رابط <span className="num">getUpdates</span> الخاص بالبوت.
+                </p>
               </>
             )}
 
