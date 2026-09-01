@@ -6,6 +6,12 @@ import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import {
+  Activity, BadgeDollarSign, BookOpenText, ChartNoAxesCombined, ChevronLeft,
+  CircleStop, Gauge, LogOut, Menu, Moon, Newspaper, PanelRightClose,
+  Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
+  UsersRound, X,
+} from 'lucide-react';
 
 interface CostOverview {
   spentMonthUnits: number; monthUnitLimit: number | null;
@@ -15,18 +21,18 @@ interface CostOverview {
 }
 
 const NAV = [
-  { to: '/', label: 'لوحة التحكم', icon: '▦', perm: null },
-  { to: '/live', label: 'الرصد المباشر', icon: '◉', perm: null },
-  { to: '/signals', label: 'الإشارات والقصص', icon: '⌁', perm: PERMISSIONS.TOPICS_READ },
-  { to: '/keywords', label: 'قاموس الكلمات', icon: '⌗', perm: PERMISSIONS.KEYWORDS_READ },
-  { to: '/queries', label: 'الاستعلامات', icon: '⌕', perm: PERMISSIONS.QUERIES_READ },
-  { to: '/classification', label: 'تصنيف التفاعلات', icon: '◈', perm: PERMISSIONS.TOPICS_READ },
-  { to: '/topics', label: 'إدارة المواضيع', icon: '◇', perm: PERMISSIONS.TOPICS_READ },
-  { to: '/influencers', label: 'العملاء المؤثرون', icon: '★', perm: PERMISSIONS.INFLUENCERS_READ },
-  { to: '/cost', label: 'مركز التكلفة', icon: '$', perm: PERMISSIONS.COST_READ },
-  { to: '/news/articles', label: 'الأخبار', icon: '▧', perm: PERMISSIONS.NEWS_READ },
-  { to: '/news/sources', label: 'مصادر الأخبار', icon: '▤', perm: PERMISSIONS.NEWS_MANAGE_SOURCES },
-  { to: '/admin', label: 'لوحة النظام', icon: '⚙', perm: PERMISSIONS.ADMIN_SYSTEM },
+  { to: '/', label: 'لوحة التحكم', icon: Gauge, perm: null },
+  { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: null },
+  { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles, perm: PERMISSIONS.TOPICS_READ },
+  { to: '/keywords', label: 'قاموس الكلمات', icon: Tags, perm: PERMISSIONS.KEYWORDS_READ },
+  { to: '/queries', label: 'الاستعلامات', icon: SearchCode, perm: PERMISSIONS.QUERIES_READ },
+  { to: '/classification', label: 'تصنيف التفاعلات', icon: ChartNoAxesCombined, perm: PERMISSIONS.TOPICS_READ },
+  { to: '/topics', label: 'إدارة المواضيع', icon: BookOpenText, perm: PERMISSIONS.TOPICS_READ },
+  { to: '/influencers', label: 'العملاء المؤثرون', icon: UsersRound, perm: PERMISSIONS.INFLUENCERS_READ },
+  { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
+  { to: '/news/articles', label: 'الأخبار', icon: Newspaper, perm: PERMISSIONS.NEWS_READ },
+  { to: '/news/sources', label: 'مصادر الأخبار', icon: Activity, perm: PERMISSIONS.NEWS_MANAGE_SOURCES },
+  { to: '/admin', label: 'لوحة النظام', icon: Settings2, perm: PERMISSIONS.ADMIN_SYSTEM },
 ];
 
 const MODE_BADGE: Record<string, { text: string; cls: string; title: string }> = {
@@ -54,6 +60,7 @@ export default function AppShell() {
   const qc = useQueryClient();
   const [showKill, setShowKill] = useState(false);
   const [reason, setReason] = useState('');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // fmtRelative reads Date.now() at render time — without this the "قبل X"
   // text freezes at whatever it said on the last actual data refetch.
@@ -86,74 +93,83 @@ export default function AppShell() {
   const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
 
   return (
-    <div className="min-h-screen flex">
+    <div className="app-frame min-h-screen flex">
+      {mobileNavOpen && <button className="sidebar-backdrop" aria-label="إغلاق القائمة" onClick={() => setMobileNavOpen(false)} />}
       {/* Sidebar */}
-      <aside className="w-60 shrink-0 border-e flex flex-col" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-        <div className="px-4 py-5 border-b" style={{ borderColor: 'var(--border)' }}>
-          <div className="font-bold text-lg leading-tight">منصة الرصد</div>
-          <div className="text-xs muted mt-0.5">Monitoring Intelligence</div>
+      <aside className={`app-sidebar ${mobileNavOpen ? 'is-open' : ''}`}>
+        <div className="brand-lockup">
+          <div className="brand-mark" aria-hidden="true"><Activity size={22} strokeWidth={2.4} /></div>
+          <div className="min-w-0">
+            <div className="font-bold text-[1.05rem] leading-tight">منصة الرصد</div>
+            <div className="text-[0.68rem] muted mt-1 tracking-wide">ذكاء الرصد والتحليل</div>
+          </div>
+          <button className="icon-button sidebar-close" aria-label="إغلاق القائمة" onClick={() => setMobileNavOpen(false)}><PanelRightClose size={19} /></button>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="sidebar-nav" aria-label="التنقل الرئيسي">
           {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
-                  isActive ? 'bg-brand-600 text-white' : 'hover:bg-[var(--surface-3)]'
-                }`
-              }
+              onClick={() => setMobileNavOpen(false)}
+              className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
             >
-              <span className="w-5 text-center opacity-80">{n.icon}</span>
-              <span>{n.label}</span>
+              <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.9} />
+              <span className="flex-1">{n.label}</span>
+              <ChevronLeft className="sidebar-link-arrow" size={15} />
             </NavLink>
           ))}
         </nav>
 
         {/* Budget meter — always visible, never buried in a settings page. */}
         {cost && (
-          <div className="p-3 m-2 rounded-lg text-xs" style={{ background: 'var(--surface-2)' }}>
+          <div className="budget-card">
             <div className="flex justify-between mb-1.5">
               <span className="muted">حصة الشهر</span>
               <span className="num font-medium">
                 {cost.spentMonthUnits}/{cost.monthUnitLimit ?? '∞'}
               </span>
             </div>
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+            <div className="progress-track">
               <div className={`h-full ${barColor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
             </div>
           </div>
         )}
 
-        <div className="p-3 border-t text-xs" style={{ borderColor: 'var(--border)' }}>
-          <div className="font-medium truncate">{user?.fullName}</div>
-          <div className="muted truncate">{user?.roleNameAr}</div>
-          <div className="flex gap-1 mt-2">
+        <div className="sidebar-profile">
+          <div className="profile-avatar" aria-hidden="true">{user?.fullName?.trim().charAt(0) || 'م'}</div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-sm truncate">{user?.fullName}</div>
+            <div className="muted text-xs truncate mt-0.5">{user?.roleNameAr}</div>
+          </div>
+          <div className="flex gap-1">
             <button
-              className="btn-ghost flex-1 !px-2 !py-1 !text-xs"
+              className="icon-button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               title="تبديل المظهر"
+              aria-label="تبديل المظهر"
             >
-              {theme === 'dark' ? '☀' : '☾'}
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
             <button
-              className="btn-ghost flex-1 !px-2 !py-1 !text-xs"
+              className="icon-button"
               onClick={() => logout().then(() => navigate('/login'))}
+              title="تسجيل الخروج"
+              aria-label="تسجيل الخروج"
             >
-              خروج
+              <LogOut size={17} />
             </button>
           </div>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="app-content flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header
-          className="h-14 border-b flex items-center gap-3 px-5 shrink-0"
-          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+          className="app-header"
         >
+          <button className="icon-button mobile-menu" aria-label="فتح القائمة" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button>
           <span className={`badge mode-badge ${mode.cls}`} title={mode.title}>
             {cost?.collectionMode === 'live' ? (
               <span className="live-orbit-icon" aria-hidden="true">
@@ -189,25 +205,26 @@ export default function AppShell() {
           {can(PERMISSIONS.KILLSWITCH_OPERATE) && (
             globalKill ? (
               <button className="btn-ghost !text-emerald-600" onClick={() => resume.mutate(globalKill.id)}>
-                استئناف الجمع
+                <ShieldCheck size={17} /> استئناف الجمع
               </button>
             ) : (
               <button className="btn-danger" onClick={() => setShowKill(true)}>
-                ⏹ إيقاف جمع بيانات X
+                <CircleStop size={17} /> <span className="emergency-label">إيقاف جمع بيانات X</span>
               </button>
             )
           )}
         </header>
 
-        <main className="flex-1 overflow-auto p-5">
+        <main className="app-main flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>
 
       {showKill && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowKill(false)}>
-          <div className="card p-5 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-bold text-lg mb-1">إيقاف جمع بيانات X</h3>
+          <div className="card modal-card p-5 w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="kill-title" onClick={(e) => e.stopPropagation()}>
+            <button className="icon-button absolute top-4 end-4" aria-label="إغلاق" onClick={() => setShowKill(false)}><X size={18} /></button>
+            <h3 id="kill-title" className="font-bold text-lg mb-1">إيقاف جمع بيانات X</h3>
             <p className="text-sm muted mb-4">
               يوقف كل عمليات الجلب فوراً. المنصة تبقى تعمل بالكامل على البيانات المخزّنة —
               التصنيف والتقارير ولوحة التحكم لا تتأثر.
