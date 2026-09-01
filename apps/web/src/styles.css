@@ -665,6 +665,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sidebar-link.is-active .sidebar-link-icon { color: var(--color-brand-500); }
 .sidebar-link-arrow { opacity: 0; transform: translateX(-3px); transition: .16s; }
 .sidebar-link.is-active .sidebar-link-arrow { opacity: .75; transform: none; }
+
+.sidebar-group-btn { width: 100%; cursor: pointer; background: transparent; border: 0; font-family: inherit; }
+.sidebar-group-btn.is-active { color: var(--color-brand-700); font-weight: 700; }
+.dark .sidebar-group-btn.is-active { color: var(--color-brand-200); }
+.sidebar-group-btn.is-active .sidebar-link-icon { color: var(--color-brand-500); }
+.sidebar-group-chevron { transition: transform .18s; transform: rotate(-90deg); flex: 0 0 auto; }
+.sidebar-group-btn.is-open .sidebar-group-chevron { transform: rotate(0deg); }
+.sidebar-subnav { padding-inline-start: 1.5rem; }
+.sidebar-subnav .sidebar-link { font-size: .8rem; min-height: 2.4rem; }
 .budget-card { margin: 0.4rem 0.75rem 0.75rem; border: 1px solid var(--border); border-radius: 0.8rem; background: var(--surface-2); padding: 0.8rem; font-size: 0.75rem; }
 .progress-track { height: 0.38rem; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
 .sidebar-profile { display: flex; align-items: center; gap: 0.65rem; border-top: 1px solid var(--border); padding: 0.85rem; }

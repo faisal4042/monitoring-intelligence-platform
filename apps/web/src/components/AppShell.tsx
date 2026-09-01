@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
@@ -7,8 +7,8 @@ import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import {
-  Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronLeft,
-  CircleStop, Gauge, LogOut, Menu, Moon, Newspaper, PanelRightClose,
+  Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
+  CircleStop, Gauge, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
   UserCog, UsersRound, X,
 } from 'lucide-react';
@@ -29,10 +29,14 @@ const NAV = [
   { to: '/classification', label: 'تصنيف التفاعلات', icon: ChartNoAxesCombined, perm: PERMISSIONS.TOPICS_READ },
   { to: '/topics', label: 'إدارة المواضيع', icon: BookOpenText, perm: PERMISSIONS.TOPICS_READ },
   { to: '/influencers', label: 'العملاء المؤثرون', icon: UsersRound, perm: PERMISSIONS.INFLUENCERS_READ },
-  { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
-  { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/news/articles', label: 'الأخبار', icon: Newspaper, perm: PERMISSIONS.NEWS_READ },
   { to: '/news/sources', label: 'مصادر الأخبار', icon: Activity, perm: PERMISSIONS.NEWS_MANAGE_SOURCES },
+];
+
+/** Grouped under one collapsible "الإدارة" entry instead of each sitting flat in the sidebar. */
+const ADMIN_NAV = [
+  { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
+  { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_WRITE },
   { to: '/admin', label: 'لوحة النظام', icon: Settings2, perm: PERMISSIONS.ADMIN_SYSTEM },
 ];
@@ -59,10 +63,16 @@ export default function AppShell() {
   const { user, logout, can } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const [showKill, setShowKill] = useState(false);
   const [reason, setReason] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const visibleAdminNav = ADMIN_NAV.filter((n) => !n.perm || can(n.perm));
+  const isAdminActive = visibleAdminNav.some((n) => location.pathname === n.to);
+  const [adminOpen, setAdminOpen] = useState(false);
+  useEffect(() => { if (isAdminActive) setAdminOpen(true); }, [isAdminActive]);
 
   // fmtRelative reads Date.now() at render time — without this the "قبل X"
   // text freezes at whatever it said on the last actual data refetch.
@@ -122,6 +132,37 @@ export default function AppShell() {
               <ChevronLeft className="sidebar-link-arrow" size={15} />
             </NavLink>
           ))}
+
+          {visibleAdminNav.length > 0 && (
+            <>
+              <button
+                type="button"
+                className={`sidebar-link sidebar-group-btn ${adminOpen ? 'is-open' : ''} ${isAdminActive ? 'is-active' : ''}`}
+                onClick={() => setAdminOpen((v) => !v)}
+                aria-expanded={adminOpen}
+              >
+                <LayoutGrid className="sidebar-link-icon" size={18} strokeWidth={1.9} />
+                <span className="flex-1">الإدارة</span>
+                <ChevronDown className="sidebar-group-chevron" size={16} />
+              </button>
+              {adminOpen && (
+                <div className="sidebar-subnav">
+                  {visibleAdminNav.map((n) => (
+                    <NavLink
+                      key={n.to}
+                      to={n.to}
+                      onClick={() => setMobileNavOpen(false)}
+                      className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+                    >
+                      <n.icon className="sidebar-link-icon" size={16} strokeWidth={1.9} />
+                      <span className="flex-1">{n.label}</span>
+                      <ChevronLeft className="sidebar-link-arrow" size={14} />
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </nav>
 
         {/* Budget meter — always visible, never buried in a settings page. */}
