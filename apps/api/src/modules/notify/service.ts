@@ -3,7 +3,7 @@ import { config } from '@mip/config';
 import { sql } from '@mip/db';
 import { encryptJson, decryptJson, telegramWebhookSecret } from '../../lib/crypto.js';
 import {
-  sendEmail, sendTelegram, telegramGetMe, telegramSetWebhook,
+  sendEmail, sendTelegram, telegramGetMe, telegramSetWebhook, normalizeTelegramConfig,
   type EmailConfig, type TelegramConfig,
 } from './providers.js';
 import { alertLogger as log } from '@mip/logger';
@@ -16,7 +16,7 @@ export async function createTelegramLink(channelId: string): Promise<{ botUserna
     SELECT config_encrypted FROM notification_channels WHERE id = ${channelId}::uuid AND type = 'telegram'`;
   if (!channel) throw new Error('القناة غير موجودة');
 
-  const cfg = decryptJson<TelegramConfig>(channel.config_encrypted);
+  const cfg = normalizeTelegramConfig(decryptJson<TelegramConfig>(channel.config_encrypted));
   const me = await telegramGetMe(cfg.botToken);
   const webhookUrl = `${config.APP_URL.replace(/\/$/, '')}/api/v1/notify/telegram-webhook`;
   await telegramSetWebhook(cfg.botToken, webhookUrl, telegramWebhookSecret);
@@ -40,14 +40,17 @@ export async function resolveTelegramStart(startCode: string, chatId: number): P
     SELECT config_encrypted FROM notification_channels WHERE id = ${pending.channel_id}::uuid`;
   if (!channel) return false;
 
-  const cfg = decryptJson<TelegramConfig>(channel.config_encrypted);
-  const updated: TelegramConfig = { ...cfg, chatId: String(chatId) };
-  await sql`
-    UPDATE notification_channels SET config_encrypted = ${encryptJson(updated)}, updated_at = now()
-    WHERE id = ${pending.channel_id}::uuid`;
+  const cfg = normalizeTelegramConfig(decryptJson<TelegramConfig>(channel.config_encrypted));
+  const chatIdStr = String(chatId);
+  if (!cfg.chatIds.includes(chatIdStr)) {
+    const updated: TelegramConfig = { ...cfg, chatIds: [...cfg.chatIds, chatIdStr] };
+    await sql`
+      UPDATE notification_channels SET config_encrypted = ${encryptJson(updated)}, updated_at = now()
+      WHERE id = ${pending.channel_id}::uuid`;
+  }
 
   try {
-    await sendTelegram(updated, '✅ تم ربط حسابك بنجاح — من الآن بتوصلك تنبيهات منصة الرصد هنا.');
+    await sendTelegram({ botToken: cfg.botToken, chatIds: [chatIdStr] }, '✅ تم ربطك بنجاح — من الآن بتوصلك تنبيهات منصة الرصد هنا.');
   } catch (err) {
     log.warn({ err: err instanceof Error ? err.message : String(err) }, 'telegram link confirmation send failed');
   }
@@ -64,7 +67,7 @@ export async function dispatchToChannel(channelId: string, subject: string, body
   if (channel.type === 'email') {
     await sendEmail(decryptJson<EmailConfig>(channel.config_encrypted), subject, body);
   } else {
-    await sendTelegram(decryptJson<TelegramConfig>(channel.config_encrypted), body);
+    await sendTelegram(normalizeTelegramConfig(decryptJson<TelegramConfig>(channel.config_encrypted)), body);
   }
 }
 

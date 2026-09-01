@@ -6,7 +6,13 @@ export interface EmailConfig {
   user: string; pass: string; from: string; to: string;
 }
 export interface TelegramConfig {
-  botToken: string; chatId: string; botUsername?: string;
+  botToken: string; chatIds: string[];
+}
+
+/** Normalizes a decrypted config that may still be in the pre-multi-recipient shape ({ chatId: string }). */
+export function normalizeTelegramConfig(raw: { botToken: string; chatIds?: string[]; chatId?: string }): TelegramConfig {
+  if (Array.isArray(raw.chatIds)) return { botToken: raw.botToken, chatIds: raw.chatIds };
+  return { botToken: raw.botToken, chatIds: raw.chatId ? [raw.chatId] : [] };
 }
 
 export async function sendEmail(cfg: EmailConfig, subject: string, body: string): Promise<void> {
@@ -17,16 +23,25 @@ export async function sendEmail(cfg: EmailConfig, subject: string, body: string)
   await transport.sendMail({ from: cfg.from || cfg.user, to: cfg.to, subject, text: body });
 }
 
-export async function sendTelegram(cfg: TelegramConfig, text: string): Promise<void> {
-  if (!cfg.chatId) throw new Error('لم يُربط حساب تيليجرام بعد — استخدم زر "ربط الحساب"');
-  const res = await fetch(`https://api.telegram.org/bot${cfg.botToken}/sendMessage`, {
+async function sendTelegramTo(botToken: string, chatId: string, text: string): Promise<void> {
+  const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: cfg.chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Telegram API ${res.status}: ${body.slice(0, 200)}`);
+  }
+}
+
+/** One channel can fan out to several linked people. Succeeds if at least one recipient got it; throws the first error only if every recipient failed. */
+export async function sendTelegram(cfg: TelegramConfig, text: string): Promise<void> {
+  if (!cfg.chatIds.length) throw new Error('لم يُربط أي شخص بهذي القناة بعد — استخدم زر "ربط شخص"');
+  const results = await Promise.allSettled(cfg.chatIds.map((id) => sendTelegramTo(cfg.botToken, id, text)));
+  const failures = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failures.length === results.length) {
+    throw failures[0].reason instanceof Error ? failures[0].reason : new Error(String(failures[0].reason));
   }
 }
 

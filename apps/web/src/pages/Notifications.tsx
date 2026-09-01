@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 interface Channel {
-  id: string; type: 'email' | 'telegram'; name: string; is_active: boolean; is_linked: boolean;
+  id: string; type: 'email' | 'telegram'; name: string; is_active: boolean; is_linked: boolean; linked_count: number | null;
   last_test_at: string | null; last_test_ok: boolean | null; created_at: string;
 }
 interface Rule {
@@ -145,7 +145,7 @@ export default function Notifications() {
                   <div className="flex items-center gap-1.5">
                     {c.type === 'telegram' && (
                       <span className={`badge ${c.is_linked ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/15 text-amber-600'}`}>
-                        {c.is_linked ? 'مربوط' : 'غير مربوط'}
+                        {c.is_linked ? `مربوط (${c.linked_count})` : 'غير مربوط'}
                       </span>
                     )}
                     <button
@@ -162,13 +162,12 @@ export default function Notifications() {
                     : 'لم يُختبر بعد'}
                 </div>
                 <div className="flex gap-2">
-                  {c.type === 'telegram' && !c.is_linked ? (
-                    <button className="btn-primary !text-xs flex-1" disabled={startLink.isPending} onClick={() => startLink.mutate(c)}>
-                      <Link2 size={13} /> ربط الحساب
+                  {c.type === 'telegram' && (
+                    <button className="btn-ghost !text-xs flex-1" disabled={startLink.isPending} onClick={() => startLink.mutate(c)}>
+                      <Link2 size={13} /> ربط شخص
                     </button>
-                  ) : (
-                    <button className="btn-ghost !text-xs flex-1" disabled={testChannel.isPending} onClick={() => testChannel.mutate(c.id)}>اختبار الاتصال</button>
                   )}
+                  <button className="btn-ghost !text-xs flex-1" disabled={testChannel.isPending} onClick={() => testChannel.mutate(c.id)}>اختبار الاتصال</button>
                   <button className="icon-button !w-9 !h-9 !text-red-600" title="حذف" onClick={() => deleteChannel.mutate(c.id)}><Trash2 size={14} /></button>
                 </div>
                 {testChannel.isError && testChannel.variables === c.id && (

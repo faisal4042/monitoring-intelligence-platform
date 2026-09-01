@@ -6,14 +6,14 @@ import { badRequest, notFound } from '../../lib/errors.js';
 import { audit } from '../../lib/audit.js';
 import { encryptJson, decryptJson } from '../../lib/crypto.js';
 import { dispatchToChannel, evaluateRules, createTelegramLink } from './service.js';
-import type { TelegramConfig } from './providers.js';
+import { normalizeTelegramConfig, type TelegramConfig } from './providers.js';
 
 const emailConfigSchema = z.object({
   host: z.string().min(1), port: z.coerce.number().int().min(1).max(65535),
   secure: z.boolean().default(true), user: z.string().min(1), pass: z.string().min(1),
   from: z.string().optional().default(''), to: z.string().email(),
 });
-const telegramConfigSchema = z.object({ botToken: z.string().min(1), chatId: z.string().default('') });
+const telegramConfigSchema = z.object({ botToken: z.string().min(1), chatIds: z.array(z.string()).default([]) });
 
 const createChannelSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('email'), name: z.string().min(1).max(120), config: emailConfigSchema }),
@@ -42,10 +42,10 @@ export default async function notifyRoutes(app: FastifyInstance) {
     }[]>`SELECT id, type, name, is_active, last_test_at, last_test_ok, created_at, config_encrypted
          FROM notification_channels ORDER BY created_at DESC`;
     return {
-      items: rows.map(({ config_encrypted, ...c }) => ({
-        ...c,
-        is_linked: c.type === 'email' || Boolean(decryptJson<TelegramConfig>(config_encrypted).chatId),
-      })),
+      items: rows.map(({ config_encrypted, ...c }) => {
+        const linkedCount = c.type === 'telegram' ? normalizeTelegramConfig(decryptJson<TelegramConfig>(config_encrypted)).chatIds.length : null;
+        return { ...c, is_linked: c.type === 'email' || (linkedCount ?? 0) > 0, linked_count: linkedCount };
+      }),
     };
   });
 
