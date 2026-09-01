@@ -8,6 +8,7 @@ import { PERMISSIONS } from '@mip/shared';
 import { badRequest } from '../../lib/errors.js';
 import { audit } from '../../lib/audit.js';
 import * as newsService from './service.js';
+import { queueNewsRefresh } from '../../workers/news-fetch.worker.js';
 
 const SOURCE_TYPES = ['newspaper', 'news_site', 'government', 'real_estate', 'blog', 'magazine', 'other'] as const;
 const CONNECTOR_TYPES = ['auto', 'rss', 'atom', 'api', 'sitemap', 'crawler', 'manual'] as const;
@@ -119,6 +120,17 @@ export default async function newsRoutes(app: FastifyInstance) {
     await audit(req, {
       action: 'news_articles.reclassify', entityType: 'news_article',
       entityLabel: 'إعادة تصنيف أرشيف الأخبار', newValue: result,
+    });
+    return result;
+  });
+
+  app.post('/articles/fetch-now', {
+    preHandler: [app.requirePermission(PERMISSIONS.NEWS_MANAGE_SOURCES)],
+  }, async (req) => {
+    const result = await queueNewsRefresh();
+    await audit(req, {
+      action: 'news_articles.fetch_now', entityType: 'news_source',
+      entityLabel: 'تحديث جميع مصادر الأخبار', newValue: result,
     });
     return result;
   });

@@ -65,6 +65,13 @@ const PROGRAMS = [
   { key: 'mostadam', nameAr: 'البناء المستدام', nameEn: 'Mostadam', color: '#16a34a', share: 15, officialAccounts: ['@Mostadam_SA', ...GLOBAL_EXCLUDED_ACCOUNTS] },
 ];
 
+const NEWS_COVERAGE_QUERIES: Array<{ programKey: string; nameAr: string; nameEn: string; query: string; weight: number }> = [
+  { programKey: 'ejar', nameAr: 'الرصد الصحفي المخصص — إيجار', nameEn: 'Targeted press coverage — Ejar', query: 'إيجار when:30d', weight: 99 },
+  { programKey: 'rega', nameAr: 'الرصد الصحفي الشامل — الهيئة العامة للعقار', nameEn: 'Comprehensive press — REGA', query: '("الهيئة العامة للعقار" OR "التسجيل العيني" OR "الوساطة العقارية" OR "المعهد العقاري السعودي") when:30d', weight: 98 },
+  { programKey: 'mullak', nameAr: 'الرصد الصحفي الشامل — ملاك', nameEn: 'Comprehensive press — Mullak', query: '("برنامج ملاك" OR "جمعيات الملاك" OR "اتحاد الملاك") when:30d', weight: 96 },
+  { programKey: 'mostadam', nameAr: 'الرصد الصحفي الشامل — البناء المستدام', nameEn: 'Comprehensive press — Mostadam', query: '("البناء المستدام" OR "فحص جودة البناء" OR "المباني المستدامة") when:30d', weight: 96 },
+];
+
 const SERVICES: Record<string, Array<[string, string]>> = {
   ejar: [
     ['contract_notarization', 'توثيق العقد'],
@@ -338,6 +345,7 @@ async function main() {
   // ── Programs, services, keywords ──
   let kwCount = 0;
   const keywordIdByTerm = new Map<string, string>();
+  const programIdByKey = new Map<string, string>();
 
   for (const p of PROGRAMS) {
     const [prog] = await sql<{ id: string }[]>`
@@ -348,6 +356,7 @@ async function main() {
         color = EXCLUDED.color,
         official_accounts = EXCLUDED.official_accounts
       RETURNING id`;
+    programIdByKey.set(p.key, prog.id);
 
     for (const [sKey, sName] of SERVICES[p.key] ?? []) {
       await sql`INSERT INTO services (program_id, key, name_ar)
@@ -403,6 +412,30 @@ async function main() {
   }
   console.log(`  programs          ${PROGRAMS.length}`);
   console.log(`  keywords          ${kwCount}`);
+
+  // Durable press-discovery shards. Migrations cover existing databases;
+  // seeding also creates them on a brand-new database where programs do not
+  // exist until this loop has run.
+  for (const source of NEWS_COVERAGE_QUERIES) {
+    const programId = programIdByKey.get(source.programKey);
+    if (!programId) continue;
+    const encodedQuery = encodeURIComponent(source.query).replace(/\(/g, '%28').replace(/\)/g, '%29');
+    const feedUrl = `https://news.google.com/rss/search?q=${encodedQuery}&hl=ar&gl=SA&ceid=SA:ar`;
+    await sql`
+      INSERT INTO news_sources (
+        program_id, name_ar, name_en, base_url, country, language, source_type,
+        connector_type, rss_url, source_weight, check_interval_minutes,
+        next_run_at, crawl_allowed, is_active, created_by
+      ) VALUES (
+        ${programId}::uuid, ${source.nameAr}, ${source.nameEn}, ${feedUrl}, 'SA', 'ar', 'news_site',
+        'rss', ${feedUrl}, ${source.weight}, 5, now(), true, true, ${admin.id}::uuid
+      ) ON CONFLICT DO NOTHING`;
+    await sql`
+      INSERT INTO news_source_health (source_id)
+      SELECT id FROM news_sources WHERE lower(base_url) = lower(${feedUrl})
+      ON CONFLICT (source_id) DO NOTHING`;
+  }
+  console.log(`  news coverage     ${NEWS_COVERAGE_QUERIES.length} program shards`);
 
   // ── Aliases ──
   let aliasCount = 0;

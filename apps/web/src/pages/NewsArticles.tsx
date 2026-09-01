@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtRelative } from '../lib/format';
+import { useAuth } from '../lib/auth';
+import { PERMISSIONS } from '@mip/shared';
 
 interface Program { id: string; name_ar: string; color: string }
 
@@ -35,6 +37,8 @@ function decodeText(value: string): string {
 }
 
 export default function NewsArticles() {
+  const { can } = useAuth();
+  const queryClient = useQueryClient();
   const [programId, setProgramId] = useState('');
   const [days, setDays] = useState('180');
 
@@ -52,6 +56,17 @@ export default function NewsArticles() {
   });
 
   const articles = data?.items ?? [];
+  const fetchNow = useMutation({
+    mutationFn: () => api.post<{ queued: number }>('/news/articles/fetch-now', {}),
+    onSuccess: () => {
+      window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['news-articles'] }), 8_000);
+    },
+  });
+
+  const refresh = () => {
+    if (can(PERMISSIONS.NEWS_MANAGE_SOURCES)) fetchNow.mutate();
+    else void refetch();
+  };
 
   return (
     <div className="space-y-5" dir="rtl">
@@ -78,7 +93,9 @@ export default function NewsArticles() {
               <option value="180">آخر 6 أشهر</option>
               <option value="365">آخر سنة</option>
             </select>
-            <button className="btn btn-secondary" onClick={() => void refetch()} disabled={isFetching}>{isFetching ? 'جارٍ التحديث…' : 'تحديث الآن'}</button>
+            <button className="btn btn-secondary" onClick={refresh} disabled={isFetching || fetchNow.isPending}>
+              {fetchNow.isPending ? 'جارٍ طلب الأخبار…' : isFetching ? 'جارٍ التحديث…' : 'سحب الأخبار الآن'}
+            </button>
           </div>
         </div>
       </section>
