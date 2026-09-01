@@ -254,7 +254,7 @@ export async function listArticles(opts: { sourceId?: string; programId?: string
     WHERE (${opts.sourceId ?? null}::uuid IS NULL OR a.source_id = ${opts.sourceId ?? null}::uuid)
       AND (${opts.programId ?? null}::uuid IS NULL OR a.program_id = ${opts.programId ?? null}::uuid)
       AND (${opts.cursor ?? null}::timestamptz IS NULL OR COALESCE(a.published_at, a.discovered_at) < ${opts.cursor ?? null}::timestamptz)
-      AND (${opts.includeIrrelevant ?? false} OR a.is_relevant IS TRUE)
+      AND (${opts.includeIrrelevant ?? false} OR (a.is_relevant IS TRUE AND a.relevance_score >= 90))
       AND COALESCE(a.published_at, a.discovered_at) >= now() - ${days} * interval '1 day'
       AND COALESCE(a.published_at, a.discovered_at) <= now() + interval '1 day'
     ORDER BY COALESCE(a.published_at, a.discovered_at) DESC, s.source_weight DESC, a.discovered_at DESC

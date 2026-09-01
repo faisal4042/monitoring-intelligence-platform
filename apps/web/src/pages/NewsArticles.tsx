@@ -78,7 +78,7 @@ export default function NewsArticles() {
               تحديث حي كل 5 دقائق
             </div>
             <h1 className="text-2xl font-black sm:text-3xl">الأخبار العقارية</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة فعليًا بالهيئة وبرامجها، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة مباشرة بالهيئة وبرامجها وخدماتها فقط، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +107,7 @@ export default function NewsArticles() {
       ) : articles.length === 0 ? (
         <div className="rounded-2xl border p-12 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
           <div className="text-lg font-bold">لا توجد أخبار مطابقة في هذه الفترة</div>
-          <p className="mt-2 text-sm muted">جرّب توسيع الفترة أو اختيار جميع البرامج.</p>
+          <p className="mt-2 text-sm muted">لم يُرصد خبر يرتبط مباشرة بالهيئة أو أحد برامجها في الفترة المحددة.</p>
         </div>
       ) : (
         <div className="grid gap-3 xl:grid-cols-2">

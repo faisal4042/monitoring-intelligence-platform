@@ -22,6 +22,11 @@ interface GeneralTerm {
   weight?: number;
 }
 
+// News is an executive signal surface, not a general property-industry feed.
+// Only direct authority/program/service matches may reach it; broader sector
+// words remain useful elsewhere but are intentionally insufficient here.
+const MIN_DIRECT_NEWS_WEIGHT = 90;
+
 // These terms are intentionally written as real UTF-8 Arabic. The previous
 // file contained mojibake literals, so only database phrases worked and basic
 // words such as "عقارية" silently failed.
@@ -198,10 +203,14 @@ export async function checkRelevance(title: string, description: string | null):
   const match = titleMatch ?? entries.find((entry) => entry.normalized && hasWordBoundaryMatch(haystack, entry.normalized));
   if (!match) return { isRelevant: false, matchedKeyword: null, programId: null, topicId: null, score: 0 };
 
+  if (match.weight < MIN_DIRECT_NEWS_WEIGHT) {
+    return { isRelevant: false, matchedKeyword: null, programId: null, topicId: null, score: 0 };
+  }
+
   // Feed descriptions sometimes contain navigation or "related stories".
   // A generic property word found only there is too weak; only a distinctive
   // authority/program/service phrase may classify an otherwise vague title.
-  if (!titleMatch && match.weight < 90) {
+  if (!titleMatch && match.weight < 100) {
     return { isRelevant: false, matchedKeyword: null, programId: null, topicId: null, score: 0 };
   }
 
