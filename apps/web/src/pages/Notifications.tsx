@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../lib/api';
 import { fmtRelative } from '../lib/format';
 import {
-  Bell, Check, Copy, ExternalLink, Link2, MailPlus, Play, Plus, Send, Trash2, X,
+  Bell, Check, Copy, ExternalLink, Link2, MailPlus, Pencil, Play, Plus, Send, Trash2, X,
 } from 'lucide-react';
 
 interface Channel {
@@ -69,6 +69,7 @@ export default function Notifications() {
   const [addingChannel, setAddingChannel] = useState(false);
   const [channelForm, setChannelForm] = useState(emptyChannelForm);
   const [addingRule, setAddingRule] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [ruleForm, setRuleForm] = useState(emptyRuleForm);
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -114,19 +115,36 @@ export default function Notifications() {
   });
   const deleteChannel = useMutation({ mutationFn: (id: string) => api.del(`/notify/channels/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['notify-channels'] }) });
 
-  const createRule = useMutation({
+  const closeRuleForm = () => { setAddingRule(false); setEditingRuleId(null); setRuleForm(emptyRuleForm); };
+
+  const openEditRule = (r: Rule) => {
+    setEditingRuleId(r.id);
+    setRuleForm({
+      name: r.name,
+      conditionType: r.condition_type,
+      keywords: Array.isArray(r.condition.keywords) ? (r.condition.keywords as string[]).join(', ') : '',
+      minFollowers: typeof r.condition.minFollowers === 'number' ? r.condition.minFollowers : 1000,
+      programId: r.program_id ?? '',
+      messageTemplate: r.message_template,
+      channelIds: r.channel_ids,
+    });
+    setAddingRule(true);
+  };
+
+  const saveRule = useMutation({
     mutationFn: () => {
       const condition = ruleForm.conditionType === 'keyword_match'
         ? { keywords: ruleForm.keywords.split(',').map((k) => k.trim()).filter(Boolean) }
         : ruleForm.conditionType === 'follower_threshold'
           ? { minFollowers: Number(ruleForm.minFollowers) }
           : {};
-      return api.post('/notify/rules', {
+      const body = {
         name: ruleForm.name, conditionType: ruleForm.conditionType, condition,
         programId: ruleForm.programId || null, messageTemplate: ruleForm.messageTemplate, channelIds: ruleForm.channelIds,
-      });
+      };
+      return editingRuleId ? api.patch(`/notify/rules/${editingRuleId}`, body) : api.post('/notify/rules', body);
     },
-    onSuccess: () => { setAddingRule(false); setRuleForm(emptyRuleForm); qc.invalidateQueries({ queryKey: ['notify-rules'] }); },
+    onSuccess: () => { closeRuleForm(); qc.invalidateQueries({ queryKey: ['notify-rules'] }); },
   });
   const toggleRule = useMutation({
     mutationFn: (v: { id: string; isActive: boolean }) => api.patch(`/notify/rules/${v.id}`, { isActive: v.isActive }),
@@ -216,7 +234,7 @@ export default function Notifications() {
       {tab === 'rules' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button className="btn-primary" onClick={() => setAddingRule(true)}><Plus size={16} /> قاعدة جديدة</button>
+            <button className="btn-primary" onClick={() => { setRuleForm(emptyRuleForm); setEditingRuleId(null); setAddingRule(true); }}><Plus size={16} /> قاعدة جديدة</button>
           </div>
           <div className="space-y-2">
             {(rules?.items ?? []).map((r) => (
@@ -236,6 +254,7 @@ export default function Notifications() {
                       className={`badge ${r.is_active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/15 text-slate-500'}`}
                       onClick={() => toggleRule.mutate({ id: r.id, isActive: !r.is_active })}
                     >{r.is_active ? 'نشطة' : 'موقوفة'}</button>
+                    <button className="icon-button !w-8 !h-8" title="تعديل" onClick={() => openEditRule(r)}><Pencil size={14} /></button>
                     <button className="icon-button !w-8 !h-8 !text-red-600" title="حذف" onClick={() => deleteRule.mutate(r.id)}><Trash2 size={14} /></button>
                   </div>
                 </div>
@@ -324,9 +343,9 @@ export default function Notifications() {
       )}
 
       {addingRule && (
-        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={() => setAddingRule(false)}>
-          <form className="card p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); createRule.mutate(); }}>
-            <h3 className="font-bold mb-4">قاعدة تنبيه جديدة</h3>
+        <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={closeRuleForm}>
+          <form className="card p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); saveRule.mutate(); }}>
+            <h3 className="font-bold mb-4">{editingRuleId ? 'تعديل القاعدة' : 'قاعدة تنبيه جديدة'}</h3>
             <label className="block text-sm mb-1">اسم القاعدة</label>
             <input className="input mb-3" value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} placeholder="مثال: تنبيه شكاوى إيجار" required autoFocus />
 
@@ -401,10 +420,10 @@ export default function Notifications() {
             </div>
 
             <div className="flex gap-2 justify-end">
-              <button type="button" className="btn-ghost" onClick={() => setAddingRule(false)}>إلغاء</button>
-              <button className="btn-primary" disabled={createRule.isPending || !ruleForm.channelIds.length}>{createRule.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+              <button type="button" className="btn-ghost" onClick={closeRuleForm}>إلغاء</button>
+              <button className="btn-primary" disabled={saveRule.isPending || !ruleForm.channelIds.length}>{saveRule.isPending ? 'جارٍ الحفظ…' : editingRuleId ? 'حفظ التعديلات' : 'حفظ'}</button>
             </div>
-            {createRule.error && <div className="text-xs text-red-600 mt-3">{(createRule.error as ApiError).message}</div>}
+            {saveRule.error && <div className="text-xs text-red-600 mt-3">{(saveRule.error as ApiError).message}</div>}
           </form>
         </div>
       )}
