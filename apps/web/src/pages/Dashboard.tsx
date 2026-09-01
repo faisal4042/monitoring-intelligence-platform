@@ -27,7 +27,7 @@ function Tile({ label, value, sub, tone, icon: Icon }: { label: string; value: s
   return (
     <div className="card metric-card">
       <div className="metric-icon"><Icon size={19} strokeWidth={2} /></div>
-      <div className="text-xs muted mb-2">{label}</div>
+      <div className="metric-label text-xs muted mb-2">{label}</div>
       <div className={`text-[1.65rem] font-bold num tracking-tight ${toneCls}`}>{value}</div>
       {sub && <div className="text-xs muted mt-1">{sub}</div>}
     </div>

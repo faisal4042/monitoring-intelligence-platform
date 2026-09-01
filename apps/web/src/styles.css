@@ -684,9 +684,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .eyebrow { display: flex; align-items: center; gap: 0.45rem; color: var(--color-brand-600); font-size: 0.7rem; font-weight: 700; letter-spacing: .04em; }
 .dark .eyebrow { color: var(--color-brand-200); }
 .status-pulse { width: .45rem; height: .45rem; border-radius: 99px; background: var(--color-brand-500); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand-500) 14%, transparent); }
-.metric-card { position: relative; min-height: 8.5rem; overflow: hidden; padding: 1.05rem; padding-inline-end: 3.6rem; transition: transform .18s, border-color .18s, box-shadow .18s; }
+.metric-card { position: relative; min-height: 8.5rem; overflow: hidden; padding: 1.05rem; transition: transform .18s, border-color .18s, box-shadow .18s; }
 .metric-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--color-brand-500) 32%, var(--border)); box-shadow: 0 14px 34px rgb(15 37 42 / 8%); }
 .metric-icon { position: absolute; top: 0.85rem; inset-inline-end: 0.85rem; display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border-radius: .7rem; background: color-mix(in srgb, var(--color-brand-500) 10%, var(--surface)); color: var(--color-brand-600); }
+.metric-label { padding-inline-end: 2.3rem; }
 .dark .metric-icon { color: var(--color-brand-200); }
 .info-banner { display: flex; align-items: flex-start; gap: .9rem; padding: 1rem; border-color: color-mix(in srgb, #f59e0b 28%, var(--border)); background: color-mix(in srgb, #f59e0b 5%, var(--surface)); }
 .info-banner-icon { display: grid; width: 2.4rem; height: 2.4rem; flex: 0 0 auto; place-items: center; border-radius: .7rem; background: rgb(245 158 11 / 13%); color: #b66b02; }
