@@ -17,15 +17,18 @@ import influencersRoutes from './modules/influencers.routes.js';
 import adminRoutes from './modules/admin.routes.js';
 import signalRoutes from './modules/signals/routes.js';
 import newsRoutes from './modules/news/routes.js';
+import notifyRoutes from './modules/notify/routes.js';
 import { HttpError } from './lib/errors.js';
 import { ensureAutomaticQueries, startCollectionWorker } from './workers/collection.worker.js';
 import { startClassificationWorker } from './workers/classification.worker.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
+import { startAlertsWorker } from './workers/alerts.worker.js';
 
 const app = Fastify({ loggerInstance: logger, trustProxy: true });
 let stopCollectionWorker: (() => void) | null = null;
 let stopClassificationWorker: (() => void) | null = null;
 let stopNewsFetchWorker: (() => void) | null = null;
+let stopAlertsWorker: (() => void) | null = null;
 
 async function main() {
   await app.register(cors, { origin: [config.APP_URL], credentials: true });
@@ -77,6 +80,7 @@ async function main() {
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(signalRoutes, { prefix: '/api/v1/signals' });
   await app.register(newsRoutes, { prefix: '/api/v1/news' });
+  await app.register(notifyRoutes, { prefix: '/api/v1/notify' });
 
   await app.listen({ port: config.API_PORT, host: '0.0.0.0' });
 
@@ -84,6 +88,7 @@ async function main() {
   stopCollectionWorker = startCollectionWorker();
   stopClassificationWorker = startClassificationWorker();
   stopNewsFetchWorker = startNewsFetchWorker();
+  stopAlertsWorker = startAlertsWorker();
 
   const banner =
     collectionMode === 'demo'
@@ -108,6 +113,7 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     stopCollectionWorker?.();
     stopClassificationWorker?.();
     stopNewsFetchWorker?.();
+    stopAlertsWorker?.();
     await app.close();
     await sql.end({ timeout: 5 }).catch(() => {});
     process.exit(0);

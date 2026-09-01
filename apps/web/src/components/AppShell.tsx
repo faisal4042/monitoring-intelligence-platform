@@ -7,7 +7,7 @@ import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import {
-  Activity, BadgeDollarSign, BookOpenText, ChartNoAxesCombined, ChevronLeft,
+  Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronLeft,
   CircleStop, Gauge, LogOut, Menu, Moon, Newspaper, PanelRightClose,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
   UserCog, UsersRound, X,
@@ -29,6 +29,7 @@ const NAV = [
   { to: '/classification', label: 'تصنيف التفاعلات', icon: ChartNoAxesCombined, perm: PERMISSIONS.TOPICS_READ },
   { to: '/topics', label: 'إدارة المواضيع', icon: BookOpenText, perm: PERMISSIONS.TOPICS_READ },
   { to: '/influencers', label: 'العملاء المؤثرون', icon: UsersRound, perm: PERMISSIONS.INFLUENCERS_READ },
+  { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/news/articles', label: 'الأخبار', icon: Newspaper, perm: PERMISSIONS.NEWS_READ },
   { to: '/news/sources', label: 'مصادر الأخبار', icon: Activity, perm: PERMISSIONS.NEWS_MANAGE_SOURCES },

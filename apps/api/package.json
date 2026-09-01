@@ -19,6 +19,7 @@
     "zod": "^3.24.1",
     "fast-xml-parser": "^4.5.1",
     "robots-parser": "^3.0.1",
+    "nodemailer": "^6.9.16",
     "@mip/config": "workspace:*",
     "@mip/logger": "workspace:*",
     "@mip/shared": "workspace:*",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "typescript": "^5.9.2",
     "tsx": "^4.20.3",
-    "@types/node": "^22.10.5"
+    "@types/node": "^22.10.5",
+    "@types/nodemailer": "^6.4.17"
   }
 }

@@ -77,6 +77,11 @@ const schema = z.object({
   NEWS_FETCH_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
   NEWS_DOMAIN_MIN_DELAY_MS: z.coerce.number().int().min(0).max(60_000).default(1000), // per-domain pacing, not a global rate cap
 
+  // Alerts — channel credentials live per-row in notification_channels
+  // (encrypted), not here; this only gates the evaluation tick.
+  ALERTS_ENABLED: bool.default('false'),
+  ALERTS_TICK_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

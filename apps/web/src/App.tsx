@@ -14,6 +14,7 @@ import TopicManagement from './pages/TopicManagement';
 import Influencers from './pages/Influencers';
 import Admin from './pages/Admin';
 import Users from './pages/Users';
+import Notifications from './pages/Notifications';
 import Signals from './pages/Signals';
 import NewsSources from './pages/NewsSources';
 import NewsArticles from './pages/NewsArticles';
@@ -55,6 +56,7 @@ export default function App() {
         <Route path="/influencers" element={<Influencers />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/news/sources" element={<NewsSources />} />
         <Route path="/news/articles" element={<NewsArticles />} />
         <Route path="*" element={<Navigate to="/" replace />} />
