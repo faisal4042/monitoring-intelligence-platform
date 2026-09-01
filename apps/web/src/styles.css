@@ -412,6 +412,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   cursor: pointer;
 }
 .history-close:hover { background: var(--surface-3); color: var(--text); }
+.history-x-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--text) 18%, transparent);
+  border-radius: 0.8rem;
+  background: var(--text);
+  padding: 0.6rem 0.85rem;
+  color: var(--surface);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--text) 16%, transparent);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+.history-x-button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+  box-shadow: 0 11px 26px color-mix(in srgb, var(--text) 22%, transparent);
+}
+.history-x-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-brand-500) 38%, transparent);
+  outline-offset: 3px;
+}
+.history-x-mark {
+  display: inline-grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  font-family: Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.history-x-external { opacity: 0.65; }
 .history-profile-bio {
   display: -webkit-box;
   flex: 0 0 auto;
@@ -530,6 +568,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--text-muted);
   font-size: 0.75rem;
 }
+.history-x-link {
+  display: inline-flex;
+  min-height: 2rem;
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.55rem;
+  padding: 0.3rem 0.55rem;
+  color: var(--color-brand-600);
+  font-weight: 700;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.history-x-link:hover { background: color-mix(in srgb, var(--color-brand-500) 10%, transparent); color: var(--color-brand-500); }
+.history-x-link:focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
 .history-empty { padding: 4rem 1rem; text-align: center; color: var(--text-muted); }
 .history-footer {
   flex: 0 0 auto;
@@ -543,7 +596,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .history-backdrop { padding: 0; }
   .history-modal { max-height: 100vh; height: 100vh; border: 0; border-radius: 0; }
   .history-header { align-items: flex-start; padding: 1rem; }
-  .history-header > a { display: none; }
+  .history-x-button { min-width: 2.75rem; padding-inline: 0.65rem; }
+  .history-x-label,
+  .history-x-external { display: none; }
   .history-toolbar { padding: 0.875rem 1rem; }
   .history-stats { margin-inline: 1rem; }
   .history-list { padding: 0.875rem 1rem; }

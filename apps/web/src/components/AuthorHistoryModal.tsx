@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime, fmtNum, fmtRelative } from '../lib/format';
 import Avatar from './Avatar';
-import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
+import { ExternalLink, Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 interface HistoryItem {
   id: string;
@@ -130,8 +130,17 @@ export default function AuthorHistoryModal({
             </div>
           </div>
           {author?.username && (
-            <a className="btn-ghost text-xs" href={`https://x.com/${author.username}`} target="_blank" rel="noreferrer">
-              فتح في X ↗
+            <a
+              className="history-x-button"
+              href={`https://x.com/${author.username}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`فتح حساب @${author.username} في X في نافذة جديدة`}
+              title={`فتح @${author.username} في X`}
+            >
+              <span className="history-x-mark" aria-hidden="true">X</span>
+              <span className="history-x-label">فتح في X</span>
+              <ExternalLink className="history-x-external" size={15} strokeWidth={2} aria-hidden="true" />
             </a>
           )}
         </header>
@@ -223,7 +232,11 @@ export default function AuthorHistoryModal({
                   <span className="truncate">طابق: {item.matched_keywords.join('، ')}</span>
                 ) : null}
                 {item.url && (
-                  <a className="ms-auto shrink-0 font-medium text-brand-600 hover:underline" href={item.url} target="_blank" rel="noreferrer">فتح في X ↗</a>
+                  <a className="history-x-link" href={item.url} target="_blank" rel="noreferrer" aria-label="فتح التفاعل في X في نافذة جديدة">
+                    <span aria-hidden="true">X</span>
+                    فتح في X
+                    <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />
+                  </a>
                 )}
               </div>
             </article>
