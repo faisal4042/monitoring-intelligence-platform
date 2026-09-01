@@ -10,7 +10,7 @@ import {
   Activity, BadgeDollarSign, BookOpenText, ChartNoAxesCombined, ChevronLeft,
   CircleStop, Gauge, LogOut, Menu, Moon, Newspaper, PanelRightClose,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
-  UsersRound, X,
+  UserCog, UsersRound, X,
 } from 'lucide-react';
 
 interface CostOverview {
@@ -32,6 +32,7 @@ const NAV = [
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/news/articles', label: 'الأخبار', icon: Newspaper, perm: PERMISSIONS.NEWS_READ },
   { to: '/news/sources', label: 'مصادر الأخبار', icon: Activity, perm: PERMISSIONS.NEWS_MANAGE_SOURCES },
+  { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_WRITE },
   { to: '/admin', label: 'لوحة النظام', icon: Settings2, perm: PERMISSIONS.ADMIN_SYSTEM },
 ];
 

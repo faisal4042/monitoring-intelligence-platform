@@ -13,6 +13,7 @@ import InteractionClassification from './pages/InteractionClassification';
 import TopicManagement from './pages/TopicManagement';
 import Influencers from './pages/Influencers';
 import Admin from './pages/Admin';
+import Users from './pages/Users';
 import Signals from './pages/Signals';
 import NewsSources from './pages/NewsSources';
 import NewsArticles from './pages/NewsArticles';
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/topics" element={<TopicManagement />} />
         <Route path="/influencers" element={<Influencers />} />
         <Route path="/admin" element={<Admin />} />
+        <Route path="/users" element={<Users />} />
         <Route path="/news/sources" element={<NewsSources />} />
         <Route path="/news/articles" element={<NewsArticles />} />
         <Route path="*" element={<Navigate to="/" replace />} />

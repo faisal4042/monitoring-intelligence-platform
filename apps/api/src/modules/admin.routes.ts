@@ -1,8 +1,26 @@
 /** Developer Console and audit log. */
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { sql } from '@mip/db';
 import { config, collectionMode } from '@mip/config';
 import { PERMISSIONS } from '@mip/shared';
+import { hashPassword } from '../plugins/auth.js';
+import { audit } from '../lib/audit.js';
+import { badRequest, conflict, notFound } from '../lib/errors.js';
+
+const createUserSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().min(2).max(120),
+  password: z.string().min(8).max(200),
+  roleId: z.string().uuid(),
+});
+
+const updateUserSchema = z.object({
+  fullName: z.string().min(2).max(120).optional(),
+  email: z.string().email().optional(),
+  roleId: z.string().uuid().optional(),
+  isActive: z.boolean().optional(),
+});
 
 export default async function adminRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
@@ -124,4 +142,114 @@ export default async function adminRoutes(app: FastifyInstance) {
       SELECT r.*, ARRAY(SELECT permission_key FROM role_permissions WHERE role_id = r.id) AS permissions
       FROM roles r ORDER BY r.key`,
   }));
+
+  app.post('/users', {
+    preHandler: [app.requirePermission(PERMISSIONS.USERS_WRITE)],
+  }, async (req) => {
+    const parsed = createUserSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0].message);
+    const { email, fullName, password, roleId } = parsed.data;
+
+    const [role] = await sql`SELECT id, name_ar FROM roles WHERE id = ${roleId}::uuid`;
+    if (!role) throw badRequest('الدور غير موجود');
+
+    const passwordHash = await hashPassword(password);
+    try {
+      const [created] = await sql`
+        INSERT INTO users (email, full_name, password_hash, role_id)
+        VALUES (${email}, ${fullName}, ${passwordHash}, ${roleId}::uuid)
+        RETURNING id, email, full_name, is_active, created_at`;
+
+      await audit(req, {
+        action: 'user.create', entityType: 'user', entityId: created.id,
+        entityLabel: `${created.email} — ${role.name_ar}`, newValue: created, severity: 'critical',
+      });
+      return created;
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') throw conflict('البريد الإلكتروني مستخدم بالفعل');
+      throw error;
+    }
+  });
+
+  app.patch('/users/:id', {
+    preHandler: [app.requirePermission(PERMISSIONS.USERS_WRITE)],
+  }, async (req) => {
+    const { id } = req.params as { id: string };
+    const parsed = updateUserSchema.safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0].message);
+    const body = parsed.data;
+
+    const [before] = await sql`SELECT id, email, full_name, role_id, is_active FROM users WHERE id = ${id}::uuid AND deleted_at IS NULL`;
+    if (!before) throw notFound('المستخدم غير موجود');
+
+    if (id === req.user.id && body.isActive === false) {
+      throw badRequest('لا يمكنك إيقاف حسابك الخاص');
+    }
+    if (body.roleId) {
+      const [role] = await sql`SELECT id FROM roles WHERE id = ${body.roleId}::uuid`;
+      if (!role) throw badRequest('الدور غير موجود');
+    }
+
+    try {
+      const [after] = await sql`
+        UPDATE users SET
+          full_name = COALESCE(${body.fullName ?? null}, full_name),
+          email = COALESCE(${body.email ?? null}, email),
+          role_id = COALESCE(${body.roleId ?? null}::uuid, role_id),
+          is_active = COALESCE(${body.isActive ?? null}, is_active),
+          updated_at = now()
+        WHERE id = ${id}::uuid
+        RETURNING id, email, full_name, role_id, is_active, updated_at`;
+
+      await audit(req, {
+        action: 'user.update', entityType: 'user', entityId: id,
+        entityLabel: after.email, oldValue: before, newValue: after,
+        severity: body.isActive === false ? 'critical' : 'warning',
+      });
+      return after;
+    } catch (error) {
+      if ((error as { code?: string }).code === '23505') throw conflict('البريد الإلكتروني مستخدم بالفعل');
+      throw error;
+    }
+  });
+
+  app.post('/users/:id/reset-password', {
+    preHandler: [app.requirePermission(PERMISSIONS.USERS_WRITE)],
+  }, async (req) => {
+    const { id } = req.params as { id: string };
+    const parsed = z.object({ password: z.string().min(8).max(200) }).safeParse(req.body);
+    if (!parsed.success) throw badRequest(parsed.error.issues[0].message);
+
+    const [user] = await sql`SELECT id, email FROM users WHERE id = ${id}::uuid AND deleted_at IS NULL`;
+    if (!user) throw notFound('المستخدم غير موجود');
+
+    const passwordHash = await hashPassword(parsed.data.password);
+    await sql`
+      UPDATE users SET password_hash = ${passwordHash}, failed_login_attempts = 0, locked_until = null, updated_at = now()
+      WHERE id = ${id}::uuid`;
+
+    await audit(req, {
+      action: 'user.reset_password', entityType: 'user', entityId: id,
+      entityLabel: user.email, severity: 'critical',
+    });
+    return { ok: true };
+  });
+
+  app.delete('/users/:id', {
+    preHandler: [app.requirePermission(PERMISSIONS.USERS_WRITE)],
+  }, async (req) => {
+    const { id } = req.params as { id: string };
+    if (id === req.user.id) throw badRequest('لا يمكنك حذف حسابك الخاص');
+
+    const [user] = await sql`SELECT id, email FROM users WHERE id = ${id}::uuid AND deleted_at IS NULL`;
+    if (!user) throw notFound('المستخدم غير موجود');
+
+    await sql`UPDATE users SET deleted_at = now(), is_active = false WHERE id = ${id}::uuid`;
+
+    await audit(req, {
+      action: 'user.delete', entityType: 'user', entityId: id,
+      entityLabel: user.email, severity: 'critical',
+    });
+    return { ok: true };
+  });
 }
