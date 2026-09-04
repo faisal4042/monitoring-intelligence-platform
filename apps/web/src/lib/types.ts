@@ -1,5 +1,5 @@
 export interface Post {
-  id: string; x_post_id: string; x_author_id: string; text: string; posted_at: string; url: string;
+  id: string; x_post_id: string; x_author_id: string; text: string; posted_at: string; collected_at?: string; url: string;
   username: string | null; display_name: string | null; followers_count: number | null;
   profile_image_url: string | null; author_bio: string | null;
   is_verified: boolean | null; relevance: string | null; intent: string | null;

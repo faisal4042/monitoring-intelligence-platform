@@ -139,7 +139,12 @@ export default function PostCard({
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3 text-xs muted">
             <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-brand-600 hover:underline">
-              {fmtRelative(p.posted_at)}
+              نُشر {fmtRelative(p.posted_at)}
+              {p.collected_at && (() => {
+                const seconds = Math.max(0, Math.round((new Date(p.collected_at).getTime() - new Date(p.posted_at).getTime()) / 1000));
+                const latency = seconds < 60 ? `${seconds} ث` : `${Math.round(seconds / 60)} د`;
+                return <span className="mr-1">· وصل خلال {latency}</span>;
+              })()}
             </a>
             <span className={sent.cls}>{sent.text}</span>
             {p.program_name && (

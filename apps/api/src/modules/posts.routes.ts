@@ -20,7 +20,7 @@ export default async function postRoutes(app: FastifyInstance) {
     const search = q.q ? normalizeArabic(q.q) : null;
 
     const rows = await sql`
-      SELECT p.id, p.x_post_id, p.x_author_id, p.text, p.posted_at, p.lang, p.url, p.hashtags,
+      SELECT p.id, p.x_post_id, p.x_author_id, p.text, p.posted_at, p.collected_at, p.lang, p.url, p.hashtags,
              p.matched_keywords, p.status, p.risk_score, p.filter_reason,
              p.duplicate_type, p.duplicate_of_id,
              a.username, a.display_name, a.followers_count, a.is_verified, a.profile_image_url,
