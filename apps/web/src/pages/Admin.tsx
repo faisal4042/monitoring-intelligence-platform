@@ -8,7 +8,7 @@ const AUDIT_PAGE_SIZE = 10;
 
 interface Health {
   database: { ok: boolean; latencyMs: number };
-  collection: { mode: string; liveXApi: boolean; dryRun: boolean; hasToken: boolean };
+  collection: { mode: string; liveXApi: boolean; filteredStream: boolean; dryRun: boolean; hasToken: boolean };
   ai: { serviceUrl: string; allowInternalToExternal: boolean };
   lastSuccessfulRequest: { occurred_at: string; endpoint: string; mode: string } | null;
   lastFailedRequest: { occurred_at: string; error_code: string; error_message: string } | null;
@@ -86,6 +86,7 @@ export default function Admin() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span>الوضع</span><span className="num font-medium">{h?.collection.mode}</span></div>
             <div className="flex justify-between"><span>LIVE_X_API</span><span className="num">{String(h?.collection.liveXApi)}</span></div>
+            <div className="flex justify-between"><span>X Filtered Stream</span><span className="num">{h?.collection.filteredStream ? 'لحظي' : 'متوقف'}</span></div>
             <div className="flex justify-between"><span>X_DRY_RUN</span><span className="num">{String(h?.collection.dryRun)}</span></div>
             <div className="flex justify-between"><span>مفتاح X</span><span className="num">{h?.collection.hasToken ? 'موجود' : 'غير موجود'}</span></div>
             <div className="flex justify-between text-xs pt-2 border-t" style={{ borderColor: 'var(--border)' }}>

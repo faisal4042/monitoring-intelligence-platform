@@ -33,7 +33,9 @@ export default function LiveFeed() {
       if (q) p.set('q', q);
       return api.get<{ items: Post[]; nextCursor: string | null }>(`/posts?${p}`);
     },
-    refetchInterval: 20_000,
+    // X delivers matching posts to the backend continuously; keep the browser
+    // close to that stream without exposing X credentials client-side.
+    refetchInterval: 5_000,
   });
 
   const { data: whyData } = useQuery({

@@ -98,6 +98,7 @@ export default async function adminRoutes(app: FastifyInstance) {
       collection: {
         mode: collectionMode,
         liveXApi: config.LIVE_X_API,
+        filteredStream: config.X_STREAM_ENABLED,
         dryRun: config.X_DRY_RUN,
         hasToken: Boolean(config.X_BEARER_TOKEN),
       },
