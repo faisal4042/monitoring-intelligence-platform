@@ -30,7 +30,9 @@ const schema = z.object({
   X_BEARER_TOKEN: z.string().optional(),
   AUTO_COLLECTION_ENABLED: bool.default('false'),
   AUTO_COLLECTION_TICK_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
-  AUTO_COLLECTION_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(1440).default(15),
+  // Two-minute production fallback is safe with the current eight queries
+  // (60 requests / 15 min) while Filtered Stream remains the primary path.
+  AUTO_COLLECTION_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(2),
   AUTO_COLLECTION_MAX_RESULTS: z.coerce.number().int().min(10).max(100).default(10),
   AUTO_COLLECTION_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
   AUTO_COLLECTION_EXCLUDED_USERS: z.string().default(''),
