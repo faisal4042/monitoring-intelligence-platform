@@ -12,6 +12,21 @@ export interface SearchRequest {
   triggeredBy?: string;
 }
 
+export interface FilteredStreamRule {
+  value: string;
+  tag: string;
+}
+
+export interface FilteredStreamMatch {
+  id: string;
+  tag?: string;
+}
+
+export interface FilteredStreamEvent {
+  post: XPost;
+  matchingRules: FilteredStreamMatch[];
+}
+
 export interface XMedia {
   mediaKey: string;
   type: string;

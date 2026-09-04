@@ -3,6 +3,20 @@ import { config } from '@mip/config';
 import { xApiGateway } from '@mip/x-collector';
 import { loadDictionary, classify } from './classification/classifier.js';
 import { containsSensitiveData } from '../lib/privacy.js';
+import type { XPost } from '@mip/x-collector';
+
+interface CollectionQueryRow {
+  id: string;
+  program_id: string;
+  name: string;
+  status: string;
+  current_version_id: string;
+  max_results_per_call: number;
+  since_id: string | null;
+  official_accounts: string[];
+}
+
+interface CollectionVersionRow { id: string; compiled: string }
 
 export interface CollectionSummary {
   queryId: string;
@@ -36,12 +50,38 @@ function excludeOfficialAuthors(compiled: string, officialAccounts: string[]): s
   return safeQuery;
 }
 
+export interface FilteredStreamQuery {
+  queryId: string;
+  queryVersionId: string;
+  programId: string;
+  value: string;
+}
+
+export async function listFilteredStreamQueries(): Promise<FilteredStreamQuery[]> {
+  const rows = await sql<Array<{
+    id: string; program_id: string; current_version_id: string;
+    compiled: string; official_accounts: string[];
+  }>>`
+    SELECT q.id, q.program_id, q.current_version_id, v.compiled, p.official_accounts
+    FROM queries q
+    JOIN query_versions v ON v.id = q.current_version_id
+    JOIN programs p ON p.id = q.program_id
+    WHERE q.status = 'active' AND NOT q.is_paused
+      AND q.deleted_at IS NULL AND q.current_version_id IS NOT NULL
+    ORDER BY q.id`;
+  const globallyExcluded = config.AUTO_COLLECTION_EXCLUDED_USERS
+    .split(',').map((value) => value.trim()).filter(Boolean);
+
+  return rows.map((row) => ({
+    queryId: row.id,
+    queryVersionId: row.current_version_id,
+    programId: row.program_id,
+    value: excludeOfficialAuthors(row.compiled, [...row.official_accounts, ...globallyExcluded]),
+  })).filter((row) => row.value.length <= X_QUERY_MAX_LENGTH);
+}
+
 export async function collectQuery(queryId: string, triggeredBy?: string): Promise<CollectionSummary> {
-  const [query] = await sql<{
-    id: string; program_id: string; name: string; status: string;
-    current_version_id: string; max_results_per_call: number; since_id: string | null;
-    official_accounts: string[];
-  }[]>`
+  const [query] = await sql<CollectionQueryRow[]>`
     SELECT q.id, q.program_id, q.name, q.status::text, q.current_version_id,
            q.max_results_per_call, q.since_id, p.official_accounts
     FROM queries q
@@ -52,7 +92,7 @@ export async function collectQuery(queryId: string, triggeredBy?: string): Promi
     throw new CollectionError('الاستعلام غير مفعّل', 'NOT_ACTIVE');
   }
 
-  const [version] = await sql<{ id: string; compiled: string }[]>`
+  const [version] = await sql<CollectionVersionRow[]>`
     SELECT id, compiled FROM query_versions WHERE id = ${query.current_version_id}::uuid`;
   if (!version) throw new CollectionError('لا توجد نسخة فعالة للاستعلام', 'NO_VERSION');
 
@@ -89,13 +129,27 @@ export async function collectQuery(queryId: string, triggeredBy?: string): Promi
     throw new CollectionError(message ?? 'فشل الجمع', result.denied?.reason);
   }
 
+  return persistCollectedPosts(
+    query, version, result.data, result.mode, result.unitsConsumed, result.newestId,
+  );
+}
+
+async function persistCollectedPosts(
+  query: CollectionQueryRow,
+  version: CollectionVersionRow,
+  posts: XPost[],
+  mode: string,
+  unitsConsumed: number,
+  newestId?: string,
+): Promise<CollectionSummary> {
+
   const dict = await loadDictionary(query.program_id);
   let inserted = 0;
   let duplicates = 0;
   let contentDuplicates = 0;
   let filtered = 0;
 
-  for (const post of result.data) {
+  for (const post of posts) {
     const normalized = normalizeArabic(post.text);
     const hash = contentHash(post.text);
     const containsPii = containsSensitiveData(post.text);
@@ -197,8 +251,8 @@ export async function collectQuery(queryId: string, triggeredBy?: string): Promi
       ON CONFLICT DO NOTHING`;
   }
 
-  if (result.newestId || result.data.length > 0) {
-    const newest = result.newestId ?? result.data[0]?.id;
+  if (newestId || posts.length > 0) {
+    const newest = newestId ?? posts[0]?.id;
     if (newest) await sql`UPDATE queries SET since_id = ${newest} WHERE id = ${query.id}::uuid`;
   }
 
@@ -217,12 +271,29 @@ export async function collectQuery(queryId: string, triggeredBy?: string): Promi
   return {
     queryId: query.id,
     queryName: query.name,
-    mode: result.mode,
-    retrieved: result.data.length,
+    mode,
+    retrieved: posts.length,
     inserted,
     duplicates,
     contentDuplicates,
     filtered,
-    unitsConsumed: result.unitsConsumed,
+    unitsConsumed,
   };
+}
+
+/** Persist a post already delivered by X Filtered Stream. */
+export async function collectStreamPost(queryId: string, post: XPost): Promise<CollectionSummary> {
+  const [query] = await sql<CollectionQueryRow[]>`
+    SELECT q.id, q.program_id, q.name, q.status::text, q.current_version_id,
+           q.max_results_per_call, q.since_id, p.official_accounts
+    FROM queries q
+    JOIN programs p ON p.id = q.program_id
+    WHERE q.id = ${queryId}::uuid AND q.deleted_at IS NULL`;
+  if (!query || query.status !== 'active') {
+    throw new CollectionError('Filtered-stream query is missing or inactive', 'NOT_ACTIVE');
+  }
+  const [version] = await sql<CollectionVersionRow[]>`
+    SELECT id, compiled FROM query_versions WHERE id = ${query.current_version_id}::uuid`;
+  if (!version) throw new CollectionError('Filtered-stream query has no active version', 'NO_VERSION');
+  return persistCollectedPosts(query, version, [post], 'live', 1, post.id);
 }

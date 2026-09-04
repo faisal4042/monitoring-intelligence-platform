@@ -34,6 +34,9 @@ const schema = z.object({
   AUTO_COLLECTION_MAX_RESULTS: z.coerce.number().int().min(10).max(100).default(10),
   AUTO_COLLECTION_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
   AUTO_COLLECTION_EXCLUDED_USERS: z.string().default(''),
+  X_STREAM_ENABLED: bool.default('false'),
+  X_STREAM_RULE_REFRESH_SECONDS: z.coerce.number().int().min(30).max(3600).default(60),
+  X_STREAM_RECONNECT_MAX_SECONDS: z.coerce.number().int().min(10).max(300).default(60),
 
   AI_SERVICE_URL: z.string().default('http://localhost:8000'),
   AI_API_KEY: z.string().optional(),

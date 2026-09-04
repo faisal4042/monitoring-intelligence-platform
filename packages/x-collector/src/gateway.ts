@@ -25,12 +25,46 @@ import { usageService } from './usage.service.js';
 import { getPricing, getFieldSelection } from './settings.js';
 import { MockXClient } from './mock-client.js';
 import { RealXClient } from './real-client.js';
-import type { SearchRequest, XPost, XUser, GatewayResult } from './types.js';
+import type {
+  SearchRequest, XPost, XUser, GatewayResult,
+  FilteredStreamRule, FilteredStreamEvent,
+} from './types.js';
 
 const mock = new MockXClient();
 const real = new RealXClient();
 
 export class XApiGateway {
+  async replaceFilteredStreamRules(rules: FilteredStreamRule[], tagPrefix: string): Promise<void> {
+    if (collectionMode !== 'live') return;
+    const kill = await killSwitchService.check({});
+    if (kill) throw Object.assign(new Error(`Collection stopped: ${kill.reason}`), { code: 'KILL_SWITCH' });
+    await real.replaceManagedFilteredStreamRules(rules, tagPrefix);
+  }
+
+  async streamFiltered(
+    onEvent: (event: FilteredStreamEvent) => Promise<void>,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (collectionMode !== 'live') return;
+    const fields = await getFieldSelection();
+    await real.streamFiltered(fields, onEvent, signal);
+  }
+
+  async streamDeliveryAllowed(queryId: string, programId: string): Promise<boolean> {
+    return !(await killSwitchService.check({ queryId, programId }));
+  }
+
+  async recordStreamDelivery(req: Pick<SearchRequest, 'queryId' | 'queryVersionId' | 'programId'>): Promise<void> {
+    const pricing = await getPricing();
+    await usageService.record({
+      endpoint: 'filtered_stream', purpose: 'collection',
+      queryId: req.queryId, queryVersionId: req.queryVersionId,
+      programId: req.programId, unitsConsumed: 1,
+      unitPrice: pricing.unitPrice, costEstimate: pricing.unitPrice,
+      httpStatus: 200, latencyMs: 0, mode: 'live', triggeredBy: 'x_filtered_stream',
+    });
+  }
+
   async searchRecent(req: SearchRequest): Promise<GatewayResult<XPost[]>> {
     const started = Date.now();
     const pricing = await getPricing();

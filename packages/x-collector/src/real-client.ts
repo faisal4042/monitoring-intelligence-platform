@@ -5,7 +5,10 @@
  */
 import { config } from '@mip/config';
 import { xApiLogger as log } from '@mip/logger';
-import type { SearchRequest, XPost, XUser, XMedia, FieldSelection } from './types.js';
+import type {
+  SearchRequest, XPost, XUser, XMedia, FieldSelection,
+  FilteredStreamRule, FilteredStreamEvent,
+} from './types.js';
 
 const BASE = 'https://api.x.com/2';
 
@@ -72,10 +75,97 @@ export class RealXClient {
       meta?: { newest_id?: string; result_count?: number };
     };
 
-    const usersById = new Map((json.includes?.users ?? []).map((u) => [u.id, u]));
-    const mediaByKey = new Map((json.includes?.media ?? []).map((m) => [m.media_key, m]));
+    const posts = this.mapPosts(json.data ?? [], json.includes);
 
-    const posts: XPost[] = (json.data ?? []).map((t) => {
+    return {
+      posts,
+      status: res.status,
+      newestId: json.meta?.newest_id,
+      rateLimitRemaining: Number.isNaN(rateLimitRemaining) ? undefined : rateLimitRemaining,
+    };
+  }
+
+  async replaceManagedFilteredStreamRules(rules: FilteredStreamRule[], tagPrefix: string): Promise<void> {
+    const currentRes = await fetch(`${BASE}/tweets/search/stream/rules`, { headers: this.headers() });
+    if (!currentRes.ok) throw await this.httpError(currentRes);
+    const current = (await currentRes.json()) as { data?: Array<{ id: string; tag?: string }> };
+    const managedIds = (current.data ?? [])
+      .filter((rule) => rule.tag?.startsWith(tagPrefix))
+      .map((rule) => rule.id);
+
+    if (managedIds.length > 0) {
+      const res = await fetch(`${BASE}/tweets/search/stream/rules`, {
+        method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delete: { ids: managedIds } }),
+      });
+      if (!res.ok) throw await this.httpError(res);
+    }
+
+    // X accepts rule creation in batches; keeping batches small also makes a
+    // rejected rule easy to identify in the returned error payload.
+    for (let i = 0; i < rules.length; i += 25) {
+      const res = await fetch(`${BASE}/tweets/search/stream/rules`, {
+        method: 'POST', headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ add: rules.slice(i, i + 25) }),
+      });
+      if (!res.ok) throw await this.httpError(res);
+      const body = (await res.json()) as { errors?: unknown[] };
+      if (body.errors?.length) throw Object.assign(new Error(`X rejected filtered-stream rules: ${JSON.stringify(body.errors)}`), { code: 'RULES_REJECTED' });
+    }
+  }
+
+  async streamFiltered(
+    fields: FieldSelection,
+    onEvent: (event: FilteredStreamEvent) => Promise<void>,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const params = new URLSearchParams({
+      'tweet.fields': fields.tweetFields.join(','),
+      'user.fields': fields.userFields.join(','),
+      expansions: fields.expansions.join(','),
+    });
+    if (fields.mediaFields.length > 0) params.set('media.fields', fields.mediaFields.join(','));
+
+    const res = await fetch(`${BASE}/tweets/search/stream?${params}`, {
+      headers: this.headers(), signal,
+    });
+    if (!res.ok) throw await this.httpError(res);
+    if (!res.body) throw new Error('X filtered stream returned no response body');
+
+    const decoder = new TextDecoder();
+    let pending = '';
+    for await (const chunk of res.body) {
+      pending += decoder.decode(chunk, { stream: true });
+      let newline = pending.indexOf('\n');
+      while (newline >= 0) {
+        const line = pending.slice(0, newline).trim();
+        pending = pending.slice(newline + 1);
+        newline = pending.indexOf('\n');
+        if (!line) continue; // heartbeat
+        const payload = JSON.parse(line) as {
+          data?: RawTweet;
+          includes?: { users?: RawUser[]; media?: RawMedia[] };
+          matching_rules?: Array<{ id: string; tag?: string }>;
+          errors?: unknown[];
+        };
+        if (payload.errors?.length) {
+          log.warn({ errors: payload.errors }, 'X filtered stream payload contained errors');
+        }
+        if (!payload.data) continue;
+        const [post] = this.mapPosts([payload.data], payload.includes);
+        if (post) await onEvent({ post, matchingRules: payload.matching_rules ?? [] });
+      }
+    }
+  }
+
+  private mapPosts(
+    tweets: RawTweet[],
+    includes?: { users?: RawUser[]; media?: RawMedia[] },
+  ): XPost[] {
+    const usersById = new Map((includes?.users ?? []).map((u) => [u.id, u]));
+    const mediaByKey = new Map((includes?.media ?? []).map((m) => [m.media_key, m]));
+
+    return tweets.map((t) => {
       const ref = t.referenced_tweets?.[0];
       const u = usersById.get(t.author_id);
       const media: XMedia[] = (t.attachments?.media_keys ?? [])
@@ -110,12 +200,15 @@ export class RealXClient {
       };
     });
 
-    return {
-      posts,
+  }
+
+  private async httpError(res: Response): Promise<Error> {
+    const body = await res.text().catch(() => '');
+    log.error({ status: res.status, body: body.slice(0, 500) }, 'X API error');
+    return Object.assign(new Error(`X API ${res.status}: ${body.slice(0, 300)}`), {
       status: res.status,
-      newestId: json.meta?.newest_id,
-      rateLimitRemaining: Number.isNaN(rateLimitRemaining) ? undefined : rateLimitRemaining,
-    };
+      code: res.status === 429 ? 'RATE_LIMITED' : res.status === 401 ? 'UNAUTHORIZED' : 'HTTP_ERROR',
+    });
   }
 
   async getUsers(ids: string[], fields: FieldSelection): Promise<XUser[]> {

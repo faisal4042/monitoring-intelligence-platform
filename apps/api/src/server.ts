@@ -24,12 +24,14 @@ import { ensureAutomaticQueries, startCollectionWorker } from './workers/collect
 import { startClassificationWorker } from './workers/classification.worker.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
 import { startAlertsWorker } from './workers/alerts.worker.js';
+import { startXStreamWorker } from './workers/x-stream.worker.js';
 
 const app = Fastify({ loggerInstance: logger, trustProxy: true });
 let stopCollectionWorker: (() => void) | null = null;
 let stopClassificationWorker: (() => void) | null = null;
 let stopNewsFetchWorker: (() => void) | null = null;
 let stopAlertsWorker: (() => void) | null = null;
+let stopXStreamWorker: (() => void) | null = null;
 
 async function main() {
   await app.register(cors, { origin: [config.APP_URL], credentials: true });
@@ -88,6 +90,7 @@ async function main() {
 
   const automaticQueries = await ensureAutomaticQueries();
   stopCollectionWorker = startCollectionWorker();
+  stopXStreamWorker = startXStreamWorker();
   stopClassificationWorker = startClassificationWorker();
   stopNewsFetchWorker = startNewsFetchWorker();
   stopAlertsWorker = startAlertsWorker();
@@ -113,6 +116,7 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, async () => {
     logger.info('shutting down');
     stopCollectionWorker?.();
+    stopXStreamWorker?.();
     stopClassificationWorker?.();
     stopNewsFetchWorker?.();
     stopAlertsWorker?.();
