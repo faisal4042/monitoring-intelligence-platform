@@ -62,7 +62,9 @@ export class XApiGateway {
       queryId: req.queryId, queryVersionId: req.queryVersionId,
       programId: req.programId, unitsConsumed: 1,
       unitPrice: pricing.unitPrice, costEstimate: pricing.unitPrice,
-      httpStatus: 200, latencyMs: 0, mode: 'live', triggeredBy: 'x_filtered_stream',
+      // triggered_by is a users.id UUID. Stream delivery is initiated by X,
+      // not by an authenticated operator, so it must remain NULL.
+      httpStatus: 200, latencyMs: 0, mode: 'live',
     });
   }
 
