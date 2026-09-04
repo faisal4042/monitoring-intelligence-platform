@@ -24,7 +24,7 @@ import { ensureAutomaticQueries, startCollectionWorker } from './workers/collect
 import { startClassificationWorker } from './workers/classification.worker.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
 import { startAlertsWorker } from './workers/alerts.worker.js';
-import { startXStreamWorker } from './workers/x-stream.worker.js';
+import { getXStreamStatus, startXStreamWorker } from './workers/x-stream.worker.js';
 
 const app = Fastify({ loggerInstance: logger, trustProxy: true });
 let stopCollectionWorker: (() => void) | null = null;
@@ -69,7 +69,24 @@ async function main() {
   app.get('/health', async () => {
     let db = true;
     try { await sql`SELECT 1`; } catch { db = false; }
-    return { ok: db, mode: collectionMode, time: new Date().toISOString() };
+    let collectionLatency = null;
+    if (db) {
+      const [row] = await sql`
+        SELECT round(extract(epoch FROM (collected_at - posted_at)))::int AS latest_seconds,
+               collected_at AS latest_collected_at, posted_at AS latest_posted_at
+        FROM posts ORDER BY collected_at DESC LIMIT 1`;
+      collectionLatency = row ?? null;
+    }
+    const stream = getXStreamStatus();
+    return {
+      ok: db, mode: collectionMode, time: new Date().toISOString(),
+      xStream: {
+        state: stream.state, rules: stream.rules,
+        connectedAt: stream.connectedAt, lastEventAt: stream.lastEventAt,
+        hasError: Boolean(stream.lastError),
+      },
+      collectionLatency,
+    };
   });
 
   await app.register(authRoutes, { prefix: '/api/v1/auth' });

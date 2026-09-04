@@ -118,6 +118,7 @@ export class RealXClient {
     fields: FieldSelection,
     onEvent: (event: FilteredStreamEvent) => Promise<void>,
     signal: AbortSignal,
+    onConnected?: () => void,
   ): Promise<void> {
     const params = new URLSearchParams({
       'tweet.fields': fields.tweetFields.join(','),
@@ -131,6 +132,7 @@ export class RealXClient {
     });
     if (!res.ok) throw await this.httpError(res);
     if (!res.body) throw new Error('X filtered stream returned no response body');
+    onConnected?.();
 
     const decoder = new TextDecoder();
     let pending = '';

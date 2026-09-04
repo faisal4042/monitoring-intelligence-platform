@@ -44,10 +44,11 @@ export class XApiGateway {
   async streamFiltered(
     onEvent: (event: FilteredStreamEvent) => Promise<void>,
     signal: AbortSignal,
+    onConnected?: () => void,
   ): Promise<void> {
     if (collectionMode !== 'live') return;
     const fields = await getFieldSelection();
-    await real.streamFiltered(fields, onEvent, signal);
+    await real.streamFiltered(fields, onEvent, signal, onConnected);
   }
 
   async streamDeliveryAllowed(queryId: string, programId: string): Promise<boolean> {
