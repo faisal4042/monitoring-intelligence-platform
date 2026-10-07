@@ -7,7 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "test:db": "tsx src/test/prepare-test-db.ts",
+    "test:integration": "tsx src/test/prepare-test-db.ts && tsx --test --test-concurrency=1 src/test/*.itest.ts"
   },
   "dependencies": {
     "fastify": "^5.2.1",

@@ -45,6 +45,9 @@ const PERMISSION_DESCRIPTIONS: Record<string, [string, string]> = {
   'news:read': ['news', 'عرض رصد الأخبار والمواقع'],
   'news:manage_sources': ['news', 'إدارة مصادر الأخبار (إضافة/تعديل/تعطيل)'],
   'audit:read': ['admin', 'عرض سجل التدقيق'],
+  'customers:read': ['customers', 'عرض سجل تفاعلات العميل'],
+  'users:read': ['admin', 'عرض المستخدمين'],
+  'users:assign_roles': ['admin', 'تعيين أدوار وصلاحيات المستخدمين — صلاحية حرجة'],
   'admin:system': ['admin', 'لوحة النظام والمطور'],
 };
 

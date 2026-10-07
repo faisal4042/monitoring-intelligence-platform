@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime, fmtNum, fmtRelative } from '../lib/format';
 import Avatar from './Avatar';
+import { PERMISSIONS } from '@mip/shared';
+import { useAuth } from '../lib/auth';
 import DateRangeFilter from './DateRangeFilter';
 import { useLocalDateRange } from '../lib/useDateRange';
 import { ExternalLink, Heart, MessageCircle, Repeat2 } from 'lucide-react';
@@ -71,12 +73,15 @@ export default function AuthorHistoryModal({
   xAuthorId: string;
   onClose: () => void;
 }) {
+  // Customer history is personal data: customers:read only (the API enforces it too).
+  const { can } = useAuth();
+  const allowed = can(PERMISSIONS.CUSTOMERS_READ);
   // Local, not URL, state: the page underneath owns ?range= for its own list.
   const dateRange = useLocalDateRange();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(() => new Set());
   const { data, isLoading, isError } = useQuery({
     queryKey: ['author-history', xAuthorId, dateRange.apiQuery],
-    enabled: !dateRange.error,
+    enabled: allowed && !dateRange.error,
     queryFn: () => api.get<AuthorHistory>(
       `/posts/authors/${encodeURIComponent(xAuthorId)}/history?${dateRange.apiQuery}`,
     ),
@@ -103,6 +108,8 @@ export default function AuthorHistoryModal({
       return next;
     });
   };
+
+  if (!allowed) return null;
 
   return (
     <div className="history-backdrop" role="presentation" onMouseDown={onClose}>
