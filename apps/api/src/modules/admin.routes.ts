@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { sql } from '@mip/db';
 import { config, collectionMode } from '@mip/config';
 import { PERMISSIONS } from '@mip/shared';
+import { partitionCoverage } from '../lib/partitions.js';
 
 export default async function adminRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
@@ -88,6 +89,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       lastSuccessfulRequest: lastOk ?? null,
       lastFailedRequest: lastFail ?? null,
       lastBudgetDenial: lastDenial ?? null,
+      // How far monthly partitions reach; inserts past coverageUntil would fail.
+      partitions: await partitionCoverage(),
       counts,
       classificationStages: stages,
       // Redis + BullMQ arrive with the worker in Phase 1.D.
