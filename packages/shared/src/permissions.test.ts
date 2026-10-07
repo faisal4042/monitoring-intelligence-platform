@@ -17,7 +17,7 @@ test('every role is defined, labelled and free of duplicates or unknown keys', (
 
 test('agent: exactly the monitoring set, nothing administrative', () => {
   assert.deepEqual([...ROLE_PERMISSIONS.agent].sort(), [
-    P.CUSTOMERS_READ, P.FEEDBACK_WRITE, P.NEWS_READ, P.POSTS_READ, P.PROGRAMS_READ, P.TOPICS_READ,
+    P.CUSTOMERS_READ, P.FEEDBACK_WRITE, P.NEWS_READ, P.POSTS_READ, P.PROGRAMS_READ, P.TOPICS_READ, P.QUEUE_WORK,
   ].sort());
   for (const forbidden of [
     P.QUERY_TEST, P.QUERY_PROMOTE, P.KEYWORDS_WRITE, P.QUERIES_WRITE, P.INFLUENCERS_WRITE,
