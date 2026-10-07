@@ -3,6 +3,8 @@ import { fmtDateTime, fmtNum, parseInstant } from '../lib/format';
 import DateTime from './DateTime';
 import type { Post } from '../lib/types';
 import Avatar from './Avatar';
+import { PERMISSIONS } from '@mip/shared';
+import { useAuth } from '../lib/auth';
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 const REL: Record<string, { text: string; cls: string }> = {
@@ -29,6 +31,8 @@ export default function PostCard({
   onHistory: (xAuthorId: string) => void;
   onLightbox: (url: string) => void;
 }) {
+  const { can } = useAuth();
+  const canHistory = can(PERMISSIONS.CUSTOMERS_READ);
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
   const textRef = useRef<HTMLAnchorElement>(null);
@@ -56,7 +60,8 @@ export default function PostCard({
         <button
           type="button"
           onClick={() => onHistory(p.x_author_id)}
-          className="rounded-full focus-visible:outline-2 focus-visible:outline-brand-500"
+          disabled={!canHistory}
+          className="rounded-full focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default"
           aria-label={p.username ? `فتح سجل تفاعلات ${p.username}` : 'فتح سجل تفاعلات الحساب'}
         >
           <Avatar src={p.profile_image_url} name={p.display_name} username={p.username} size={48} ring={p.is_verified ?? false} />
@@ -69,7 +74,8 @@ export default function PostCard({
                 <button
                   type="button"
                   onClick={() => onHistory(p.x_author_id)}
-                  className="truncate text-sm font-bold hover:text-brand-600 hover:underline"
+                  disabled={!canHistory}
+                  className="truncate text-sm font-bold enabled:hover:text-brand-600 enabled:hover:underline disabled:cursor-default"
                 >
                   {p.display_name ?? 'حساب غير معروف'}
                 </button>
@@ -175,7 +181,7 @@ export default function PostCard({
             </div>
 
             <button className="why-link" onClick={() => onWhy(p.id)}>لماذا جمعنا هذا؟</button>
-            <button className="why-link" onClick={() => onHistory(p.x_author_id)}>سجل العميل</button>
+            {canHistory && <button className="why-link" onClick={() => onHistory(p.x_author_id)}>سجل العميل</button>}
           </div>
 
           {p.filter_reason && (

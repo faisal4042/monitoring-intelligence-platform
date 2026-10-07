@@ -8,7 +8,7 @@ import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import {
   Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
-  CircleStop, Gauge, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose,
+  CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
   UserCog, UsersRound, X,
 } from 'lucide-react';
@@ -21,8 +21,8 @@ interface CostOverview {
 }
 
 const NAV = [
-  { to: '/', label: 'لوحة التحكم', icon: Gauge, perm: null },
-  { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: null },
+  { to: '/', label: 'لوحة التحكم', icon: Gauge, perm: PERMISSIONS.POSTS_READ },
+  { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: PERMISSIONS.POSTS_READ },
   { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles, perm: PERMISSIONS.TOPICS_READ },
   { to: '/keywords', label: 'قاموس الكلمات', icon: Tags, perm: PERMISSIONS.KEYWORDS_READ },
   { to: '/queries', label: 'الاستعلامات', icon: SearchCode, perm: PERMISSIONS.QUERIES_READ },
@@ -37,7 +37,7 @@ const NAV = [
 const ADMIN_NAV = [
   { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
-  { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_WRITE },
+  { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_READ },
   { to: '/admin', label: 'لوحة النظام', icon: Settings2, perm: PERMISSIONS.ADMIN_SYSTEM },
 ];
 
@@ -194,6 +194,14 @@ export default function AppShell() {
               aria-label="تبديل المظهر"
             >
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
+            <button
+              className="icon-button"
+              onClick={() => navigate('/account/password')}
+              title="تغيير كلمة المرور"
+              aria-label="تغيير كلمة المرور"
+            >
+              <KeyRound size={17} />
             </button>
             <button
               className="icon-button"
