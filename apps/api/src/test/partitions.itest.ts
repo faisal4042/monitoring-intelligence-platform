@@ -163,17 +163,29 @@ test('bounds stay midnight UTC even when the session time zone is Asia/Riyadh', 
   }
 });
 
-test('the worker runs a startup pass, then repeats on its interval', async () => {
-  const passes: string[] = [];
-  const stop = await startPartitionMaintenanceWorker(150, (trigger, result) => {
-    assert.equal(result.ok, true);
-    passes.push(trigger);
+test('the worker runs the real pass at startup and on its interval — without any observer', async () => {
+  // No onPass: exactly how server.ts starts it. A pass that silently never ran
+  // here is the failure mode this test exists for.
+  const calls: string[] = [];
+  const stop = await startPartitionMaintenanceWorker({
+    intervalMs: 150,
+    pass: async (trigger) => { calls.push(trigger); return ensurePartitions(trigger); },
   });
-  assert.deepEqual(passes, ['startup'], 'startup pass completes before the worker returns');
+  assert.deepEqual(calls, ['startup'], 'startup pass completes before the worker returns');
   await new Promise((r) => setTimeout(r, 700));
   stop();
-  const daily = passes.filter((p) => p === 'daily').length;
+  const daily = calls.filter((c) => c === 'daily').length;
   assert.ok(daily >= 2, `expected repeated passes, got ${daily}`);
+  const settled = calls.length;
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(calls.length, settled, 'stop() ends the loop');
+});
+
+test('the worker reports each pass to an observer when one is given', async () => {
+  const seen: Array<[string, boolean]> = [];
+  const stop = await startPartitionMaintenanceWorker({ intervalMs: 10_000, onPass: (t, r) => seen.push([t, r.ok]) });
+  stop();
+  assert.deepEqual(seen, [['startup', true]]);
 });
 
 test('coverage status thresholds', () => {
