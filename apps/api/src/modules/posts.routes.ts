@@ -6,6 +6,8 @@ import { badRequest, notFound } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { collectQuery, CollectionError } from './collection.service.js';
 import { redactRows, redactSensitiveText } from '../lib/privacy.js';
+import { APP_TIME_ZONE } from '@mip/shared';
+import { dateBoundsFromQuery, hasDateRange, rangeMeta } from '../lib/date-range.js';
 
 export default async function postRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
@@ -18,6 +20,8 @@ export default async function postRoutes(app: FastifyInstance) {
     const q = req.query as Record<string, string | undefined>;
     const limit = Math.min(Number(q.limit ?? 50), 200);
     const search = q.q ? normalizeArabic(q.q) : null;
+    // Filters on when the post was published on X, not when we collected it.
+    const dates = dateBoundsFromQuery(q);
 
     const rows = await sql`
       SELECT p.id, p.x_post_id, p.x_author_id, p.text, p.posted_at, p.collected_at, p.lang, p.url, p.hashtags,
@@ -64,6 +68,7 @@ export default async function postRoutes(app: FastifyInstance) {
         AND (${q.username ?? null}::text IS NULL OR a.username = ${q.username ?? null})
         AND (${q.minRisk ?? null}::int    IS NULL OR p.risk_score >= ${q.minRisk ?? null}::int)
         AND (${search}::text IS NULL OR p.text_normalized LIKE '%' || ${search} || '%')
+        AND p.posted_at >= ${dates.from}::timestamptz AND p.posted_at < ${dates.to}::timestamptz
         AND (${q.cursor ?? null}::timestamptz IS NULL OR p.posted_at < ${q.cursor ?? null}::timestamptz)
       ORDER BY p.posted_at DESC
       LIMIT ${limit}`;
@@ -157,7 +162,9 @@ export default async function postRoutes(app: FastifyInstance) {
     return { author: safeAuthor, stats, items: redactRows([...items]), rangeDays: days };
   });
 
-  app.get('/stats', async () => {
+  app.get('/stats', async (req) => {
+    // last24h is always a rolling 24 hours; every other count honours the range.
+    const dates = dateBoundsFromQuery(req.query as Record<string, string | undefined>);
     const [row] = await sql<Record<string, string>[]>`
       SELECT
         count(*) FILTER (WHERE c.relevance = 'relevant')                            AS relevant_total,
@@ -170,7 +177,8 @@ export default async function postRoutes(app: FastifyInstance) {
       FROM posts p
       LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
       LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
-      WHERE p.is_redacted = false`;
+      WHERE p.is_redacted = false
+        AND p.posted_at >= ${dates.from}::timestamptz AND p.posted_at < ${dates.to}::timestamptz`;
 
     const total = Number(row?.total ?? 0);
     const relevant = Number(row?.relevant_total ?? 0);
@@ -186,21 +194,44 @@ export default async function postRoutes(app: FastifyInstance) {
       uniqueAuthors: Number(row?.unique_authors ?? 0),
       precision: relevant + noise > 0 ? relevant / (relevant + noise) : null,
       negativePct: relevant > 0 ? Number(row?.negative_total ?? 0) / relevant : 0,
+      range: rangeMeta(dates.range),
     };
   });
 
+  /**
+   * `range`/`from`/`to` take precedence over the legacy `hours` window. Up to
+   * three days are bucketed by hour, longer ranges by Riyadh calendar day.
+   */
   app.get('/timeline', async (req) => {
-    const { hours } = req.query as { hours?: string };
+    const q = req.query as Record<string, string | undefined>;
+    let from: string;
+    let to = 'infinity';
+    let granularity: 'hour' | 'day' = 'hour';
+    let range: ReturnType<typeof rangeMeta> | null = null;
+    if (hasDateRange(q)) {
+      const dates = dateBoundsFromQuery(q);
+      ({ from, to } = dates);
+      range = rangeMeta(dates.range);
+      const span = dates.range.from && dates.range.to
+        ? dates.range.to.getTime() - dates.range.from.getTime()
+        : Infinity;
+      if (span > 3 * 86_400_000) granularity = 'day';
+    } else {
+      const hours = Math.min(Math.max(Number(q.hours ?? 48) || 48, 1), 24 * 90);
+      from = new Date(Date.now() - hours * 3_600_000).toISOString();
+    }
     return {
+      granularity,
+      range,
       items: await sql`
-        SELECT date_trunc('hour', p.posted_at) AS bucket,
+        SELECT date_trunc(${granularity}, p.posted_at, ${APP_TIME_ZONE}) AS bucket,
                count(*) FILTER (WHERE c.relevance = 'relevant')::int AS relevant,
                count(*) FILTER (WHERE c.relevance <> 'relevant')::int AS noise,
                count(*) FILTER (WHERE s.label IN ('negative','very_negative'))::int AS negative
         FROM posts p
         LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
         LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
-        WHERE p.posted_at > now() - (${Number(hours ?? 48)} || ' hours')::interval
+        WHERE p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz
         GROUP BY 1 ORDER BY 1`,
     };
   });

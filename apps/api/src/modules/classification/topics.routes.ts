@@ -15,6 +15,7 @@ import { audit } from '../../lib/audit.js';
 import { embed } from '../ai/client.js';
 import { runClassificationBatch } from './service.js';
 import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
+import { dateBoundsFromQuery } from '../../lib/date-range.js';
 
 const toVectorLiteral = (v: number[]) => `[${v.join(',')}]`;
 
@@ -373,6 +374,7 @@ export default async function topicsRoutes(app: FastifyInstance) {
     const q = req.query as Record<string, string | undefined>;
     const limit = Math.min(Number(q.limit ?? 50), 200);
     const minConfidence = q.minConfidence ? Number(q.minConfidence) : config.STAGE2_CONFIDENCE_THRESHOLD;
+    const dates = dateBoundsFromQuery(q);
 
     const items = await sql`
       SELECT p.id, p.text, p.posted_at, p.url, p.x_author_id, c.program_id,
@@ -393,6 +395,7 @@ export default async function topicsRoutes(app: FastifyInstance) {
         -- automatic link (embedding-only stage 2, or LLM-picked-and-embedding-
         -- corroborated stage 3) whose similarity to the topic still clears the bar.
         AND (c.human_corrected OR (1 - (pe.embedding <=> t.centroid)) >= ${minConfidence})
+        AND c.posted_at >= ${dates.from}::timestamptz AND c.posted_at < ${dates.to}::timestamptz
         AND (${q.cursor ?? null}::timestamptz IS NULL OR p.posted_at < ${q.cursor ?? null}::timestamptz)
       ORDER BY p.posted_at DESC
       LIMIT ${limit}`;
