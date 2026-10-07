@@ -1,5 +1,6 @@
 import { useState, useLayoutEffect, useRef } from 'react';
-import { fmtNum, fmtRelative } from '../lib/format';
+import { fmtDateTime, fmtNum, parseInstant } from '../lib/format';
+import DateTime from './DateTime';
 import type { Post } from '../lib/types';
 import Avatar from './Avatar';
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
@@ -139,9 +140,13 @@ export default function PostCard({
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-[var(--border)] pt-3 text-xs muted">
             <a href={p.url} target="_blank" rel="noreferrer" className="hover:text-brand-600 hover:underline">
-              نُشر {fmtRelative(p.posted_at)}
+              نُشر{' '}
+              <DateTime
+                value={p.posted_at}
+                title={p.collected_at ? `نُشر: ${fmtDateTime(p.posted_at)}\nجُمع: ${fmtDateTime(p.collected_at)}` : undefined}
+              />
               {p.collected_at && (() => {
-                const seconds = Math.max(0, Math.round((new Date(p.collected_at).getTime() - new Date(p.posted_at).getTime()) / 1000));
+                const seconds = Math.max(0, Math.round(((parseInstant(p.collected_at)?.getTime() ?? 0) - (parseInstant(p.posted_at)?.getTime() ?? 0)) / 1000));
                 const latency = seconds < 60 ? `${seconds} ث` : `${Math.round(seconds / 60)} د`;
                 return <span className="mr-1">· وصل خلال {latency}</span>;
               })()}

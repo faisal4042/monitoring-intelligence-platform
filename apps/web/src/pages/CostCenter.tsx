@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { fmtNum, fmtMoney, fmtPct, fmtDateTime } from '../lib/format';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
 import { PERMISSIONS } from '@mip/shared';
 import { BadgeDollarSign, Ban, SearchCode, Wallet } from 'lucide-react';
 
@@ -43,7 +45,13 @@ export default function CostCenter() {
   const [draft, setDraft] = useState({ unitLimit: 0, costLimit: 0 });
 
   const { data: o } = useQuery({ queryKey: ['cost-overview'], queryFn: () => api.get<Overview>('/cost/overview'), refetchInterval: 30_000 });
-  const { data: queries } = useQuery({ queryKey: ['cost-queries'], queryFn: () => api.get<{ items: QueryRow[] }>('/cost/queries') });
+  // Only the per-query table follows the period; the tiles above are the billing month.
+  const dateRange = useDateRange();
+  const { data: queries } = useQuery({
+    queryKey: ['cost-queries', dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<{ items: QueryRow[] }>(`/cost/queries?${dateRange.apiQuery}`),
+  });
   const { data: budgets } = useQuery({ queryKey: ['cost-budgets'], queryFn: () => api.get<{ items: Budget[] }>('/cost/budgets') });
   const { data: denials } = useQuery({ queryKey: ['cost-denials'], queryFn: () => api.get<{ items: Denial[] }>('/cost/denials') });
 
@@ -141,6 +149,14 @@ export default function CostCenter() {
         ))}
       </div>
 
+      {tab === 'queries' && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <DateRangeFilter state={dateRange} />
+          <p className="text-xs muted">
+            الاستهلاك حسب وقت الطلب، والمرتبط/الضجيج حسب وقت جمع المنشور — كلها داخل نفس الفترة.
+          </p>
+        </div>
+      )}
       {tab === 'queries' && (
         <div className="card overflow-x-auto">
           <table className="w-full min-w-[1000px]">

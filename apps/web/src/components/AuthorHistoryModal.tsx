@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime, fmtNum, fmtRelative } from '../lib/format';
 import Avatar from './Avatar';
+import DateRangeFilter from './DateRangeFilter';
+import { useLocalDateRange } from '../lib/useDateRange';
 import { ExternalLink, Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 interface HistoryItem {
@@ -69,11 +71,15 @@ export default function AuthorHistoryModal({
   xAuthorId: string;
   onClose: () => void;
 }) {
-  const [days, setDays] = useState('30');
+  // Local, not URL, state: the page underneath owns ?range= for its own list.
+  const dateRange = useLocalDateRange();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(() => new Set());
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['author-history', xAuthorId, days],
-    queryFn: () => api.get<AuthorHistory>(`/posts/authors/${encodeURIComponent(xAuthorId)}/history?days=${days}`),
+    queryKey: ['author-history', xAuthorId, dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<AuthorHistory>(
+      `/posts/authors/${encodeURIComponent(xAuthorId)}/history?${dateRange.apiQuery}`,
+    ),
   });
 
   useEffect(() => {
@@ -154,12 +160,7 @@ export default function AuthorHistoryModal({
             <h3 className="font-bold">سجل التفاعلات</h3>
             <p className="text-xs muted">كل ما جمعته المنصة لهذا العميل</p>
           </div>
-          <select className="input w-auto" value={days} onChange={(event) => setDays(event.target.value)}>
-            <option value="30">آخر 30 يوماً</option>
-            <option value="90">آخر 90 يوماً</option>
-            <option value="365">آخر سنة</option>
-            <option value="all">كل المدة</option>
-          </select>
+          <DateRangeFilter state={dateRange} />
         </div>
 
         {stats && (
@@ -247,7 +248,7 @@ export default function AuthorHistoryModal({
 
         {stats?.first_interaction_at && (
           <footer className="history-footer">
-            أول تفاعل محفوظ: <span className="num">{fmtDateTime(stats.first_interaction_at)}</span>
+            أول تفاعل محفوظ: <span className="tabular-nums">{fmtDateTime(stats.first_interaction_at)}</span>
           </footer>
         )}
       </section>

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { PERMISSIONS } from '@mip/shared';
 import { badRequest } from '../../lib/errors.js';
 import { audit } from '../../lib/audit.js';
+import { dateBoundsFromQuery, hasDateRange } from '../../lib/date-range.js';
 import * as newsService from './service.js';
 import { queueNewsRefresh } from '../../workers/news-fetch.worker.js';
 
@@ -100,10 +101,13 @@ export default async function newsRoutes(app: FastifyInstance) {
   });
 
   app.get('/articles', async (req) => {
-    const q = req.query as { sourceId?: string; programId?: string; limit?: string; cursor?: string; includeIrrelevant?: string; days?: string };
+    const q = req.query as Record<string, string | undefined>;
+    // `range`/`from`/`to` take precedence over the legacy `days` window.
+    const dates = hasDateRange(q) ? dateBoundsFromQuery(q) : null;
     const items = await newsService.listArticles({
       sourceId: q.sourceId, programId: q.programId, limit: q.limit ? Number(q.limit) : undefined, cursor: q.cursor,
       days: q.days ? Number(q.days) : undefined,
+      from: dates?.from, to: dates?.to,
       includeIrrelevant: q.includeIrrelevant === 'true',
     });
     const last = items[items.length - 1] as { effective_at?: Date | string } | undefined;

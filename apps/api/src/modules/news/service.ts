@@ -236,9 +236,19 @@ export async function reclassifyArticles(): Promise<{ processed: number; relevan
   return { processed: rows.length, relevant, assigned };
 }
 
-export async function listArticles(opts: { sourceId?: string; programId?: string; limit?: number; cursor?: string; includeIrrelevant?: boolean; days?: number }) {
+/**
+ * An article's date is when the outlet published it, falling back to when we
+ * discovered it for feeds that carry no date. `from`/`to` are timestamptz
+ * literals (see lib/date-range.ts); without them the legacy `days` window applies.
+ */
+export async function listArticles(opts: {
+  sourceId?: string; programId?: string; limit?: number; cursor?: string; includeIrrelevant?: boolean;
+  days?: number; from?: string; to?: string;
+}) {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
   const days = Math.min(Math.max(opts.days ?? 30, 1), 3650);
+  const from = opts.from ?? new Date(Date.now() - days * 86_400_000).toISOString();
+  const to = opts.to ?? 'infinity';
   const fetchLimit = Math.min(limit * 2, 400);
   const rows = await sql<Record<string, any>[]>`
     SELECT a.*, COALESCE(a.publisher_name, s.name_ar) AS source_name,
@@ -255,7 +265,9 @@ export async function listArticles(opts: { sourceId?: string; programId?: string
       AND (${opts.programId ?? null}::uuid IS NULL OR a.program_id = ${opts.programId ?? null}::uuid)
       AND (${opts.cursor ?? null}::timestamptz IS NULL OR COALESCE(a.published_at, a.discovered_at) < ${opts.cursor ?? null}::timestamptz)
       AND (${opts.includeIrrelevant ?? false} OR (a.is_relevant IS TRUE AND a.relevance_score >= 90))
-      AND COALESCE(a.published_at, a.discovered_at) >= now() - ${days} * interval '1 day'
+      AND COALESCE(a.published_at, a.discovered_at) >= ${from}::timestamptz
+      AND COALESCE(a.published_at, a.discovered_at) < ${to}::timestamptz
+      -- A feed that stamps articles in the future is wrong, not early.
       AND COALESCE(a.published_at, a.discovered_at) <= now() + interval '1 day'
     ORDER BY COALESCE(a.published_at, a.discovered_at) DESC, s.source_weight DESC, a.discovered_at DESC
     LIMIT ${fetchLimit}`;
