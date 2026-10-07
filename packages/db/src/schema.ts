@@ -68,6 +68,12 @@ export const users = pgTable('users', {
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
   deletedAt: ts('deleted_at'),
+  // 0032_user_management.sql
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  passwordChangedAt: ts('password_changed_at'),
+  createdBy: uuid('created_by'),
+  disabledAt: ts('disabled_at'),
+  disabledBy: uuid('disabled_by'),
 });
 
 export const userPermissions = pgTable('user_permissions', {
