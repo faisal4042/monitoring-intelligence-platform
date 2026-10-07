@@ -83,7 +83,7 @@ export default function InteractionClassification() {
   const [topicId, setTopicId] = useState('');
   const [minConfidence, setMinConfidence] = useState(0.84);
   const [view, setView] = useState<'approved' | 'suggestions' | 'unclassified'>('approved');
-  const dateRange = useDateRange('all');
+  const dateRange = useDateRange();
   const [creating, setCreating] = useState(false);
   const [createProgramId, setCreateProgramId] = useState('');
   const [nameAr, setNameAr] = useState('');
@@ -114,8 +114,11 @@ export default function InteractionClassification() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['classification-stats', programId],
-    queryFn: () => api.get<ClassificationStats>(`/classification/stats${programId ? `?programId=${programId}` : ''}`),
+    queryKey: ['classification-stats', programId, dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<ClassificationStats>(
+      `/classification/stats?${dateRange.apiQuery}${programId ? `&programId=${programId}` : ''}`,
+    ),
     refetchInterval: 30_000,
   });
 
@@ -142,11 +145,11 @@ export default function InteractionClassification() {
   });
 
   const { data: unclassified, isLoading: unclassifiedLoading } = useQuery({
-    queryKey: ['classification-unclassified', programId],
+    queryKey: ['classification-unclassified', programId, dateRange.apiQuery],
     queryFn: () => api.get<{ items: UnclassifiedInteraction[] }>(
-      `/classification/unclassified${programId ? `?programId=${programId}` : ''}`,
+      `/classification/unclassified?${dateRange.apiQuery}${programId ? `&programId=${programId}` : ''}`,
     ),
-    enabled: view === 'unclassified',
+    enabled: view === 'unclassified' && !dateRange.error,
   });
 
   const createTopic = useMutation({
@@ -240,6 +243,9 @@ export default function InteractionClassification() {
         </p>
       </div>
 
+      {/* One period for the counts, the classified list and the unclassified list. */}
+      <DateRangeFilter state={dateRange} />
+
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="card p-3">
@@ -282,6 +288,7 @@ export default function InteractionClassification() {
         <div className="card p-4">
           <div className="text-sm font-medium mb-3">
             المواضيع الأكثر تكراراً
+            <span className="text-xs muted font-normal" title="عدد التفاعلات المرتبطة بكل موضوع منذ إنشائه — لا يتبع الفترة المختارة"> (كل الفترات)</span>
             {stats && (
               <span className="text-xs muted font-normal"> — {stats.topics.total} موضوع ({stats.topics.manual} يدوي · {stats.topics.llmAuto} مُكتشَف تلقائياً)</span>
             )}
@@ -313,7 +320,6 @@ export default function InteractionClassification() {
           <option value="">كل المواضيع</option>
           {(topics?.items ?? []).map((t) => <option key={t.id} value={t.id}>{t.name_ar}</option>)}
         </select>}
-        {view === 'approved' && <DateRangeFilter state={dateRange} />}
         {view === 'approved' && <label className="flex items-center gap-2 text-xs muted">
           حد الثقة الأدنى
           <input
@@ -391,6 +397,9 @@ export default function InteractionClassification() {
 
       {view === 'suggestions' && suggestionsLoading && (
         <div className="card p-8 text-center muted text-sm">جارٍ تحميل المقترحات…</div>
+      )}
+      {view === 'suggestions' && (
+        <p className="text-xs muted">المقترحات قائمة مراجعة قائمة حاليًا، فلا تتأثر بالفترة الزمنية المختارة.</p>
       )}
       {view === 'suggestions' && !suggestionsLoading && !suggestions?.items.length && (
         <div className="card p-10 text-center muted">لا توجد مقترحات تنتظر المراجعة.</div>

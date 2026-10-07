@@ -9,7 +9,7 @@ import DateRangeFilter from '../components/DateRangeFilter';
 import { useDateRange } from '../lib/useDateRange';
 import { DATE_RANGE_LABELS } from '@mip/shared';
 import { PERMISSIONS } from '@mip/shared';
-import { Activity, ArrowUpLeft, BadgeDollarSign, Clock3, Crosshair, Gauge, MessageSquareText, ShieldAlert } from 'lucide-react';
+import { Activity, ArrowUpLeft, BadgeDollarSign, Clock3, Crosshair, Gauge, Lock, MessageSquareText, ShieldAlert } from 'lucide-react';
 
 interface Stats {
   total: number; relevant: number; noise: number; negative: number;
@@ -23,14 +23,29 @@ interface CostOverview {
 }
 interface Program { id: string; name_ar: string; color: string; keyword_count: number; query_count: number; budget_share_pct: string | null }
 
-function Tile({ label, value, sub, tone, icon: Icon }: { label: string; value: string; sub?: string; tone?: 'ok' | 'warn' | 'bad'; icon: typeof Activity }) {
+/**
+ * `fixedScope` marks a tile whose window is its own (rolling 24h, billing
+ * month, lifetime) rather than the page's date filter — shown as a badge and a
+ * dashed border so it can't be mistaken for a filtered figure.
+ */
+function Tile({ label, value, sub, tone, icon: Icon, fixedScope }: {
+  label: string; value: string; sub?: string; tone?: 'ok' | 'warn' | 'bad'; icon: typeof Activity; fixedScope?: string;
+}) {
   const toneCls = tone === 'bad' ? 'text-red-600 dark:text-red-400'
     : tone === 'warn' ? 'text-amber-600 dark:text-amber-400'
     : tone === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : '';
   return (
-    <div className="card metric-card">
+    <div className="card metric-card" style={fixedScope ? { borderStyle: 'dashed' } : undefined}>
       <div className="metric-icon"><Icon size={19} strokeWidth={2} /></div>
       <div className="metric-label text-xs muted mb-2">{label}</div>
+      {fixedScope && (
+        <div
+          className="mb-1 inline-flex items-center gap-1 rounded-full bg-[var(--surface-3)] px-2 py-0.5 text-[10px] muted"
+          title="هذا المؤشر لا يتأثر بالفترة الزمنية المختارة"
+        >
+          <Lock size={10} aria-hidden="true" /> {fixedScope}
+        </div>
+      )}
       <div className={`text-[1.65rem] font-bold num tracking-tight ${toneCls}`}>{value}</div>
       {sub && <div className="text-xs muted mt-1">{sub}</div>}
     </div>
@@ -42,24 +57,22 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
 
-  // Default "all" keeps the original view: all-time totals and a 72-hour trend.
-  const dateRange = useDateRange('all');
-  const allTime = dateRange.preset === 'all';
+  const dateRange = useDateRange();
+  const periodLabel = DATE_RANGE_LABELS[dateRange.preset];
   const { data: stats } = useQuery({
     queryKey: ['post-stats', dateRange.apiQuery],
     enabled: !dateRange.error,
     queryFn: () => api.get<Stats>(`/posts/stats?${dateRange.apiQuery}`),
   });
   const { data: timeline } = useQuery({
-    queryKey: ['post-timeline', allTime ? 'hours=72' : dateRange.apiQuery],
+    queryKey: ['post-timeline', dateRange.apiQuery],
     enabled: !dateRange.error,
     queryFn: () => api.get<{
       granularity: 'hour' | 'day';
       items: Array<{ bucket: string; relevant: number; noise: number; negative: number }>;
-    }>(`/posts/timeline?${allTime ? 'hours=72' : dateRange.apiQuery}`),
+    }>(`/posts/timeline?${dateRange.apiQuery}`),
   });
   const bucketLabel = timeline?.granularity === 'day' ? fmtDayShort : fmtHourLabel;
-  const periodTitle = allTime ? 'آخر 72 ساعة' : DATE_RANGE_LABELS[dateRange.preset];
   const { data: cost } = useQuery({
     queryKey: ['cost-overview'],
     queryFn: () => api.get<CostOverview>('/cost/overview'),
@@ -120,9 +133,9 @@ export default function Dashboard() {
           icon={MessageSquareText}
           label="منشورات مرتبطة"
           value={fmtNum(stats?.relevant)}
-          sub={`من ${fmtNum(stats?.total)} إجمالي${allTime ? '' : ` · ${DATE_RANGE_LABELS[dateRange.preset]}`}`}
+          sub={`من ${fmtNum(stats?.total)} إجمالي · ${periodLabel}`}
         />
-        <Tile icon={Clock3} label="آخر 24 ساعة" value={fmtNum(stats?.last24h)} />
+        <Tile icon={Clock3} label="آخر 24 ساعة" value={fmtNum(stats?.last24h)} fixedScope="24 ساعة متتالية" />
         <Tile
           icon={ShieldAlert}
           label="نسبة السلبية"
@@ -141,6 +154,7 @@ export default function Dashboard() {
             <Tile
               icon={Gauge}
               label="استهلاك الشهر"
+              fixedScope="الشهر الحالي"
               value={`${fmtNum(cost?.spentMonthUnits)} / ${cost?.monthUnitLimit ?? '∞'}`}
               sub={fmtMoney(cost?.spentMonthCost)}
               tone={(cost?.usagePct ?? 0) >= 90 ? 'bad' : (cost?.usagePct ?? 0) >= 70 ? 'warn' : 'ok'}
@@ -148,6 +162,7 @@ export default function Dashboard() {
             <Tile
               icon={BadgeDollarSign}
               label="التكلفة لكل منشور مرتبط"
+              fixedScope="كل الفترات"
               value={fmtMoney(cost?.costPerRelevantPost)}
               sub="مقياس الكفاءة الحقيقي"
             />
@@ -177,8 +192,8 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card chart-card lg:col-span-2">
-          <div className="section-heading"><div><span>نشاط الرصد</span><h2>حجم المنشورات — {periodTitle}</h2></div><Activity size={20} /></div>
-          {empty && !allTime ? (
+          <div className="section-heading"><div><span>نشاط الرصد</span><h2>حجم المنشورات — {periodLabel}</h2></div><Activity size={20} /></div>
+          {empty && dateRange.preset !== 'all' ? (
             <div className="h-64 grid place-items-center text-sm muted text-center px-6">
               لا توجد منشورات منشورة في هذه الفترة.
             </div>

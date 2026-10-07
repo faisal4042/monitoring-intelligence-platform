@@ -24,7 +24,7 @@ export default function LiveFeed() {
   const [why, setWhy] = useState<string | null>(null);
   const [historyAuthorId, setHistoryAuthorId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const dateRange = useDateRange('all');
+  const dateRange = useDateRange();
 
   const { data, isLoading } = useQuery({
     queryKey: ['posts', relevance, sentiment, influencersOnly, q, dateRange.apiQuery],

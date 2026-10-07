@@ -43,7 +43,7 @@ export default function NewsArticles() {
   const { can } = useAuth();
   const queryClient = useQueryClient();
   const [programId, setProgramId] = useState('');
-  const dateRange = useDateRange('all');
+  const dateRange = useDateRange();
 
   const { data: programs } = useQuery({
     queryKey: ['programs'],
