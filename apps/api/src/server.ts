@@ -22,6 +22,7 @@ import notifyWebhookRoutes from './modules/notify/webhook.routes.js';
 import { HttpError } from './lib/errors.js';
 import { ensureAutomaticQueries, startCollectionWorker } from './workers/collection.worker.js';
 import { startClassificationWorker } from './workers/classification.worker.js';
+import { startPartitionMaintenanceWorker } from './workers/partition-maintenance.worker.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
 import { startAlertsWorker } from './workers/alerts.worker.js';
 import { getXStreamStatus, startXStreamWorker } from './workers/x-stream.worker.js';
@@ -31,6 +32,7 @@ let stopCollectionWorker: (() => void) | null = null;
 let stopClassificationWorker: (() => void) | null = null;
 let stopNewsFetchWorker: (() => void) | null = null;
 let stopAlertsWorker: (() => void) | null = null;
+let stopPartitionWorker: (() => void) | null = null;
 let stopXStreamWorker: (() => void) | null = null;
 
 async function main() {
@@ -105,6 +107,9 @@ async function main() {
 
   await app.listen({ port: config.API_PORT, host: '0.0.0.0' });
 
+  // Before any worker can insert: monthly partitions must cover now and ahead.
+  stopPartitionWorker = await startPartitionMaintenanceWorker();
+
   const automaticQueries = await ensureAutomaticQueries();
   stopCollectionWorker = startCollectionWorker();
   stopXStreamWorker = startXStreamWorker();
@@ -137,6 +142,7 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     stopClassificationWorker?.();
     stopNewsFetchWorker?.();
     stopAlertsWorker?.();
+    stopPartitionWorker?.();
     await app.close();
     await sql.end({ timeout: 5 }).catch(() => {});
     process.exit(0);
