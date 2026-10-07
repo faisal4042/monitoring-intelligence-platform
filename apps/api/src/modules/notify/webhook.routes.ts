@@ -14,7 +14,7 @@ interface TelegramUpdate {
 }
 
 export default async function notifyWebhookRoutes(app: FastifyInstance) {
-  app.post('/telegram-webhook', async (req, reply) => {
+  app.post('/telegram-webhook', { config: { access: 'public' } }, async (req, reply) => {
     if (req.headers['x-telegram-bot-api-secret-token'] !== telegramWebhookSecret) {
       return reply.code(401).send();
     }

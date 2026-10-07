@@ -18,7 +18,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
 
   // ── Programs ────────────────────────────────────────────────────
-  app.get('/programs', async () => {
+  app.get('/programs', { preHandler: [app.requirePermission(PERMISSIONS.PROGRAMS_READ)] }, async () => {
     const rows = await sql`
       SELECT p.*,
         (SELECT count(*) FROM services s WHERE s.program_id = p.id AND s.is_active)::int AS service_count,
@@ -30,7 +30,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { items: rows };
   });
 
-  app.get('/programs/:id/services', async (req) => {
+  app.get('/programs/:id/services', { preHandler: [app.requirePermission(PERMISSIONS.PROGRAMS_READ)] }, async (req) => {
     const { id } = req.params as { id: string };
     return { items: await sql`SELECT * FROM services WHERE program_id = ${id}::uuid ORDER BY name_ar` };
   });
@@ -61,7 +61,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
   });
 
   // ── Keyword groups & keywords ───────────────────────────────────
-  app.get('/keyword-groups', async (req) => {
+  app.get('/keyword-groups', { preHandler: [app.requirePermission(PERMISSIONS.KEYWORDS_READ)] }, async (req) => {
     const { programId } = req.query as { programId?: string };
     const rows = await sql`
       SELECT g.*, p.name_ar AS program_name, p.color AS program_color,
@@ -73,7 +73,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { items: rows };
   });
 
-  app.get('/keywords', async (req) => {
+  app.get('/keywords', { preHandler: [app.requirePermission(PERMISSIONS.KEYWORDS_READ)] }, async (req) => {
     const { programId, type, groupId, q } = req.query as Record<string, string | undefined>;
     const rows = await sql`
       SELECT k.*, g.name_ar AS group_name, p.name_ar AS program_name,
@@ -135,7 +135,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.get('/keywords/:id/aliases', async (req) => {
+  app.get('/keywords/:id/aliases', { preHandler: [app.requirePermission(PERMISSIONS.KEYWORDS_READ)] }, async (req) => {
     const { id } = req.params as { id: string };
     return { items: await sql`SELECT * FROM keyword_aliases WHERE keyword_id = ${id}::uuid AND is_active ORDER BY alias_type, alias` };
   });
@@ -159,7 +159,7 @@ export default async function catalogRoutes(app: FastifyInstance) {
    * Per-keyword performance. noise_rate is what turns the dictionary from a
    * list into a cost-control instrument.
    */
-  app.get('/keywords/performance', async (req) => {
+  app.get('/keywords/performance', { preHandler: [app.requirePermission(PERMISSIONS.KEYWORDS_READ)] }, async (req) => {
     const { programId } = req.query as { programId?: string };
     return {
       items: await sql`
