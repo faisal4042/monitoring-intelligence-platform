@@ -4,7 +4,10 @@ import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
-import { fmtNum, fmtPct, fmtMoney } from '../lib/format';
+import { fmtNum, fmtPct, fmtMoney, fmtDayShort, fmtHourLabel } from '../lib/format';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
+import { DATE_RANGE_LABELS } from '@mip/shared';
 import { PERMISSIONS } from '@mip/shared';
 import { Activity, ArrowUpLeft, BadgeDollarSign, Clock3, Crosshair, Gauge, MessageSquareText, ShieldAlert } from 'lucide-react';
 
@@ -39,11 +42,24 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
 
-  const { data: stats } = useQuery({ queryKey: ['post-stats'], queryFn: () => api.get<Stats>('/posts/stats') });
-  const { data: timeline } = useQuery({
-    queryKey: ['post-timeline'],
-    queryFn: () => api.get<{ items: Array<{ bucket: string; relevant: number; noise: number; negative: number }> }>('/posts/timeline?hours=72'),
+  // Default "all" keeps the original view: all-time totals and a 72-hour trend.
+  const dateRange = useDateRange('all');
+  const allTime = dateRange.preset === 'all';
+  const { data: stats } = useQuery({
+    queryKey: ['post-stats', dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<Stats>(`/posts/stats?${dateRange.apiQuery}`),
   });
+  const { data: timeline } = useQuery({
+    queryKey: ['post-timeline', allTime ? 'hours=72' : dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<{
+      granularity: 'hour' | 'day';
+      items: Array<{ bucket: string; relevant: number; noise: number; negative: number }>;
+    }>(`/posts/timeline?${allTime ? 'hours=72' : dateRange.apiQuery}`),
+  });
+  const bucketLabel = timeline?.granularity === 'day' ? fmtDayShort : fmtHourLabel;
+  const periodTitle = allTime ? 'آخر 72 ساعة' : DATE_RANGE_LABELS[dateRange.preset];
   const { data: cost } = useQuery({
     queryKey: ['cost-overview'],
     queryFn: () => api.get<CostOverview>('/cost/overview'),
@@ -61,7 +77,7 @@ export default function Dashboard() {
     legend: { data: ['مرتبط', 'ضجيج', 'سلبي'], textStyle: { color: axis }, top: 0 },
     xAxis: {
       type: 'category',
-      data: (timeline?.items ?? []).map((i) => new Date(i.bucket).toLocaleString('ar-SA-u-nu-latn', { day: '2-digit', hour: '2-digit' })),
+      data: (timeline?.items ?? []).map((i) => bucketLabel(i.bucket)),
       axisLine: { lineStyle: { color: grid } }, axisLabel: { color: axis, fontSize: 10 },
     },
     yAxis: { type: 'value', splitLine: { lineStyle: { color: grid } }, axisLabel: { color: axis } },
@@ -97,8 +113,15 @@ export default function Dashboard() {
         <Link to="/live" className="btn-primary"><Activity size={17} /> عرض الرصد المباشر <ArrowUpLeft size={16} /></Link>
       </div>
 
+      <DateRangeFilter state={dateRange} />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        <Tile icon={MessageSquareText} label="منشورات مرتبطة" value={fmtNum(stats?.relevant)} sub={`من ${fmtNum(stats?.total)} إجمالي`} />
+        <Tile
+          icon={MessageSquareText}
+          label="منشورات مرتبطة"
+          value={fmtNum(stats?.relevant)}
+          sub={`من ${fmtNum(stats?.total)} إجمالي${allTime ? '' : ` · ${DATE_RANGE_LABELS[dateRange.preset]}`}`}
+        />
         <Tile icon={Clock3} label="آخر 24 ساعة" value={fmtNum(stats?.last24h)} />
         <Tile
           icon={ShieldAlert}
@@ -154,8 +177,12 @@ export default function Dashboard() {
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card chart-card lg:col-span-2">
-          <div className="section-heading"><div><span>نشاط الرصد</span><h2>حجم المنشورات — آخر 72 ساعة</h2></div><Activity size={20} /></div>
-          {empty ? (
+          <div className="section-heading"><div><span>نشاط الرصد</span><h2>حجم المنشورات — {periodTitle}</h2></div><Activity size={20} /></div>
+          {empty && !allTime ? (
+            <div className="h-64 grid place-items-center text-sm muted text-center px-6">
+              لا توجد منشورات منشورة في هذه الفترة.
+            </div>
+          ) : empty ? (
             <div className="h-64 grid place-items-center text-sm muted text-center px-6">
               لا توجد بيانات بعد.
               <br />

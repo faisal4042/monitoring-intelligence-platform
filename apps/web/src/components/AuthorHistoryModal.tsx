@@ -247,7 +247,7 @@ export default function AuthorHistoryModal({
 
         {stats?.first_interaction_at && (
           <footer className="history-footer">
-            أول تفاعل محفوظ: <span className="num">{fmtDateTime(stats.first_interaction_at)}</span>
+            أول تفاعل محفوظ: <span className="tabular-nums">{fmtDateTime(stats.first_interaction_at)}</span>
           </footer>
         )}
       </section>
