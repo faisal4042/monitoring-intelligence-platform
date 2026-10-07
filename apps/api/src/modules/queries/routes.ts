@@ -50,13 +50,13 @@ export default async function queryRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
 
   // ── Free tools: compile & estimate cost nothing and touch no API ──
-  app.post('/compile', async (req) => {
+  app.post('/compile', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const parsed = queryNodeSchema.safeParse((req.body as { ast: unknown }).ast);
     if (!parsed.success) throw badRequest('بنية الاستعلام غير صالحة');
     return { compiled: await compileQuery(parsed.data) };
   });
 
-  app.post('/estimate', async (req) => {
+  app.post('/estimate', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const body = req.body as { ast: unknown; maxResults?: number };
     const parsed = queryNodeSchema.safeParse(body.ast);
     if (!parsed.success) throw badRequest('بنية الاستعلام غير صالحة');
@@ -74,7 +74,7 @@ export default async function queryRoutes(app: FastifyInstance) {
   });
 
   // ── List / read ─────────────────────────────────────────────────
-  app.get('/', async (req) => {
+  app.get('/', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const { programId, status } = req.query as Record<string, string | undefined>;
     const rows = await sql`
       SELECT q.*, p.name_ar AS program_name, p.color AS program_color,
@@ -91,7 +91,7 @@ export default async function queryRoutes(app: FastifyInstance) {
     return { items: rows };
   });
 
-  app.get('/:id', async (req) => {
+  app.get('/:id', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const { id } = req.params as { id: string };
     const [row] = await sql`
       SELECT q.*, p.name_ar AS program_name, p.color AS program_color,
@@ -104,7 +104,7 @@ export default async function queryRoutes(app: FastifyInstance) {
     return row;
   });
 
-  app.get('/:id/versions', async (req) => {
+  app.get('/:id/versions', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const { id } = req.params as { id: string };
     return {
       items: await sql`
@@ -312,7 +312,7 @@ export default async function queryRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/:id/tests', async (req) => {
+  app.get('/:id/tests', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const { id } = req.params as { id: string };
     return {
       items: await sql`
@@ -324,7 +324,7 @@ export default async function queryRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/tests/:testId', async (req) => {
+  app.get('/tests/:testId', { preHandler: [app.requirePermission(PERMISSIONS.QUERIES_READ)] }, async (req) => {
     const { testId } = req.params as { testId: string };
     const [test] = await sql`SELECT * FROM query_tests WHERE id = ${testId}::uuid`;
     if (!test) throw notFound('الاختبار غير موجود');

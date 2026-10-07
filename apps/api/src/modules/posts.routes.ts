@@ -6,6 +6,7 @@ import { badRequest, notFound } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
 import { collectQuery, CollectionError } from './collection.service.js';
 import { redactRows, redactSensitiveText } from '../lib/privacy.js';
+import { INTERACTIONS, canSeeRecord, requireScope } from '../lib/authz.js';
 import { APP_TIME_ZONE } from '@mip/shared';
 import { dateBoundsFromQuery, hasDateRange, rangeMeta } from '../lib/date-range.js';
 
@@ -16,7 +17,9 @@ export default async function postRoutes(app: FastifyInstance) {
    * Server-side filtering and cursor pagination throughout — the browser never
    * receives a full table (docs/PROJECT_PLAN.md §54).
    */
-  app.get('/', async (req) => {
+  // Interactions are scoped (lib/authz.ts): today posts:read grants 'all'; the
+  // queue phase adds own/team and filters this query by req.authzScope.
+  app.get('/', { preHandler: [requireScope(INTERACTIONS)] }, async (req) => {
     const q = req.query as Record<string, string | undefined>;
     const limit = Math.min(Number(q.limit ?? 50), 200);
     const search = q.q ? normalizeArabic(q.q) : null;
@@ -88,7 +91,7 @@ export default async function postRoutes(app: FastifyInstance) {
    * Customer history is assembled exclusively from posts already collected by
    * the platform. Opening a profile never spends X API quota.
    */
-  app.get('/authors/:xAuthorId/history', async (req) => {
+  app.get('/authors/:xAuthorId/history', { preHandler: [app.requirePermission(PERMISSIONS.CUSTOMERS_READ)] }, async (req) => {
     const { xAuthorId } = req.params as { xAuthorId: string };
     const query = req.query as Record<string, string | undefined>;
     // range/from/to take precedence; otherwise the legacy `days` window (default 30).
@@ -169,7 +172,7 @@ export default async function postRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/stats', async (req) => {
+  app.get('/stats', { preHandler: [app.requirePermission(PERMISSIONS.POSTS_READ)] }, async (req) => {
     // last24h is always a rolling 24 hours; every other count honours the range.
     const dates = dateBoundsFromQuery(req.query as Record<string, string | undefined>);
     const [row] = await sql<Record<string, string>[]>`
@@ -209,7 +212,7 @@ export default async function postRoutes(app: FastifyInstance) {
    * `range`/`from`/`to` take precedence over the legacy `hours` window. Up to
    * three days are bucketed by hour, longer ranges by Riyadh calendar day.
    */
-  app.get('/timeline', async (req) => {
+  app.get('/timeline', { preHandler: [app.requirePermission(PERMISSIONS.POSTS_READ)] }, async (req) => {
     const q = req.query as Record<string, string | undefined>;
     let from: string;
     let to = 'infinity';
@@ -244,7 +247,7 @@ export default async function postRoutes(app: FastifyInstance) {
   });
 
   /** Answers "why did we collect this?" — query, version and matched keywords. */
-  app.get('/:id/why-collected', async (req) => {
+  app.get('/:id/why-collected', { preHandler: [requireScope(INTERACTIONS)] }, async (req) => {
     const { id } = req.params as { id: string };
     const [row] = await sql`
       SELECT p.matched_keywords, p.filter_reason, p.status,
@@ -256,7 +259,8 @@ export default async function postRoutes(app: FastifyInstance) {
       LEFT JOIN query_versions v ON v.id = p.query_version_id
       LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
       WHERE p.id = ${id}::uuid`;
-    if (!row) throw notFound('المنشور غير موجود');
+    // Out of scope looks exactly like missing (404), never 403 — no id probing.
+    if (!row || !canSeeRecord(req.authzScope)) throw notFound('المنشور غير موجود');
     return row;
   });
 

@@ -57,6 +57,8 @@ export interface AuthUser {
   permissions: string[];
   locale: string;
   theme: string;
+  /** A temporary password is in use; everything except changing it is blocked. */
+  mustChangePassword: boolean;
 }
 
 export interface Paginated<T> {
