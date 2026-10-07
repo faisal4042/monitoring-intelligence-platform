@@ -37,24 +37,39 @@ export const PERMISSIONS = {
   ADMIN_SYSTEM: 'admin:system',
   NEWS_READ: 'news:read',
   NEWS_MANAGE_SOURCES: 'news:manage_sources',
+  CUSTOMERS_READ: 'customers:read',
+  USERS_READ: 'users:read',
+  USERS_ASSIGN_ROLES: 'users:assign_roles',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as Permission[];
 
-export const ROLE_KEYS = ['admin', 'supervisor', 'analyst', 'viewer'] as const;
+export const ROLE_KEYS = ['admin', 'supervisor', 'analyst', 'agent', 'viewer'] as const;
 export type RoleKey = (typeof ROLE_KEYS)[number];
 
+/** مطّلع — read-only stakeholder. No cost figures and no individual customer history. */
 const READ_ONLY: Permission[] = [
   PERMISSIONS.PROGRAMS_READ, PERMISSIONS.KEYWORDS_READ, PERMISSIONS.QUERIES_READ,
   PERMISSIONS.POSTS_READ, PERMISSIONS.INFLUENCERS_READ, PERMISSIONS.TOPICS_READ,
   PERMISSIONS.INCIDENTS_READ, PERMISSIONS.ALERTS_READ, PERMISSIONS.REPORTS_READ,
-  PERMISSIONS.COST_READ, PERMISSIONS.HISTORICAL_READ, PERMISSIONS.SETTINGS_READ,
-  PERMISSIONS.NEWS_READ,
+  PERMISSIONS.HISTORICAL_READ, PERMISSIONS.SETTINGS_READ, PERMISSIONS.NEWS_READ,
+];
+
+/**
+ * موظف رصد — works the interaction stream: reads posts, news, topics/signals
+ * and customer history, and corrects classifications. Nothing that changes
+ * collection, spends X quota, or administers the platform. Queue permissions
+ * (own/team) arrive with the queue phase.
+ */
+const AGENT: Permission[] = [
+  PERMISSIONS.POSTS_READ, PERMISSIONS.PROGRAMS_READ, PERMISSIONS.TOPICS_READ,
+  PERMISSIONS.NEWS_READ, PERMISSIONS.CUSTOMERS_READ, PERMISSIONS.FEEDBACK_WRITE,
 ];
 
 const ANALYST: Permission[] = [
   ...READ_ONLY,
+  PERMISSIONS.COST_READ, PERMISSIONS.CUSTOMERS_READ,
   PERMISSIONS.KEYWORDS_WRITE, PERMISSIONS.FEEDBACK_WRITE, PERMISSIONS.QUERY_TEST,
   PERMISSIONS.TOPICS_MANAGE, PERMISSIONS.HISTORICAL_WRITE, PERMISSIONS.POSTS_EXPORT,
   PERMISSIONS.INFLUENCERS_WRITE,
@@ -64,7 +79,7 @@ const SUPERVISOR: Permission[] = [
   ...ANALYST,
   PERMISSIONS.QUERIES_WRITE, PERMISSIONS.QUERY_PROMOTE, PERMISSIONS.ALERTS_WRITE,
   PERMISSIONS.REPORTS_WRITE, PERMISSIONS.INCIDENTS_WRITE, PERMISSIONS.KILLSWITCH_OPERATE,
-  PERMISSIONS.NEWS_MANAGE_SOURCES,
+  PERMISSIONS.NEWS_MANAGE_SOURCES, PERMISSIONS.USERS_READ,
 ];
 
 /**
@@ -73,6 +88,7 @@ const SUPERVISOR: Permission[] = [
  */
 export const ROLE_PERMISSIONS: Record<RoleKey, Permission[]> = {
   viewer: READ_ONLY,
+  agent: AGENT,
   analyst: ANALYST,
   supervisor: SUPERVISOR,
   admin: ALL_PERMISSIONS,
@@ -82,5 +98,6 @@ export const ROLE_LABELS: Record<RoleKey, { ar: string; en: string }> = {
   admin: { ar: 'مدير النظام', en: 'Admin' },
   supervisor: { ar: 'مشرف', en: 'Supervisor' },
   analyst: { ar: 'محلل', en: 'Analyst' },
-  viewer: { ar: 'مستعرض', en: 'Viewer' },
+  agent: { ar: 'موظف رصد', en: 'Monitoring Agent' },
+  viewer: { ar: 'مطّلع', en: 'Viewer' },
 };
