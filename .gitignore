@@ -2,22 +2,43 @@ node_modules/
 dist/
 build/
 .turbo/
+.cache/
+coverage/
 *.tsbuildinfo
 
 # apps/ai (Python)
 .venv/
+venv/
 __pycache__/
+*.pyc
 *.egg-info/
 
 # Secrets - never commit
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 
 # Runtime artifacts
 uploads/
 reports-output/
 models_cache/
+logs/
 *.log
+
+# Server data - lives in Docker volumes, never in Git
+backups/
+pgdata/
+postgres-data/
+redis-data/
+*.dump
+*.sql.gz
+*.backup
+
+# OS / tooling
 .DS_Store
+Thumbs.db
 .claude/
