@@ -7,6 +7,7 @@ import { PERMISSIONS } from '@mip/shared';
 import { hashPassword } from '../plugins/auth.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { partitionCoverage } from '../lib/partitions.js';
 
 const createUserSchema = z.object({
   email: z.string().email(),
@@ -106,6 +107,8 @@ export default async function adminRoutes(app: FastifyInstance) {
       lastSuccessfulRequest: lastOk ?? null,
       lastFailedRequest: lastFail ?? null,
       lastBudgetDenial: lastDenial ?? null,
+      // How far monthly partitions reach; inserts past coverageUntil would fail.
+      partitions: await partitionCoverage(),
       counts,
       classificationStages: stages,
       // Redis + BullMQ arrive with the worker in Phase 1.D.
