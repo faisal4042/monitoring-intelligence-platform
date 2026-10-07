@@ -76,6 +76,7 @@ const evidenceTerms = (suggestion: TopicSuggestion) => {
 
 export default function InteractionClassification() {
   const { can } = useAuth();
+  const canHistory = can(PERMISSIONS.CUSTOMERS_READ);
   const qc = useQueryClient();
   const canManage = can(PERMISSIONS.TOPICS_MANAGE);
 
@@ -558,7 +559,8 @@ export default function InteractionClassification() {
               <button
                 type="button"
                 onClick={() => setHistoryAuthorId(it.x_author_id)}
-                className="rounded-full focus-visible:outline-2 focus-visible:outline-brand-500"
+                disabled={!canHistory}
+                className="rounded-full focus-visible:outline-2 focus-visible:outline-brand-500 disabled:cursor-default"
                 aria-label={it.username ? `فتح سجل تفاعلات ${it.username}` : 'فتح سجل تفاعلات الحساب'}
               >
                 <Avatar
@@ -573,7 +575,7 @@ export default function InteractionClassification() {
               <div className="min-w-0 flex-1 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-xs muted mb-1 flex flex-wrap items-center gap-x-1.5">
-                    <button type="button" onClick={() => setHistoryAuthorId(it.x_author_id)} className="hover:text-brand-600 hover:underline font-medium">
+                    <button type="button" onClick={() => setHistoryAuthorId(it.x_author_id)} disabled={!canHistory} className="enabled:hover:text-brand-600 enabled:hover:underline font-medium disabled:cursor-default">
                       {it.display_name ?? it.username ?? 'حساب غير معروف'}
                     </button>
                     {it.followers_count !== null && (

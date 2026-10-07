@@ -7,6 +7,8 @@ interface AuthCtx {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Adopt a token pair the API just issued (e.g. after changing the password). */
+  setSession: (accessToken: string, user: AuthUser) => void;
   can: (...perms: string[]) => boolean;
 }
 
@@ -43,7 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const setSession = (accessToken: string, next: AuthUser) => {
+    setToken(accessToken);
+    setUser(next);
+  };
+
+  /** UI hint only — the API enforces every permission itself. */
   const can = (...perms: string[]) => !!user && perms.some((p) => user.permissions.includes(p));
 
-  return <Ctx.Provider value={{ user, loading, login, logout, can }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, loading, login, logout, setSession, can }}>{children}</Ctx.Provider>;
 }
