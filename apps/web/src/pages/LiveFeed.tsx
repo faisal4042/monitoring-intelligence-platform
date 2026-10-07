@@ -6,6 +6,8 @@ import { Radio } from 'lucide-react';
 import AuthorHistoryModal from '../components/AuthorHistoryModal';
 import PostCard from '../components/PostCard';
 import Lightbox from '../components/Lightbox';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
 
 const REL_OPTIONS: Record<string, string> = {
   relevant: 'مرتبط', irrelevant: 'غير مرتبط', advertisement: 'إعلان', spam: 'spam', unknown: 'غير محدد',
@@ -22,11 +24,14 @@ export default function LiveFeed() {
   const [why, setWhy] = useState<string | null>(null);
   const [historyAuthorId, setHistoryAuthorId] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const dateRange = useDateRange();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['posts', relevance, sentiment, influencersOnly, q],
+    queryKey: ['posts', relevance, sentiment, influencersOnly, q, dateRange.apiQuery],
+    enabled: !dateRange.error,
     queryFn: () => {
-      const p = new URLSearchParams({ limit: '50' });
+      const p = new URLSearchParams(dateRange.apiQuery);
+      p.set('limit', '50');
       if (relevance) p.set('relevance', relevance);
       if (sentiment) p.set('sentiment', sentiment);
       if (influencersOnly) p.set('influencersOnly', 'true');
@@ -67,13 +72,18 @@ export default function LiveFeed() {
           <input type="checkbox" checked={influencersOnly} onChange={(e) => setInfluencersOnly(e.target.checked)} />
           العملاء المؤثرون فقط
         </label>
+        <DateRangeFilter state={dateRange} />
       </div>
 
       {isLoading && <div className="card p-8 text-center muted text-sm">جارٍ التحميل…</div>}
 
-      {!isLoading && !data?.items?.length && (
+      {!isLoading && !dateRange.error && !data?.items?.length && (
         <div className="card p-10 text-center">
-          <p className="muted">لا توجد منشورات بعد. شغّل عملية جمع من صفحة الاستعلامات.</p>
+          <p className="muted">
+            {dateRange.preset === 'all'
+              ? 'لا توجد منشورات بعد. شغّل عملية جمع من صفحة الاستعلامات.'
+              : 'لا توجد منشورات منشورة في هذه الفترة.'}
+          </p>
         </div>
       )}
 

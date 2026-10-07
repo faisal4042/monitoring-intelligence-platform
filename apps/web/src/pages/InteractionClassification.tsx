@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { fmtPct, fmtRelative, fmtNum } from '../lib/format';
+import { fmtPct, fmtNum } from '../lib/format';
+import DateTime from '../components/DateTime';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
 import { PERMISSIONS } from '@mip/shared';
 import { ChartNoAxesCombined, Check, Plus, X, Zap } from 'lucide-react';
 import Avatar from '../components/Avatar';
@@ -80,6 +83,7 @@ export default function InteractionClassification() {
   const [topicId, setTopicId] = useState('');
   const [minConfidence, setMinConfidence] = useState(0.84);
   const [view, setView] = useState<'approved' | 'suggestions' | 'unclassified'>('approved');
+  const dateRange = useDateRange();
   const [creating, setCreating] = useState(false);
   const [createProgramId, setCreateProgramId] = useState('');
   const [nameAr, setNameAr] = useState('');
@@ -110,15 +114,21 @@ export default function InteractionClassification() {
   });
 
   const { data: stats } = useQuery({
-    queryKey: ['classification-stats', programId],
-    queryFn: () => api.get<ClassificationStats>(`/classification/stats${programId ? `?programId=${programId}` : ''}`),
+    queryKey: ['classification-stats', programId, dateRange.apiQuery],
+    enabled: !dateRange.error,
+    queryFn: () => api.get<ClassificationStats>(
+      `/classification/stats?${dateRange.apiQuery}${programId ? `&programId=${programId}` : ''}`,
+    ),
     refetchInterval: 30_000,
   });
 
   const { data: interactions, isLoading } = useQuery({
-    queryKey: ['classification-interactions', programId, topicId, minConfidence],
+    queryKey: ['classification-interactions', programId, topicId, minConfidence, dateRange.apiQuery],
+    enabled: !dateRange.error,
     queryFn: () => {
-      const p = new URLSearchParams({ limit: '50', minConfidence: String(minConfidence) });
+      const p = new URLSearchParams(dateRange.apiQuery);
+      p.set('limit', '50');
+      p.set('minConfidence', String(minConfidence));
       if (programId) p.set('programId', programId);
       if (topicId) p.set('topicId', topicId);
       return api.get<{ items: Interaction[]; nextCursor: string | null }>(`/classification/interactions?${p}`);
@@ -135,11 +145,11 @@ export default function InteractionClassification() {
   });
 
   const { data: unclassified, isLoading: unclassifiedLoading } = useQuery({
-    queryKey: ['classification-unclassified', programId],
+    queryKey: ['classification-unclassified', programId, dateRange.apiQuery],
     queryFn: () => api.get<{ items: UnclassifiedInteraction[] }>(
-      `/classification/unclassified${programId ? `?programId=${programId}` : ''}`,
+      `/classification/unclassified?${dateRange.apiQuery}${programId ? `&programId=${programId}` : ''}`,
     ),
-    enabled: view === 'unclassified',
+    enabled: view === 'unclassified' && !dateRange.error,
   });
 
   const createTopic = useMutation({
@@ -233,6 +243,9 @@ export default function InteractionClassification() {
         </p>
       </div>
 
+      {/* One period for the counts, the classified list and the unclassified list. */}
+      <DateRangeFilter state={dateRange} />
+
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div className="card p-3">
@@ -275,6 +288,7 @@ export default function InteractionClassification() {
         <div className="card p-4">
           <div className="text-sm font-medium mb-3">
             المواضيع الأكثر تكراراً
+            <span className="text-xs muted font-normal" title="عدد التفاعلات المرتبطة بكل موضوع منذ إنشائه — لا يتبع الفترة المختارة"> (كل الفترات)</span>
             {stats && (
               <span className="text-xs muted font-normal"> — {stats.topics.total} موضوع ({stats.topics.manual} يدوي · {stats.topics.llmAuto} مُكتشَف تلقائياً)</span>
             )}
@@ -371,16 +385,21 @@ export default function InteractionClassification() {
 
       {view === 'approved' && isLoading && <div className="card p-8 text-center muted text-sm">جارٍ التحميل…</div>}
 
-      {view === 'approved' && !isLoading && !interactions?.items?.length && (
+      {view === 'approved' && !isLoading && !dateRange.error && !interactions?.items?.length && (
         <div className="card p-10 text-center">
           <p className="muted">
-            لا توجد تفاعلات مصنّفة بعد. أنشئ موضوعاً، احسب centroid له، ثم شغّل التصنيف.
+            {dateRange.preset === 'all'
+              ? 'لا توجد تفاعلات مصنّفة بعد. أنشئ موضوعاً، احسب centroid له، ثم شغّل التصنيف.'
+              : 'لا توجد تفاعلات مصنّفة منشورة في هذه الفترة.'}
           </p>
         </div>
       )}
 
       {view === 'suggestions' && suggestionsLoading && (
         <div className="card p-8 text-center muted text-sm">جارٍ تحميل المقترحات…</div>
+      )}
+      {view === 'suggestions' && (
+        <p className="text-xs muted">المقترحات قائمة مراجعة قائمة حاليًا، فلا تتأثر بالفترة الزمنية المختارة.</p>
       )}
       {view === 'suggestions' && !suggestionsLoading && !suggestions?.items.length && (
         <div className="card p-10 text-center muted">لا توجد مقترحات تنتظر المراجعة.</div>
@@ -504,7 +523,7 @@ export default function InteractionClassification() {
                   </div>
                   <a href={it.url} target="_blank" rel="noreferrer" className="mt-2 block text-sm leading-7 hover:text-brand-600">{it.text}</a>
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-2 text-xs muted">
-                    <span>{fmtRelative(it.posted_at)}</span>
+                    <DateTime value={it.posted_at} />
                     {canManage && (
                       <div className="ms-auto flex gap-2">
                         <select
@@ -586,7 +605,7 @@ export default function InteractionClassification() {
             </div>
             <div className="mt-3 border-t pt-2 text-xs muted" style={{ borderColor: 'var(--border)' }}>
               <div className="flex flex-wrap items-center gap-2">
-                <span>{fmtRelative(it.posted_at)}</span>
+                <DateTime value={it.posted_at} />
                 {canManage && (
                   <div className="ms-auto flex flex-wrap justify-end gap-1.5">
                     <button className="btn-ghost !px-2 !py-1 !text-xs !text-emerald-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: true })}><Check size={13} /> التصنيف صحيح</button>

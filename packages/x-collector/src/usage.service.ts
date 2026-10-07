@@ -100,6 +100,48 @@ class UsageService {
       ORDER BY units DESC`;
   }
 
+  /**
+   * byQuery for an explicit window. Unlike byQuery — whose relevant/irrelevant
+   * are the queries' lifetime counters — every figure here belongs to the
+   * window, so cost per relevant post divides like by like. Spend is dated by
+   * when the request ran and posts by when they were collected, i.e. the
+   * moment the units were paid for. `from`/`to` are timestamptz literals.
+   */
+  async byQueryBetween(from: string, to: string) {
+    return sql`
+      SELECT
+        q.id, q.name, q.status, p.name_ar AS program_name, p.color AS program_color,
+        COALESCE(u.requests, 0)::int       AS requests,
+        COALESCE(u.live_requests, 0)::int  AS live_requests,
+        COALESCE(u.empty_requests, 0)::int AS empty_requests,
+        COALESCE(u.units, 0)::int          AS units,
+        COALESCE(u.cost, 0)::float         AS cost,
+        COALESCE(po.relevant, 0)::int      AS relevant,
+        COALESCE(po.irrelevant, 0)::int    AS irrelevant,
+        u.last_live_at
+      FROM queries q
+      JOIN programs p ON p.id = q.program_id
+      LEFT JOIN LATERAL (
+        SELECT SUM(requests_count) AS requests,
+               SUM(requests_count) FILTER (WHERE mode = 'live') AS live_requests,
+               SUM(requests_count) FILTER (WHERE mode = 'live' AND units_consumed = 0) AS empty_requests,
+               SUM(units_consumed) AS units,
+               SUM(cost_estimate) AS cost,
+               max(occurred_at) FILTER (WHERE mode = 'live') AS last_live_at
+        FROM api_usage
+        WHERE query_id = q.id AND occurred_at >= ${from}::timestamptz AND occurred_at < ${to}::timestamptz
+      ) u ON true
+      LEFT JOIN LATERAL (
+        -- Same split the collector adds to queries.total_relevant/total_irrelevant.
+        SELECT count(*) FILTER (WHERE status <> 'filtered_out') AS relevant,
+               count(*) FILTER (WHERE status = 'filtered_out') AS irrelevant
+        FROM posts
+        WHERE query_id = q.id AND collected_at >= ${from}::timestamptz AND collected_at < ${to}::timestamptz
+      ) po ON true
+      WHERE q.deleted_at IS NULL
+      ORDER BY units DESC`;
+  }
+
   async recentDenials(limit = 50) {
     return sql`
       SELECT d.*, q.name AS query_name, p.name_ar AS program_name

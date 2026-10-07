@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { fmtRelative } from '../lib/format';
+import DateTime from '../components/DateTime';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
 import { useAuth } from '../lib/auth';
 import { PERMISSIONS } from '@mip/shared';
 import { Newspaper, RefreshCw } from 'lucide-react';
@@ -41,7 +43,7 @@ export default function NewsArticles() {
   const { can } = useAuth();
   const queryClient = useQueryClient();
   const [programId, setProgramId] = useState('');
-  const [days, setDays] = useState('180');
+  const dateRange = useDateRange();
 
   const { data: programs } = useQuery({
     queryKey: ['programs'],
@@ -49,9 +51,10 @@ export default function NewsArticles() {
   });
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['news-articles', programId, days],
+    queryKey: ['news-articles', programId, dateRange.apiQuery],
+    enabled: !dateRange.error,
     queryFn: () => api.get<{ items: NewsArticle[] }>(
-      `/news/articles?limit=100&days=${days}${programId ? `&programId=${programId}` : ''}`,
+      `/news/articles?limit=100&${dateRange.apiQuery}${programId ? `&programId=${programId}` : ''}`,
     ),
     refetchInterval: 5 * 60 * 1000,
   });
@@ -87,13 +90,7 @@ export default function NewsArticles() {
               <option value="">جميع البرامج</option>
               {programs?.items.map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}
             </select>
-            <select className="input" value={days} onChange={(event) => setDays(event.target.value)} aria-label="الفترة الزمنية">
-              <option value="7">آخر 7 أيام</option>
-              <option value="30">آخر 30 يومًا</option>
-              <option value="90">آخر 3 أشهر</option>
-              <option value="180">آخر 6 أشهر</option>
-              <option value="365">آخر سنة</option>
-            </select>
+            <DateRangeFilter state={dateRange} />
             <button className="btn-primary" onClick={refresh} disabled={isFetching || fetchNow.isPending}>
               <RefreshCw size={15} className={isFetching || fetchNow.isPending ? 'animate-spin' : ''} />
               {fetchNow.isPending ? 'جارٍ طلب الأخبار…' : isFetching ? 'جارٍ التحديث…' : 'سحب الأخبار الآن'}
@@ -102,7 +99,7 @@ export default function NewsArticles() {
         </div>
       </section>
 
-      {isLoading ? (
+      {dateRange.error ? null : isLoading ? (
         <div className="rounded-2xl border p-12 text-center muted" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>جارٍ جلب الأخبار الدقيقة…</div>
       ) : isError ? (
         <div className="rounded-2xl border border-red-500/30 bg-red-500/5 p-10 text-center text-red-600">تعذر جلب الأخبار. <button className="underline" onClick={() => void refetch()}>إعادة المحاولة</button></div>
@@ -122,7 +119,10 @@ export default function NewsArticles() {
                     <span className="font-bold text-blue-600">{article.source_name}</span>
                     {article.related_source_count > 1 && <span className="rounded-full bg-blue-500/10 px-2 py-1 font-bold text-blue-600">+{article.related_source_count - 1} مصادر</span>}
                     <span className="muted">•</span>
-                    <time className="muted">{fmtRelative(article.published_at ?? article.effective_at)}</time>
+                    {/* Feeds without a publish date fall back to when MIP discovered the article — say so. */}
+                    {article.published_at
+                      ? <DateTime value={article.published_at} className="muted" />
+                      : <span className="muted">اكتُشف <DateTime value={article.effective_at} /></span>}
                     {article.program_name && (
                       <span className="rounded-full px-2 py-1 font-bold" style={{ color: article.program_color ?? '#2563eb', background: `${article.program_color ?? '#2563eb'}18` }}>{article.program_name}</span>
                     )}
