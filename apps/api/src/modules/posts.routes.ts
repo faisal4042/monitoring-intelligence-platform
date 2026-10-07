@@ -90,11 +90,15 @@ export default async function postRoutes(app: FastifyInstance) {
    */
   app.get('/authors/:xAuthorId/history', async (req) => {
     const { xAuthorId } = req.params as { xAuthorId: string };
-    const query = req.query as { days?: string; limit?: string };
-    const parsedDays = query.days === 'all' ? null : Number(query.days ?? 30);
+    const query = req.query as Record<string, string | undefined>;
+    // range/from/to take precedence; otherwise the legacy `days` window (default 30).
+    const ranged = hasDateRange(query) ? dateBoundsFromQuery(query) : null;
+    const parsedDays = ranged || query.days === 'all' ? null : Number(query.days ?? 30);
     const days = parsedDays !== null && Number.isFinite(parsedDays)
       ? Math.min(Math.max(Math.trunc(parsedDays), 1), 3650)
       : null;
+    const from = ranged?.from ?? (days !== null ? new Date(Date.now() - days * 86_400_000).toISOString() : '-infinity');
+    const to = ranged?.to ?? 'infinity';
     const limit = Math.min(Math.max(Number(query.limit ?? 100), 1), 200);
 
     const [author] = await sql`
@@ -127,7 +131,7 @@ export default async function postRoutes(app: FastifyInstance) {
       WHERE p.x_author_id = ${xAuthorId}
         AND p.is_redacted = false
         AND p.status NOT IN ('filtered_out', 'duplicate')
-        AND (${days}::int IS NULL OR p.posted_at >= now() - (${days}::text || ' days')::interval)`;
+        AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz`;
 
     const items = await sql`
       SELECT p.id, p.x_post_id, p.text, p.posted_at, p.url, p.is_reply,
@@ -149,7 +153,7 @@ export default async function postRoutes(app: FastifyInstance) {
       WHERE p.x_author_id = ${xAuthorId}
         AND p.is_redacted = false
         AND p.status NOT IN ('filtered_out', 'duplicate')
-        AND (${days}::int IS NULL OR p.posted_at >= now() - (${days}::text || ' days')::interval)
+        AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz
       ORDER BY p.posted_at DESC
       LIMIT ${limit}`;
 
@@ -159,7 +163,10 @@ export default async function postRoutes(app: FastifyInstance) {
         ? redactSensitiveText(author.description)
         : author.description,
     };
-    return { author: safeAuthor, stats, items: redactRows([...items]), rangeDays: days };
+    return {
+      author: safeAuthor, stats, items: redactRows([...items]), rangeDays: days,
+      range: ranged ? rangeMeta(ranged.range) : null,
+    };
   });
 
   app.get('/stats', async (req) => {

@@ -6,6 +6,7 @@ import { budgetService, usageService, killSwitchService, getPricing } from '@mip
 import { config } from '@mip/config';
 import { badRequest, notFound } from '../lib/errors.js';
 import { audit } from '../lib/audit.js';
+import { dateBoundsFromQuery, hasDateRange, rangeMeta } from '../lib/date-range.js';
 
 export default async function costRoutes(app: FastifyInstance) {
   app.addHook('onRequest', app.authenticate);
@@ -47,14 +48,22 @@ export default async function costRoutes(app: FastifyInstance) {
     return { items: await usageService.timeline(Number(days ?? 14)) };
   });
 
-  /** The table that exposes a query burning budget for nothing. */
+  /**
+   * The table that exposes a query burning budget for nothing. With
+   * range/from/to every column is scoped to that window; without them the
+   * legacy `days` usage window applies (relevance stays lifetime).
+   */
   app.get('/queries', async (req) => {
-    const { days } = req.query as { days?: string };
-    const rows = (await usageService.byQuery(Number(days ?? 30))) as Array<Record<string, unknown>>;
+    const q = req.query as Record<string, string | undefined>;
+    const ranged = hasDateRange(q) ? dateBoundsFromQuery(q) : null;
+    const rows = (ranged
+      ? await usageService.byQueryBetween(ranged.from, ranged.to)
+      : await usageService.byQuery(Number(q.days ?? 30))) as Array<Record<string, unknown>>;
     const pricing = await getPricing();
 
     return {
       unitPrice: pricing.unitPrice,
+      range: ranged ? rangeMeta(ranged.range) : null,
       items: rows.map((r) => {
         const units = Number(r.units ?? 0);
         const relevant = Number(r.relevant ?? 0);

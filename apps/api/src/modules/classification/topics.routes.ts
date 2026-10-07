@@ -15,7 +15,7 @@ import { audit } from '../../lib/audit.js';
 import { embed } from '../ai/client.js';
 import { runClassificationBatch } from './service.js';
 import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
-import { dateBoundsFromQuery } from '../../lib/date-range.js';
+import { dateBoundsFromQuery, rangeMeta } from '../../lib/date-range.js';
 
 const toVectorLiteral = (v: number[]) => `[${v.join(',')}]`;
 
@@ -412,7 +412,8 @@ export default async function topicsRoutes(app: FastifyInstance) {
   app.get('/classification/unclassified', {
     preHandler: [app.requirePermission(PERMISSIONS.TOPICS_READ)],
   }, async (req) => {
-    const q = req.query as { programId?: string };
+    const q = req.query as Record<string, string | undefined>;
+    const dates = dateBoundsFromQuery(q);
     const items = await sql`
         SELECT p.id, p.text, p.posted_at, p.url, p.x_author_id, c.program_id,
                a.username, a.display_name, a.profile_image_url,
@@ -430,6 +431,7 @@ export default async function topicsRoutes(app: FastifyInstance) {
         WHERE c.relevance = 'relevant' AND c.topic_id IS NULL
           AND p.is_redacted = false AND p.status NOT IN ('filtered_out','duplicate')
           AND (${q.programId ?? null}::uuid IS NULL OR c.program_id = ${q.programId ?? null}::uuid)
+          AND c.posted_at >= ${dates.from}::timestamptz AND c.posted_at < ${dates.to}::timestamptz
         ORDER BY p.posted_at DESC LIMIT 100`;
     return { items: redactRows([...items]) };
   });
@@ -544,11 +546,17 @@ export default async function topicsRoutes(app: FastifyInstance) {
     return { ok: true, topicId: finalTopicId };
   });
 
-  /** "لمحة عن المصنف" — where the candidate pool actually went: linked, still pending, or excluded. */
+  /**
+   * "لمحة عن المصنف" — where the candidate pool actually went: linked, still
+   * pending, or excluded. The pool honours range/from/to (by publish time);
+   * the topic catalogue and the suggestion queue are current state, not
+   * time series, so they never do.
+   */
   app.get('/classification/stats', {
     preHandler: [app.requirePermission(PERMISSIONS.TOPICS_READ)],
   }, async (req) => {
     const { programId } = req.query as { programId?: string };
+    const dates = dateBoundsFromQuery(req.query as Record<string, string | undefined>);
 
     const [pool] = await sql<{
       total_relevant: string; linked_stage2: string; linked_stage3: string;
@@ -564,7 +572,8 @@ export default async function topicsRoutes(app: FastifyInstance) {
       JOIN posts p ON p.id = c.post_id AND p.posted_at = c.posted_at
       LEFT JOIN post_embeddings pe ON pe.post_id = p.id AND pe.posted_at = p.posted_at
       WHERE p.is_redacted = false
-        AND (${programId ?? null}::uuid IS NULL OR c.program_id = ${programId ?? null}::uuid)`;
+        AND (${programId ?? null}::uuid IS NULL OR c.program_id = ${programId ?? null}::uuid)
+        AND c.posted_at >= ${dates.from}::timestamptz AND c.posted_at < ${dates.to}::timestamptz`;
 
     const [topicCounts] = await sql<{ total: string; manual: string; llm_auto: string }[]>`
       SELECT count(*)::text AS total,
@@ -574,6 +583,7 @@ export default async function topicsRoutes(app: FastifyInstance) {
       WHERE is_active AND (${programId ?? null}::uuid IS NULL OR program_id = ${programId ?? null}::uuid)`;
 
     return {
+      range: rangeMeta(dates.range),
       totalRelevant: Number(pool?.total_relevant ?? 0),
       linkedStage2: Number(pool?.linked_stage2 ?? 0),
       linkedStage3: Number(pool?.linked_stage3 ?? 0),
