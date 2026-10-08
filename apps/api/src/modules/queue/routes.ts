@@ -1,11 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql, normalizeArabic } from '@mip/db';
-import { QUEUE_ACTIONS, QUEUE_RESOLUTIONS, QUEUE_STATUSES, PERMISSIONS as P } from '@mip/shared';
+import { QUEUE_ACTIONS, QUEUE_RESOLUTIONS, QUEUE_SECTIONS, QUEUE_STATUSES, PERMISSIONS as P } from '@mip/shared';
 import { QUEUE, queueScope, queueTeamScope, requireScope, resolveScope, type QueueActor } from '../../lib/authz.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { dateBoundsFromQuery } from '../../lib/date-range.js';
-import { redactRows } from '../../lib/privacy.js';
+import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
 import { administrativeAudit, manualAdd, mutateItem } from './service.js';
 import { expectedVersion, idParams, parse } from './validation.js';
 
@@ -13,6 +13,7 @@ const uuid=z.string().uuid();
 const querySchema=z.object({
   range:z.string().optional(),from:z.string().optional(),to:z.string().optional(),basis:z.enum(['entered','posted']).default('entered'),
   view:z.enum(['open','completed','all']).optional(),status:z.enum(QUEUE_STATUSES).optional(),
+  section:z.enum(QUEUE_SECTIONS).optional(),source:z.enum(['original','reply','quote']).optional(),
   programId:uuid.optional(),teamId:uuid.optional(),employeeId:uuid.optional(),
   classification:z.enum(['complaint','inquiry','suggestion','praise','news','experience','warning','issue','request','other']).optional(),
   sentiment:z.enum(['very_positive','positive','neutral','negative','very_negative']).optional(),
@@ -20,19 +21,30 @@ const querySchema=z.object({
 }).strict();
 type Query=z.infer<typeof querySchema>;
 const cursorSchema=z.object({at:z.string().min(10).max(40),id:uuid,through:z.string().min(10).max(40)}).strict();
+/**
+ * Cards: every item once. A merged story unit is gone (its story lives on in
+ * the surviving unit); a post inside a story is worked through the story and
+ * only becomes its own card while someone actually holds it.
+ */
+const cardable=sql`q.merged_into_id IS NULL AND (q.story_item_id IS NULL OR q.status<>'new')`;
 function filter(actor:QueueActor,q:Query) {
   const dates=dateBoundsFromQuery({range:q.range,from:q.from,to:q.to});
-  const column=q.basis==='posted'?sql`q.post_posted_at`:sql`q.entered_at`;
+  const column=q.basis==='posted'?sql`coalesce(q.post_posted_at,(q.story_snapshot->>'firstSeenAt')::timestamptz)`:sql`q.entered_at`;
   const own=resolveScope(actor.permissions,QUEUE)==='own';
   const view=q.view??(own?'open':'all');
-  return sql`(${queueScope(actor)}) AND ${column}>=${dates.from}::timestamptz AND ${column}<${dates.to}::timestamptz
+  const search=q.search?.trim()?q.search.trim():null;
+  return sql`(${queueScope(actor)}) AND ${cardable} AND ${column}>=${dates.from}::timestamptz AND ${column}<${dates.to}::timestamptz
+    AND (${q.section??null}::text IS NULL OR q.section=${q.section??null})
     AND (${q.status??null}::text IS NULL OR q.status=${q.status??null})
     AND (${q.programId??null}::uuid IS NULL OR q.program_id=${q.programId??null}::uuid)
     AND (${q.teamId??null}::uuid IS NULL OR q.team_id=${q.teamId??null}::uuid)
     AND (${q.employeeId??null}::uuid IS NULL OR q.assignee_id=${q.employeeId??null}::uuid)
     AND (${q.classification??null}::text IS NULL OR c.intent::text=${q.classification??null})
     AND (${q.sentiment??null}::text IS NULL OR s.label::text=${q.sentiment??null})
-    AND (${q.search??null}::text IS NULL OR p.text_normalized LIKE ${'%'+normalizeArabic(q.search??'')+'%'})
+    AND (${q.source??null}::text IS NULL OR (${q.source==='reply'} AND p.is_reply) OR (${q.source==='quote'} AND p.is_quote)
+      OR (${q.source==='original'} AND NOT p.is_reply AND NOT p.is_quote))
+    AND (${search}::text IS NULL OR p.text_normalized LIKE ${'%'+normalizeArabic(search??'')+'%'}
+      OR strpos(lower(q.story_snapshot->>'title'),lower(${search??''}))>0)
     AND (${view!=='open'} OR (q.status<>'completed' AND (${!own} OR q.assignee_id=${actor.id}::uuid)))
     AND (${view!=='completed'} OR ${own
       ?sql`EXISTS(SELECT 1 FROM queue_events e WHERE e.queue_item_id=q.id AND e.event_type='completed' AND e.actor_id=${actor.id}::uuid)`
@@ -42,6 +54,23 @@ function filter(actor:QueueActor,q:Query) {
 const joins=sql`LEFT JOIN posts p ON p.id=q.post_id AND p.posted_at=q.post_posted_at AND NOT p.is_redacted
   LEFT JOIN post_classifications c ON c.post_id=p.id AND c.posted_at=p.posted_at
   LEFT JOIN post_sentiments s ON s.post_id=p.id AND s.posted_at=p.posted_at`;
+// Story cards read the live story; the snapshot covers a story merged away or aged out.
+const storyColumns=sql`coalesce(st.title_ar,q.story_snapshot->>'title') AS story_title,
+  coalesce(st.summary_ar,st.why_ar,q.story_snapshot->>'summary',q.story_snapshot->>'why') AS story_summary,
+  coalesce(st.post_count,(q.story_snapshot->>'postCount')::int) AS story_post_count,
+  coalesce(st.first_seen_at,(q.story_snapshot->>'firstSeenAt')::timestamptz) AS story_first_seen_at,
+  coalesce(st.last_seen_at,(q.story_snapshot->>'lastSeenAt')::timestamptz) AS story_last_seen_at,
+  coalesce(st.state,q.story_snapshot->>'state') AS story_state,st.influencer_count AS story_influencer_count,
+  st.live_score::float AS story_score,
+  su.story_snapshot->>'title' AS parent_story_title`;
+const storyJoins=sql`LEFT JOIN signal_stories st ON st.id=q.story_id LEFT JOIN queue_items su ON su.id=q.story_item_id`;
+
+const alertColumns=sql`a.id,a.kind,a.section,a.created_at,r.read_at,q.id AS item_id,q.program_snapshot->>'name' AS program_name,
+  coalesce(q.story_snapshot->>'title',left(p.text,140)) AS title,coalesce(au.display_name,au.username) AS author_name`;
+const alertJoins=sql`JOIN queue_alerts a ON a.id=r.alert_id JOIN queue_items q ON q.id=a.queue_item_id
+  LEFT JOIN posts p ON p.id=q.post_id AND p.posted_at=q.post_posted_at AND NOT p.is_redacted
+  LEFT JOIN authors au ON au.id=p.author_id`;
+const cleanAlerts=(rows:Array<Record<string,unknown>>)=>rows.map(r=>({...r,title:typeof r.title==='string'?redactSensitiveText(r.title):r.title}));
 
 export default async function queueRoutes(app:FastifyInstance) {
   app.addHook('onRequest',app.authenticate);
@@ -58,9 +87,11 @@ export default async function queueRoutes(app:FastifyInstance) {
     // Preserve microseconds as text; Date truncation would repeat/skip cursor rows.
     const [{through}]=await sql`SELECT clock_timestamp()::text AS through`;
     const upper=cursor?.through??through;
-    const rows=await sql`SELECT q.*,q.entered_at::text AS cursor_at,p.text,p.x_author_id,p.url,
-      a.username,a.display_name,c.intent,c.relevance,s.label AS sentiment,u.full_name AS assignee_name,t.name AS team_name
-      FROM queue_items q ${joins} LEFT JOIN authors a ON a.id=p.author_id
+    const rows=await sql`SELECT q.*,q.entered_at::text AS cursor_at,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,
+      a.username,a.display_name,a.profile_image_url,a.followers_count,c.intent,c.relevance,s.label AS sentiment,
+      u.full_name AS assignee_name,t.name AS team_name,${storyColumns},
+      (SELECT count(*)::int FROM queue_items m WHERE m.story_item_id=q.id AND m.status NOT IN ('new','completed')) AS story_active_items
+      FROM queue_items q ${joins} ${storyJoins} LEFT JOIN authors a ON a.id=p.author_id
       LEFT JOIN users u ON u.id=q.assignee_id JOIN teams t ON t.id=q.team_id
       WHERE ${filter(req.user,q)} AND q.entered_at<=${upper}::timestamptz
         AND (${cursor?.at??null}::timestamptz IS NULL OR (q.entered_at,q.id)>(${cursor?.at??null}::timestamptz,${cursor?.id??null}::uuid))
@@ -70,11 +101,12 @@ export default async function queueRoutes(app:FastifyInstance) {
   });
   app.get('/items/:id',read,async req=>{
     const {id}=parse(idParams,req.params);
-    const [item]=await sql`SELECT q.*,p.text,p.x_author_id,p.url,a.username,a.display_name,c.intent,c.relevance,
-      c.topic_id,tp.name_ar AS topic_name,c.reason_ar,s.label AS sentiment,u.full_name AS assignee_name,t.name AS team_name,
+    const [item]=await sql`SELECT q.*,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,a.username,a.display_name,a.profile_image_url,
+      a.followers_count,c.intent,c.relevance,c.topic_id,tp.name_ar AS topic_name,c.reason_ar,s.label AS sentiment,
+      u.full_name AS assignee_name,t.name AS team_name,${storyColumns},
       coalesce((SELECT jsonb_agg(jsonb_build_object('url',m.url,'type',m.type,'previewImageUrl',m.preview_image_url))
         FROM post_media m WHERE m.post_id=p.id AND m.posted_at=p.posted_at),'[]') AS media
-      FROM queue_items q ${joins} LEFT JOIN topics tp ON tp.id=c.topic_id LEFT JOIN authors a ON a.id=p.author_id
+      FROM queue_items q ${joins} ${storyJoins} LEFT JOIN topics tp ON tp.id=c.topic_id LEFT JOIN authors a ON a.id=p.author_id
       LEFT JOIN users u ON u.id=q.assignee_id
       JOIN teams t ON t.id=q.team_id WHERE q.id=${id}::uuid AND (${queueScope(req.user)})`;
     if(!item)throw notFound();
@@ -82,23 +114,46 @@ export default async function queueRoutes(app:FastifyInstance) {
       LEFT JOIN users u ON u.id=e.actor_id WHERE q.id=${id}::uuid AND (${queueScope(req.user)}) ORDER BY e.version`;
     const notes=await sql`SELECT n.*,u.full_name AS author_name FROM queue_notes n JOIN queue_items q ON q.id=n.queue_item_id
       JOIN users u ON u.id=n.author_id WHERE q.id=${id}::uuid AND (${queueScope(req.user)}) ORDER BY n.created_at,n.id`;
-    return {...redactRows([item])[0],events,notes};
+    // A story unit carries its interactions: the live story's members, plus the
+    // queue status of any member that is (or was) its own work item.
+    const members=item.interaction_type!=='story'?[]:redactRows(await sql`
+      SELECT po.id AS post_id,po.text,po.url,po.posted_at,a.username,a.display_name,a.profile_image_url,sm.source_role,
+        ps.label AS sentiment,mi.id AS item_id,mi.status AS item_status,mu.full_name AS item_assignee_name
+      FROM signal_story_members sm JOIN posts po ON po.id=sm.post_id AND po.posted_at=sm.posted_at AND NOT po.is_redacted
+      LEFT JOIN authors a ON a.id=po.author_id
+      LEFT JOIN post_sentiments ps ON ps.post_id=po.id AND ps.posted_at=po.posted_at
+      LEFT JOIN queue_items mi ON mi.interaction_type='post' AND mi.post_id=po.id AND mi.post_posted_at=po.posted_at
+      LEFT JOIN users mu ON mu.id=mi.assignee_id
+      WHERE sm.story_id=${item.story_id}::uuid
+      ORDER BY sm.is_representative DESC,po.posted_at DESC LIMIT 100`);
+    const merged=item.interaction_type!=='story'?[]:await sql`SELECT q.id,q.story_snapshot->>'title' AS title,q.status
+      FROM queue_items q WHERE q.merged_into_id=${id}::uuid AND (${queueScope(req.user)}) ORDER BY q.entered_at`;
+    return {...redactRows([item])[0],events,notes,members,merged};
   });
   app.get('/summary',read,async req=>{
     const q=parse(querySchema,req.query);
-    const counts=await sql`SELECT q.status,count(*)::int AS count FROM queue_items q ${joins}
-      WHERE ${filter(req.user,{...q,view:'all',status:undefined})} GROUP BY q.status`;
+    // One pass over every section with all filters except section and status,
+    // so the tab counts and the status strip always agree and never overlap.
+    const rows=await sql<{section:string;status:string;count:number}[]>`SELECT q.section,q.status,count(*)::int AS count
+      FROM queue_items q ${joins} WHERE ${filter(req.user,{...q,view:'all',status:undefined,section:undefined})}
+      GROUP BY q.section,q.status`;
+    const sections=Object.fromEntries(QUEUE_SECTIONS.map(sec=>[sec,Object.fromEntries(QUEUE_STATUSES.map(st=>
+      [st,rows.find(r=>r.section===sec&&r.status===st)?.count??0]))]));
+    const counts=q.section?sections[q.section]:Object.fromEntries(QUEUE_STATUSES.map(st=>[st,rows.filter(r=>r.status===st).reduce((n,r)=>n+r.count,0)]));
     const today=dateBoundsFromQuery({range:'today'});
     const workload=resolveScope(req.user.permissions,QUEUE)==='own'?[]:await sql`
       SELECT u.id,u.full_name,t.id AS team_id,t.name AS team_name,
-        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.status<>'completed' AND (${queueScope(req.user)})) AS open,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.status IN ('assigned','escalated') AND (${queueScope(req.user)})) AS open,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.status='in_progress' AND (${queueScope(req.user)})) AS in_progress,
         (SELECT count(DISTINCT e.queue_item_id)::int FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id
           WHERE e.actor_id=u.id AND e.event_type='completed' AND e.created_at>=${today.from}::timestamptz
           AND e.created_at<${today.to}::timestamptz AND q.team_id=t.id AND (${queueScope(req.user)})) AS completed_today
       FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN teams t ON t.id=tm.team_id
       WHERE tm.left_at IS NULL AND t.is_active AND u.is_active AND u.deleted_at IS NULL AND (${queueTeamScope(req.user)})
         AND (${q.teamId??null}::uuid IS NULL OR t.id=${q.teamId??null}::uuid) ORDER BY t.name,u.full_name`;
-    return {counts:Object.fromEntries(QUEUE_STATUSES.map(s=>[s,counts.find(c=>c.status===s)?.count??0])),workload};
+    const held=resolveScope(req.user.permissions,QUEUE)==='own'?0:(await sql<{n:number}[]>`SELECT count(*)::int AS n FROM queue_items q
+      WHERE q.section_hold IS NOT NULL AND (${queueScope(req.user)})`)[0].n;
+    return {counts,sections,workload,held,updatedAt:new Date().toISOString()};
   });
   app.get('/options',manage,async req=>{
     const teams=await sql`SELECT t.id,t.name FROM teams t WHERE t.is_active AND (${queueTeamScope(req.user)}) ORDER BY t.name`;
@@ -126,6 +181,57 @@ export default async function queueRoutes(app:FastifyInstance) {
       return mutateItem(req.user,id,action,parse(schema.strict(),req.body));
     });
   }
+
+  // ── Alerts: influencer and story sections only, per-user read/announce state ──
+  // Every read re-applies the queue scope, so an alert never outlives access.
+  app.get('/alerts',read,async req=>{
+    const items=await sql`SELECT ${alertColumns} FROM queue_alert_recipients r ${alertJoins}
+      WHERE r.user_id=${req.user.id}::uuid AND (${queueScope(req.user)}) ORDER BY a.created_at DESC,a.id LIMIT 40`;
+    return {items:cleanAlerts(items),...await unread(req.user)};
+  });
+  /**
+   * Claims the caller's not-yet-announced alerts, atomically: a claimed alert
+   * is never returned again — not on the next poll, a reload or another tab.
+   * Only alerts at most two minutes old come back as "fresh" (sound/toast);
+   * older ones (offline, first sign-in) are claimed silently and stay in the bell.
+   * `initial` (first poll of a page) claims silently too.
+   */
+  app.post('/alerts/claim',read,async req=>{
+    const {initial}=parse(z.object({initial:z.boolean().default(false)}).strict(),req.body??{});
+    const claimed=await sql<{alert_id:string}[]>`UPDATE queue_alert_recipients r SET announced_at=now()
+      WHERE r.user_id=${req.user.id}::uuid AND r.announced_at IS NULL RETURNING r.alert_id`;
+    const ids=claimed.map(c=>c.alert_id);
+    const fresh=initial||!ids.length?[]:await sql`SELECT ${alertColumns} FROM queue_alert_recipients r ${alertJoins}
+      WHERE r.user_id=${req.user.id}::uuid AND a.id=ANY(${ids}::uuid[]) AND a.created_at>now()-interval '2 minutes'
+        AND r.read_at IS NULL AND (${queueScope(req.user)}) ORDER BY a.created_at,a.id`;
+    return {fresh:cleanAlerts(fresh),...await unread(req.user)};
+  });
+  app.post('/alerts/:id/read',read,async req=>{
+    const {id}=parse(idParams,req.params);
+    const [row]=await sql`UPDATE queue_alert_recipients r SET read_at=coalesce(r.read_at,now())
+      FROM queue_alerts a JOIN queue_items q ON q.id=a.queue_item_id
+      WHERE r.alert_id=${id}::uuid AND a.id=r.alert_id AND r.user_id=${req.user.id}::uuid AND (${queueScope(req.user)}) RETURNING r.alert_id`;
+    if(!row)throw notFound();
+    return unread(req.user);
+  });
+  app.post('/alerts/read-all',read,async req=>{
+    const {section}=parse(z.object({section:z.enum(['influencer','story']).optional()}).strict(),req.body??{});
+    await sql`UPDATE queue_alert_recipients r SET read_at=now()
+      FROM queue_alerts a JOIN queue_items q ON q.id=a.queue_item_id
+      WHERE a.id=r.alert_id AND r.user_id=${req.user.id}::uuid AND r.read_at IS NULL
+        AND (${section??null}::text IS NULL OR a.section=${section??null}) AND (${queueScope(req.user)})`;
+    return unread(req.user);
+  });
+  app.get('/alerts/prefs',read,async req=>prefs(req.user.id));
+  app.put('/alerts/prefs',read,async req=>{
+    const input=parse(z.object({soundEnabled:z.boolean(),toastsEnabled:z.boolean(),volume:z.number().min(0).max(1)}).strict(),req.body);
+    await sql`INSERT INTO queue_alert_prefs(user_id,sound_enabled,toasts_enabled,volume)
+      VALUES (${req.user.id},${input.soundEnabled},${input.toastsEnabled},${input.volume})
+      ON CONFLICT (user_id) DO UPDATE SET sound_enabled=EXCLUDED.sound_enabled,toasts_enabled=EXCLUDED.toasts_enabled,
+        volume=EXCLUDED.volume,updated_at=now()`;
+    return prefs(req.user.id);
+  });
+
   const settingsAccess={preHandler:[app.requirePermission(P.SETTINGS_WRITE)]};
   app.get('/intake-settings',settingsAccess,async()=>{
     const rows=await sql`SELECT key,value FROM settings WHERE key IN ('queue.intake_enabled','queue.intake_starts_at')`;
@@ -148,4 +254,17 @@ export default async function queueRoutes(app:FastifyInstance) {
       return input;
     });
   });
+}
+
+async function unread(actor:QueueActor) {
+  const rows=await sql<{section:string;n:number}[]>`SELECT a.section,count(*)::int AS n FROM queue_alert_recipients r
+    JOIN queue_alerts a ON a.id=r.alert_id JOIN queue_items q ON q.id=a.queue_item_id
+    WHERE r.user_id=${actor.id}::uuid AND r.read_at IS NULL AND (${queueScope(actor)}) GROUP BY a.section`;
+  const bySection={influencer:rows.find(r=>r.section==='influencer')?.n??0,story:rows.find(r=>r.section==='story')?.n??0};
+  return {unread:bySection.influencer+bySection.story,unreadBySection:bySection};
+}
+async function prefs(userId:string) {
+  const [row]=await sql<{sound_enabled:boolean;toasts_enabled:boolean;volume:string}[]>`
+    SELECT sound_enabled,toasts_enabled,volume FROM queue_alert_prefs WHERE user_id=${userId}::uuid`;
+  return {soundEnabled:row?.sound_enabled??true,toastsEnabled:row?.toasts_enabled??true,volume:row?Number(row.volume):0.6};
 }

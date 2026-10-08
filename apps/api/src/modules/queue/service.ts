@@ -2,6 +2,7 @@ import { sql, type Transaction } from '@mip/db';
 import { PERMISSIONS as P, type QueueAction, type QueueStatus } from '@mip/shared';
 import { queueScope, queueTeamScope, type QueueActor } from '../../lib/authz.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
+import { alertForEvents, authoredByInfluencer, storyUnitOf } from './sections.js';
 import type { FastifyRequest } from 'fastify';
 
 export type QueueTx = Transaction;
@@ -9,7 +10,7 @@ export interface Item {
   id:string; status:QueueStatus; assignee_id:string|null; team_id:string; version:number;
   first_assigned_at:Date|null; first_started_at:Date|null; started_at:Date|null; completed_at:Date|null;
   completed_by:string|null; resolution:string|null; reassignment_count:number; escalation_count:number;
-  reopen_count:number; last_reopened_at:Date|null;
+  reopen_count:number; last_reopened_at:Date|null; section:string; merged_into_id:string|null;
 }
 export interface Mutation { expectedVersion:number; assigneeId?:string; reason?:string; resolution?:string; body?:string }
 const has = (a:QueueActor,p:string)=>a.permissions.includes(p);
@@ -28,6 +29,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
   return sql.begin(async tx=>{
     const [old] = await tx<Item[]>`SELECT q.* FROM queue_items q WHERE q.id=${id}::uuid AND (${queueScope(actor,true)})`;
     if (!old) throw notFound();
+    if (old.merged_into_id) throw conflict('دُمجت هذه القصة في قصة أخرى؛ تابع العمل من القصة الأساسية.');
     if (old.version!==input.expectedVersion) throw conflict('تغير العنصر. حدّث القائمة وحاول مجدداً.');
     const isAssignee = old.assignee_id===actor.id;
     if (action==='start' && !isAssignee) throw forbidden('بدء العمل متاح للمسند إليه فقط');
@@ -99,9 +101,11 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
       const [note]=await tx`INSERT INTO queue_notes(queue_item_id,author_id,body) VALUES (${id},${actor.id},${input.body!}) RETURNING id`;
       noteId=note.id;
     }
-    await tx`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,resolution,version,metadata)
+    const [ev]=await tx<{id:string}[]>`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,resolution,version,metadata)
       VALUES (${id},${event},${actor.id},${old.status},${status},${old.assignee_id},${assignee},${input.reason??null},
-        ${action==='complete'?input.resolution!:null},${item.version},${JSON.stringify(noteId?{noteId}:{})}::jsonb)`;
+        ${action==='complete'?input.resolution!:null},${item.version},${JSON.stringify(noteId?{noteId}:{})}::jsonb) RETURNING id`;
+    // Handing an influencer/story item to someone tells them, in the same transaction.
+    await alertForEvents(tx,[ev.id]);
     return item;
   });
 }
@@ -110,7 +114,8 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
   if(!supervises(req.user))throw forbidden();
   return sql.begin(async tx=>{
     // Program is derived from source classification, never supplied by the client.
-    const [source]=await tx`SELECT p.id,p.posted_at,c.program_id,pr.name_ar,pr.key,pr.color,t.id AS team_id
+    const [source]=await tx`SELECT p.id,p.posted_at,c.program_id,pr.name_ar,pr.key,pr.color,t.id AS team_id,
+        ${storyUnitOf} AS unit_id,${authoredByInfluencer} AS influencer
       FROM posts p JOIN post_classifications c ON c.post_id=p.id AND c.posted_at=p.posted_at
       JOIN programs pr ON pr.id=c.program_id JOIN team_programs tp ON tp.program_id=c.program_id
       JOIN teams t ON t.id=tp.team_id WHERE p.id=${input.postId}::uuid AND p.posted_at=${input.postedAt}::timestamptz
@@ -118,12 +123,16 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
       AND t.is_active AND (${queueTeamScope(req.user)})
       AND (${input.teamId??null}::uuid IS NULL OR t.id=${input.teamId??null}::uuid) FOR SHARE OF t,tp`;
     if(!source)throw notFound('المنشور أو فريق البرنامج غير متاح ضمن نطاقك');
-    const [item]=await tx`INSERT INTO queue_items(post_id,post_posted_at,program_id,program_snapshot,team_id)
+    // Same placement rule as intake: inside its story's unit, else influencer, else general.
+    const section=source.unit_id?'story':source.influencer?'influencer':'general';
+    const [item]=await tx`INSERT INTO queue_items(post_id,post_posted_at,program_id,program_snapshot,team_id,section,story_item_id)
       VALUES (${source.id},${source.posted_at},${source.program_id},
-        ${JSON.stringify({id:source.program_id,key:source.key,name:source.name_ar,color:source.color})}::jsonb,${source.team_id})
+        ${JSON.stringify({id:source.program_id,key:source.key,name:source.name_ar,color:source.color})}::jsonb,${source.team_id},
+        ${section},${source.unit_id??null}::uuid)
       ON CONFLICT (post_id) WHERE interaction_type='post' DO NOTHING RETURNING *`;
     if(!item)throw conflict('المنشور موجود في الطابور بالفعل');
-    await tx`INSERT INTO queue_events(queue_item_id,event_type,actor_id,to_status,version) VALUES (${item.id},'created',${req.user.id},'new',1)`;
+    const [ev]=await tx<{id:string}[]>`INSERT INTO queue_events(queue_item_id,event_type,actor_id,to_status,version) VALUES (${item.id},'created',${req.user.id},'new',1) RETURNING id`;
+    await alertForEvents(tx,[ev.id]);
     await administrativeAudit(tx,req,'queue.manual_add','queue_item',item.id,{postId:source.id,teamId:source.team_id});
     return item;
   });
