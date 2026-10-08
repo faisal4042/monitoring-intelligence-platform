@@ -16,11 +16,13 @@ export interface QueueItem {
   story_title?:string|null;story_summary?:string|null;story_post_count?:number|null;story_first_seen_at?:string|null;
   story_last_seen_at?:string|null;story_state?:string|null;story_influencer_count?:number|null;story_score?:number|null;
   story_active_items?:number;parent_story_title?:string|null;
+  // Held move: the team that owns this post's story.
+  hold_team_id?:string|null;
   media?:Array<{url:string|null;type:string;previewImageUrl:string|null}>;
   notes?:Array<{id:string;body:string;author_name:string;created_at:string}>;
   events?:Array<{id:string;event_type:string;actor_name:string|null;from_status:QueueStatus|null;to_status:QueueStatus;
     reason:string|null;resolution:string|null;created_at:string;from_assignee:string|null;to_assignee:string|null;
-    metadata?:{from?:QueueSection;to?:QueueSection;hold?:QueueSection|null;intoItem?:string}}>;
+    metadata?:{from?:QueueSection;to?:QueueSection;hold?:QueueSection|null;intoItem?:string;fromTeamName?:string|null;toTeamName?:string}}>;
   members?:Array<{post_id:string;text:string|null;url:string|null;posted_at:string;username:string|null;display_name:string|null;
     profile_image_url:string|null;source_role:string;sentiment:string|null;item_id:string|null;item_status:QueueStatus|null;item_assignee_name:string|null}>;
   merged?:Array<{id:string;title:string|null;status:QueueStatus}>;

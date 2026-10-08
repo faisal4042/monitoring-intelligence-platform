@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 import {Link,useSearchParams} from 'react-router-dom';
-import {X,Play,CheckCircle,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink} from 'lucide-react';
+import {X,Play,CheckCircle,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight} from 'lucide-react';
 import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_RESOLUTIONS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
@@ -15,6 +15,7 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
   const [,setParams]=useSearchParams();
   const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[assignReason,setAssignReason]=useState(''),[note,setNote]=useState(''),[resolution,setResolution]=useState('');
   const [history,setHistory]=useState(false);
+  const [transferOpen,setTransferOpen]=useState(false),[toTeam,setToTeam]=useState(''),[toMember,setToMember]=useState(''),[transferReason,setTransferReason]=useState('');
   const closeRef=useRef<HTMLButtonElement>(null);
   const {data:item,error,isLoading}=useQuery({queryKey:['queue-item',id],queryFn:()=>api.get<QueueItem>(`/queue/items/${id}`),
     refetchInterval:supervise?20000:15000,refetchIntervalInBackground:false});
@@ -23,6 +24,10 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
     api.post(`/queue/items/${id}/${action}`,{expectedVersion:item!.version,...extra}),
     onSuccess:()=>{setNote('');setReason('');setAssignReason('');setAssignee('');setResolution('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
     onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});qc.invalidateQueries({queryKey:['queue']});}});
+  // Cross-team transfer: one audited server transaction (team, assignee, reason, version).
+  const transfer=useMutation({mutationFn:()=>api.post(`/queue/items/${id}/transfer`,{expectedVersion:item!.version,teamId:toTeam,assigneeId:toMember,reason:transferReason}),
+    onSuccess:()=>{setTransferOpen(false);setToTeam('');setToMember('');setTransferReason('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
+    onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});}});
   const feedback=useMutation({mutationFn:(correct:boolean)=>api.post(`/classification/interactions/${item!.post_id}/topic-feedback`,{correct}),
     onSuccess:()=>qc.invalidateQueries({queryKey:['queue-item',id]})});
   useEffect(()=>{closeRef.current?.focus();const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[onClose]);
@@ -46,6 +51,9 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           <span className="queue-tag">{item.team_name}</span>
           {item.section_hold&&<span className="queue-tag queue-tag--hold"><TriangleAlert size={11}/>ينتمي لقصة في فريق آخر — بانتظار مراجعة المشرف</span>}
         </div>
+        {item.section_hold&&supervise&&!transferOpen&&<p className="rounded-lg p-3 bg-red-500/5 text-sm flex flex-wrap items-center gap-2">
+          هذا التفاعل ضمن قصة يتابعها فريق آخر، فلم يُنقل تلقائياً.
+          <button className="underline text-brand-600" onClick={()=>{setTransferOpen(true);setToTeam(item.hold_team_id??'');}}>تنفيذ النقل إلى فريق القصة</button></p>}
         {item.merged_into_id&&<p className="rounded-lg p-3 bg-amber-500/10 text-sm">دُمجت هذه القصة في قصة أخرى. <button className="underline text-brand-600" onClick={()=>openItem(item.merged_into_id!)}>فتح القصة الأساسية</button></p>}
 
         {story?<article className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
@@ -101,6 +109,24 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           </div>
           {work&&['assigned','in_progress'].includes(item.status)&&<div className="flex gap-2"><input aria-label="سبب التصعيد" placeholder="سبب التصعيد (إلزامي)" className="input flex-1" value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/><button className="btn-ghost" disabled={!reason.trim()} onClick={()=>change.mutate({action:'escalate',extra:{reason}})}><ArrowUpRight size={16}/>تصعيد</button></div>}
           {work&&(item.status==='in_progress'||item.status==='escalated'&&supervise)&&<div className="flex gap-2"><select aria-label="نتيجة المعالجة" className="input flex-1" value={resolution} onChange={e=>setResolution(e.target.value)}><option value="">اختر نتيجة المعالجة</option>{QUEUE_RESOLUTIONS.map(r=><option key={r} value={r}>{QUEUE_RESOLUTION_LABELS[r]}</option>)}</select><button className="btn-primary" disabled={!resolution} onClick={()=>change.mutate({action:'complete',extra:{resolution}})}><CheckCircle size={16}/>إكمال</button></div>}
+          {supervise&&!story&&item.status!=='completed'&&<div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+            <button className="flex items-center gap-2 text-sm font-bold" aria-expanded={transferOpen} onClick={()=>{setTransferOpen(o=>!o);if(!toTeam&&item.hold_team_id)setToTeam(item.hold_team_id);}}>
+              <ArrowLeftRight size={15}/>نقل إلى فريق آخر</button>
+            {transferOpen&&<>
+              <div className="grid sm:grid-cols-2 gap-2">
+                <select aria-label="الفريق المستلم" className="input" value={toTeam} onChange={e=>{setToTeam(e.target.value);setToMember('');}}>
+                  <option value="">اختر الفريق المستلم</option>{options?.teams.filter(t=>t.id!==item.team_id).map(t=><option key={t.id} value={t.id}>{t.name}{t.id===item.hold_team_id?' — فريق القصة':''}</option>)}</select>
+                <select aria-label="الموظف المستلم" className="input" value={toMember} disabled={!toTeam} onChange={e=>setToMember(e.target.value)}>
+                  <option value="">اختر الموظف المستلم</option>{options?.members.filter(m=>m.team_id===toTeam).map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select>
+              </div>
+              <input aria-label="سبب النقل" placeholder="سبب النقل (إلزامي)" className="input w-full" value={transferReason} maxLength={2000} onChange={e=>setTransferReason(e.target.value)}/>
+              {options&&!options.teams.some(t=>t.id!==item.team_id)&&<p className="text-xs muted">لا يوجد فريق آخر ضمن نطاقك للنقل إليه.</p>}
+              {transfer.error&&<p role="alert" className="text-sm text-red-600">{transfer.error.message}</p>}
+              <div className="flex gap-2"><button className="btn-primary" disabled={!toTeam||!toMember||!transferReason.trim()||transfer.isPending} onClick={()=>transfer.mutate()}>تنفيذ النقل</button>
+                <button className="btn-ghost" onClick={()=>setTransferOpen(false)}>إلغاء</button></div>
+              <p className="text-xs muted">يُسند العنصر للموظف المستلم ويبدأ دورة جديدة؛ يبقى الفريق والموظف السابقان في السجل.</p>
+            </>}
+          </div>}
           {work&&item.status!=='completed'&&<div className="space-y-2"><label className="block text-sm font-bold" htmlFor="queue-note">ملاحظة داخلية</label><textarea id="queue-note" className="input w-full" rows={3} maxLength={5000} value={note} onChange={e=>setNote(e.target.value)} placeholder="التصحيح يكون بملاحظة جديدة؛ لا يمكن تعديل الملاحظات أو حذفها."/><button className="btn-ghost" disabled={!note.trim()} onClick={()=>change.mutate({action:'notes',extra:{body:note}})}><StickyNote size={16}/>إضافة ملاحظة</button></div>}
         </fieldset>
 
@@ -124,6 +150,7 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
         <section><h3 className="font-bold mb-3">سجل العمل ودورات المعالجة</h3><ol className="space-y-3">{item.events?.map(e=><li key={e.id} className="border-s-2 border-slate-300 ps-3 text-sm"><strong>{QUEUE_EVENT_LABELS[e.event_type]??e.event_type}</strong> · {e.actor_name??'النظام'}
           <p className="muted text-xs">{fmtDateTime(e.created_at)} · {e.from_status&&e.from_status!==e.to_status?QUEUE_STATUS_LABELS[e.from_status]+' ← ':''}{QUEUE_STATUS_LABELS[e.to_status]}</p>
           {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from].ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to].ar}`}</p>}
+          {e.event_type==='transferred'&&<p>{e.metadata?.fromTeamName??'—'} ← {e.metadata?.toTeamName??'—'}</p>}
           {e.event_type==='section_review'&&<p>{e.metadata?.hold?'التفاعل ضمن قصة يملكها فريق آخر؛ لم يُنقل تلقائياً.':'انتهت حالة المراجعة.'}</p>}
           {e.reason&&<p>{e.reason}</p>}{e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]}</p>}</li>)}</ol></section>
       </>}
