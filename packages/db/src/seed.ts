@@ -246,6 +246,8 @@ const SETTINGS: Array<[string, unknown, string, string, string]> = [
 
 async function main() {
   console.log('\nSeeding database...\n');
+  // Monitoring queue intake ships disabled with no start boundary; never
+  // overwrites a value an administrator has already set.
   await sql`INSERT INTO settings(key,value,value_type,category,description_ar) VALUES
     ('queue.intake_enabled','false'::jsonb,'boolean','queue','تفعيل استقبال طابور الرصد'),
     ('queue.intake_starts_at','null'::jsonb,'string','queue','بداية استقبال المنشورات الجديدة')
@@ -293,6 +295,8 @@ async function main() {
       INSERT INTO users (email, full_name, password_hash, role_id)
       VALUES (${adminEmail}, ${'مدير النظام'}, ${hash}, ${roleIds.admin})
       RETURNING id`;
+  } else {
+    await sql`UPDATE users SET role_id = ${roleIds.admin}, is_active = true WHERE id = ${admin.id}`;
   }
 
   // budget:write and internal_data:read are never role-granted — grant to admin explicitly.
@@ -305,14 +309,39 @@ async function main() {
   // A production database may be restored from a developer workstation.
   // Never leave the well-known local demo accounts usable after that restore.
   if (isProduction) {
-    const [unsafeDemo] = await sql`SELECT id FROM users
-      WHERE lower(email) IN ('admin@mip.local','viewer@mip.local')
-        AND lower(email) <> ${adminEmail} AND is_active AND deleted_at IS NULL LIMIT 1`;
-    if (unsafeDemo) throw new Error('Disable existing demo accounts explicitly before production seed; seed never changes existing users.');
+    await sql`
+      UPDATE refresh_tokens
+      SET revoked_at = now()
+      WHERE revoked_at IS NULL
+        AND user_id IN (
+          SELECT id FROM users
+          WHERE lower(email) IN ('admin@mip.local', 'viewer@mip.local')
+            AND lower(email) <> ${adminEmail}
+        )`;
+    await sql`
+      UPDATE users
+      SET is_active = false, failed_login_attempts = 0, locked_until = NULL,
+          updated_at = now()
+      WHERE lower(email) IN ('admin@mip.local', 'viewer@mip.local')
+        AND lower(email) <> ${adminEmail}`;
   }
 
-  // Source data is not backfilled by seed. Collection applies exclusions to
-  // incoming posts; historical cleanup requires a separately approved operation.
+  // Global X account exclusions apply retroactively as well as to future
+  // collection. Keep the rows for referential integrity and auditability, but
+  // redact them from every user-facing feed and statistic.
+  const excludedXUsernames = (process.env.AUTO_COLLECTION_EXCLUDED_USERS ?? '')
+    .split(',')
+    .map((username) => username.trim().replace(/^@/, '').toLowerCase())
+    .filter(Boolean);
+  if (excludedXUsernames.length > 0) {
+    await sql`
+      UPDATE posts p
+      SET is_redacted = true, redacted_at = COALESCE(p.redacted_at, now())
+      FROM authors a
+      WHERE p.author_id = a.id
+        AND lower(a.username) = ANY(${excludedXUsernames}::text[])
+        AND NOT p.is_redacted`;
+  }
 
   // A read-only demo account so the RBAC split is visible immediately.
   const viewerPassword = process.env.INITIAL_VIEWER_PASSWORD ?? (isProduction ? '' : 'Viewer@12345');
