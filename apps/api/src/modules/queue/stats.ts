@@ -13,7 +13,7 @@ import { sql } from '@mip/db';
 import { QUEUE, queueScope, resolveScope, type QueueActor } from '../../lib/authz.js';
 import { dateBoundsFromQuery } from '../../lib/date-range.js';
 
-interface StatsQuery { range?: string; from?: string; to?: string; section?: string; teamId?: string; employeeId?: string }
+interface StatsQuery { range?: string; from?: string; to?: string; section?: string; teamId?: string; employeeId?: string; programId?: string }
 const minutes = (expr: ReturnType<typeof sql>) => sql`round((avg(extract(epoch FROM ${expr}))/60)::numeric,1)::float`;
 const FIELDS = [['program', 'program_id'], ['intent', 'intent'], ['sentiment', 'sentiment'], ['relevance', 'relevance'], ['topic', 'topic_id'], ['subtopic', 'subtopic_id']] as const;
 
@@ -23,7 +23,8 @@ export async function queueStats(actor: QueueActor, q: StatsQuery) {
   // Items in scope, narrowed by the filters. An agent's own figures only.
   const items = sql`(${queueScope(actor)}) AND q.merged_into_id IS NULL
     AND (${q.section ?? null}::text IS NULL OR q.section=${q.section ?? null})
-    AND (${q.teamId ?? null}::uuid IS NULL OR q.team_id=${q.teamId ?? null}::uuid)`;
+    AND (${q.teamId ?? null}::uuid IS NULL OR q.team_id=${q.teamId ?? null}::uuid)
+    AND (${q.programId ?? null}::uuid IS NULL OR q.program_id=${q.programId ?? null}::uuid)`;
   const who = own ? actor.id : q.employeeId ?? null;
   const reviews = sql`FROM queue_reviews r JOIN queue_items q ON q.id=r.queue_item_id JOIN users u ON u.id=r.reviewer_id
     WHERE ${items} AND r.reviewed_at>=${dates.from}::timestamptz AND r.reviewed_at<${dates.to}::timestamptz
