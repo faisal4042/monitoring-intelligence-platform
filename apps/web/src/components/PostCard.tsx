@@ -46,7 +46,7 @@ export default function PostCard({
   // would read as a classifier failure.
   const rel = p.status === 'duplicate'
     ? { text: `مكرر${p.duplicate_type === 'campaign' ? ' (حملة)' : ''}`,
-        cls: 'bg-purple-500/15 text-purple-600 dark:text-purple-400' }
+        cls: 'bg-(--status-info-soft) text-(--status-info)' }
     : REL[p.relevance ?? 'unknown'] ?? REL.unknown;
   const sent = SENT[p.sentiment ?? 'neutral'] ?? SENT.neutral;
 

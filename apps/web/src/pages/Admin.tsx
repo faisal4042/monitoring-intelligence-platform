@@ -53,7 +53,7 @@ export default function Admin() {
     <div className="space-y-5">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Settings2 size={22} className="text-brand-500" /> لوحة النظام</h1>
+          <h1 className="flex items-center gap-2.5"><Settings2 size={22} className="text-brand-600" /> لوحة النظام</h1>
           <p>حالة الخدمات والاستهلاك وسجل التدقيق</p>
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function Admin() {
 
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b font-semibold flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
-          <ScrollText size={16} className="text-brand-500" /> سجل التدقيق
+          <ScrollText size={16} className="text-brand-600" /> سجل التدقيق
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[700px]">

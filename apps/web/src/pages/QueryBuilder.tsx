@@ -115,7 +115,7 @@ export default function QueryBuilder() {
             type="button"
             onClick={() => onToggle(g.id)}
             className={`badge transition ${
-              selected.includes(g.id) ? 'bg-brand-600 text-white' : 'bg-[var(--surface-3)] hover:bg-[var(--border)]'
+              selected.includes(g.id) ? 'bg-(--selected-bg) text-(--selected-fg)' : 'bg-[var(--surface-3)] hover:bg-[var(--border)]'
             }`}
           >
             {g.name_ar} <span className="num opacity-70">{g.keyword_count}</span>
@@ -130,7 +130,7 @@ export default function QueryBuilder() {
     <div className="space-y-5 max-w-5xl">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Wand2 size={22} className="text-brand-500" /> بناء استعلام</h1>
+          <h1 className="flex items-center gap-2.5"><Wand2 size={22} className="text-brand-600" /> بناء استعلام</h1>
           <p>التقدير أدناه مجاني تماماً — لا يُرسل أي طلب إلى X. الاختبار الفعلي يأتي في الخطوة التالية.</p>
         </div>
       </div>

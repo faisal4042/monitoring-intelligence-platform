@@ -15,7 +15,7 @@ interface Keyword {
 
 const TYPE_META: Record<string, { label: string; cls: string; hint: string }> = {
   primary:   { label: 'أساسية',  cls: 'bg-brand-500/15 text-brand-600 dark:text-brand-400', hint: 'اسم البرنامج ومشتقاته' },
-  service:   { label: 'خدمات',   cls: 'bg-violet-500/15 text-violet-600 dark:text-violet-400', hint: 'أسماء الخدمات والعبارات الفعلية للجمهور' },
+  service:   { label: 'خدمات',   cls: 'bg-(--status-info-soft) text-(--status-info)', hint: 'أسماء الخدمات والعبارات الفعلية للجمهور' },
   related:   { label: 'مرتبطة',  cls: 'bg-teal-500/15 text-teal-600 dark:text-teal-400', hint: 'مصطلحات السياق' },
   negative:  { label: 'مستبعدة', cls: 'bg-red-500/15 text-red-600 dark:text-red-400', hint: 'أرخص أداة لخفض التكلفة — كل نتيجة غير مرتبطة حصة محروقة' },
   sensitive: { label: 'حساسة',   cls: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', hint: 'ترفع درجة الخطورة عند ظهورها' },
@@ -59,7 +59,7 @@ export default function Keywords() {
     <div className="space-y-5">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Tags size={22} className="text-brand-500" /> قاموس الكلمات</h1>
+          <h1 className="flex items-center gap-2.5"><Tags size={22} className="text-brand-600" /> قاموس الكلمات</h1>
           <p>الكلمات تُعدَّل من هنا بلا لمس الكود. تعديل مجموعة يُحدِّث كل استعلام يستخدمها تلقائياً.</p>
         </div>
       </div>

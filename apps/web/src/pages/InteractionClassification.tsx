@@ -236,7 +236,7 @@ export default function InteractionClassification() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="flex items-center gap-2.5 text-xl font-bold"><ChartNoAxesCombined size={22} className="text-brand-500" /> تصنيف التفاعلات</h1>
+        <h1 className="flex items-center gap-2.5 text-xl font-bold"><ChartNoAxesCombined size={22} className="text-brand-600" /> تصنيف التفاعلات</h1>
         <p className="text-sm muted">
           يربط كل منشور بموضوع عبر تشابه المتجهات (Qwen3-Embedding-8B) — مهما ارتفعت النسبة فهي درجة تشابه وليست يقيناً
           مطلقاً؛ لهذا لا يُربط أي منشور تحت الحد الأدنى المختار بدلاً من التخمين.
