@@ -137,3 +137,59 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
     return item;
   });
 }
+
+/**
+ * Cross-team transfer: one transaction moves an open post item to another
+ * team and hands it to a member of that team. The actor must hold the item
+ * in scope (404 otherwise) and the target team in scope (404 otherwise); the
+ * version must match (409). The previous team and assignee stay in the
+ * event and the administrative audit. A post whose story is owned by the
+ * target team lands in that story right away (the held move is resolved).
+ */
+export async function transferItem(req:FastifyRequest, id:string, input:{expectedVersion:number;teamId:string;assigneeId:string;reason:string}) {
+  const actor=req.user;
+  if(!supervises(actor))throw forbidden();
+  return sql.begin(async tx=>{
+    const [old]=await tx<(Item&{interaction_type:string;post_id:string;post_posted_at:string;story_item_id:string|null})[]>`
+      SELECT q.* FROM queue_items q WHERE q.id=${id}::uuid AND (${queueScope(actor,true)}) FOR UPDATE`;
+    if(!old)throw notFound();
+    if(old.merged_into_id)throw conflict('دُمجت هذه القصة في قصة أخرى؛ تابع العمل من القصة الأساسية.');
+    if(old.version!==input.expectedVersion)throw conflict('تغير العنصر. حدّث القائمة وحاول مجدداً.');
+    if(old.interaction_type!=='post')throw conflict('القصة تتبع فريق برنامجها؛ النقل متاح للتفاعلات فقط');
+    if(old.status==='completed')throw conflict('لا يمكن نقل عنصر مكتمل');
+    if(old.team_id===input.teamId)throw badRequest('العنصر في هذا الفريق بالفعل؛ استخدم الإسناد');
+    // The target team must be one the actor may act for; anything else looks absent.
+    const [team]=await tx<{id:string;name:string}[]>`SELECT t.id,t.name FROM teams t
+      WHERE t.id=${input.teamId}::uuid AND t.is_active AND (${queueTeamScope(actor)}) FOR SHARE`;
+    if(!team)throw notFound('الفريق غير موجود ضمن نطاقك');
+    const [member]=await tx`SELECT tm.id FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
+      WHERE tm.team_id=${team.id}::uuid AND tm.user_id=${input.assigneeId}::uuid AND tm.left_at IS NULL
+        AND u.is_active AND u.deleted_at IS NULL
+        AND ((tm.kind='agent' AND r.key='agent') OR (tm.kind='supervisor' AND r.key='supervisor'))
+      FOR SHARE OF tm,u`;
+    if(!member)throw badRequest('الموظف ليس عضواً نشطاً في الفريق المستلم');
+    const [from]=await tx<{name:string}[]>`SELECT name FROM teams WHERE id=${old.team_id}::uuid`;
+    // Placement in the new team: inside its story's unit there, if any.
+    const [unit]=await tx<{id:string}[]>`SELECT u.id FROM signal_story_members m
+      JOIN queue_items u ON u.interaction_type='story' AND u.story_id=m.story_id AND u.merged_into_id IS NULL
+      WHERE m.post_id=${old.post_id}::uuid AND m.posted_at=${old.post_posted_at}::timestamptz AND u.team_id=${team.id}::uuid LIMIT 1`;
+    const [{influencer}]=await tx<{influencer:boolean}[]>`SELECT coalesce((SELECT ${authoredByInfluencer} FROM posts p
+      WHERE p.id=${old.post_id}::uuid AND p.posted_at=${old.post_posted_at}::timestamptz),false) AS influencer`;
+    const toSection=unit?'story':influencer?'influencer':old.section==='story'?'general':old.section;
+    const [item]=await tx<Item[]>`UPDATE queue_items q SET team_id=${team.id}::uuid, status='assigned', assignee_id=${input.assigneeId}::uuid,
+        section=${toSection}, story_item_id=${unit?.id??null}::uuid, section_hold=NULL,
+        first_assigned_at=coalesce(q.first_assigned_at,clock_timestamp()), assigned_at=clock_timestamp(), started_at=NULL,
+        reassignment_count=q.reassignment_count+${old.assignee_id?1:0},
+        version=q.version+1, updated_at=clock_timestamp()
+      WHERE q.id=${id}::uuid AND q.version=${input.expectedVersion} RETURNING q.*`;
+    if(!item)throw conflict('تغير العنصر أثناء العملية. حدّث القائمة.');
+    const meta={fromTeam:old.team_id,fromTeamName:from?.name??null,toTeam:team.id,toTeamName:team.name,
+      fromSection:old.section,toSection,fromItem:old.story_item_id,toItem:unit?.id??null};
+    const [ev]=await tx<{id:string}[]>`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,version,metadata)
+      VALUES (${id},'transferred',${actor.id},${old.status},'assigned',${old.assignee_id},${input.assigneeId},${input.reason},${item.version},
+        ${JSON.stringify(meta)}::jsonb) RETURNING id`;
+    await administrativeAudit(tx,req,'queue.transfer','queue_item',id,{...meta,fromAssignee:old.assignee_id,toAssignee:input.assigneeId,reason:input.reason});
+    await alertForEvents(tx,[ev.id]);
+    return item;
+  });
+}

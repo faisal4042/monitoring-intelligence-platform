@@ -6,7 +6,7 @@ import { QUEUE, queueScope, queueTeamScope, requireScope, resolveScope, type Que
 import { badRequest, notFound } from '../../lib/errors.js';
 import { dateBoundsFromQuery } from '../../lib/date-range.js';
 import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
-import { administrativeAudit, manualAdd, mutateItem } from './service.js';
+import { administrativeAudit, manualAdd, mutateItem, transferItem } from './service.js';
 import { expectedVersion, idParams, parse } from './validation.js';
 
 const uuid=z.string().uuid();
@@ -104,6 +104,10 @@ export default async function queueRoutes(app:FastifyInstance) {
     const [item]=await sql`SELECT q.*,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,a.username,a.display_name,a.profile_image_url,
       a.followers_count,c.intent,c.relevance,c.topic_id,tp.name_ar AS topic_name,c.reason_ar,s.label AS sentiment,
       u.full_name AS assignee_name,t.name AS team_name,${storyColumns},
+      -- For a held move: the team that owns this post's story (the transfer's natural target).
+      (SELECT ht.id FROM signal_story_members hm JOIN queue_items hu ON hu.interaction_type='story' AND hu.story_id=hm.story_id
+        AND hu.merged_into_id IS NULL JOIN teams ht ON ht.id=hu.team_id
+        WHERE q.section_hold IS NOT NULL AND hm.post_id=q.post_id AND hm.posted_at=q.post_posted_at LIMIT 1) AS hold_team_id,
       coalesce((SELECT jsonb_agg(jsonb_build_object('url',m.url,'type',m.type,'previewImageUrl',m.preview_image_url))
         FROM post_media m WHERE m.post_id=p.id AND m.posted_at=p.posted_at),'[]') AS media
       FROM queue_items q ${joins} ${storyJoins} LEFT JOIN topics tp ON tp.id=c.topic_id LEFT JOIN authors a ON a.id=p.author_id
@@ -143,8 +147,8 @@ export default async function queueRoutes(app:FastifyInstance) {
     const today=dateBoundsFromQuery({range:'today'});
     const workload=resolveScope(req.user.permissions,QUEUE)==='own'?[]:await sql`
       SELECT u.id,u.full_name,t.id AS team_id,t.name AS team_name,
-        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.status IN ('assigned','escalated') AND (${queueScope(req.user)})) AS open,
-        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.status='in_progress' AND (${queueScope(req.user)})) AS in_progress,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status IN ('assigned','escalated') AND (${queueScope(req.user)})) AS open,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status='in_progress' AND (${queueScope(req.user)})) AS in_progress,
         (SELECT count(DISTINCT e.queue_item_id)::int FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id
           WHERE e.actor_id=u.id AND e.event_type='completed' AND e.created_at>=${today.from}::timestamptz
           AND e.created_at<${today.to}::timestamptz AND q.team_id=t.id AND (${queueScope(req.user)})) AS completed_today
@@ -167,6 +171,11 @@ export default async function queueRoutes(app:FastifyInstance) {
   app.post('/items',manage,async(req,reply)=>{
     const input=parse(z.object({postId:uuid,postedAt:z.string().datetime({offset:true}),teamId:uuid.optional()}).strict(),req.body);
     return reply.code(201).send(await manualAdd(req,input));
+  });
+  app.post('/items/:id/transfer',manage,async req=>{
+    const {id}=parse(idParams,req.params);
+    const input=parse(z.object({expectedVersion,teamId:uuid,assigneeId:uuid,reason:z.string().trim().min(1).max(2000)}).strict(),req.body);
+    return transferItem(req,id,input);
   });
   for(const action of QUEUE_ACTIONS) {
     app.post(`/items/:id/${action}`,{

@@ -93,7 +93,7 @@ export async function followStoryMerges(tx: Tx) {
       AND NOT EXISTS (SELECT 1 FROM signal_stories s WHERE s.id=u.story_id)
     ORDER BY u.id LIMIT 50 FOR UPDATE OF u`;
   for (const unit of lost) {
-    const [target] = await tx<{ id: string }[]>`SELECT id FROM queue_items
+    const [target] = await tx<{ id: string; status: string; version: number; team_id: string }[]>`SELECT id,status,version,team_id FROM queue_items
       WHERE interaction_type='story' AND story_id=${unit.now_story}::uuid AND merged_into_id IS NULL FOR UPDATE`;
     const [moved] = await tx<{ version: number }[]>`UPDATE queue_items SET
         story_id=CASE WHEN ${!target} THEN ${unit.now_story}::uuid ELSE story_id END,
@@ -105,6 +105,28 @@ export async function followStoryMerges(tx: Tx) {
         ${JSON.stringify(target ? { intoItem: target.id } : { fromStory: unit.story_id, toStory: unit.now_story })}::jsonb) RETURNING id`;
     events.push(e.id);
     if (!target) continue;
+    // The merged unit keeps its own events, notes, assignment and completion
+    // forever (it is only hidden from the board). If someone was working it and
+    // the surviving story is still unowned, the work follows them there as an
+    // ordinary, audited assignment — never a silent change and never a second
+    // completion: the surviving unit starts its own cycle.
+    if (unit.assignee_id && ['assigned','in_progress','escalated'].includes(unit.status) && target.status === 'new') {
+      const [member] = await tx`SELECT 1 FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
+        WHERE tm.team_id=${target.team_id}::uuid AND tm.user_id=${unit.assignee_id}::uuid AND tm.left_at IS NULL
+          AND u.is_active AND u.deleted_at IS NULL AND r.key=tm.kind`;
+      if (member) {
+        const [t] = await tx<{ version: number }[]>`UPDATE queue_items SET status='assigned', assignee_id=${unit.assignee_id}::uuid,
+            first_assigned_at=coalesce(first_assigned_at,clock_timestamp()), assigned_at=clock_timestamp(), started_at=NULL,
+            version=version+1, updated_at=clock_timestamp()
+          WHERE id=${target.id}::uuid AND version=${target.version} AND status='new' RETURNING version`;
+        if (t) {
+          const [ae] = await tx<{ id: string }[]>`INSERT INTO queue_events(queue_item_id,event_type,from_status,to_status,to_assignee,reason,version,metadata)
+            VALUES (${target.id},'assigned','new','assigned',${unit.assignee_id},'انتقل العمل مع دمج القصة',${t.version},
+              ${JSON.stringify({ fromItem: unit.id })}::jsonb) RETURNING id`;
+          events.push(ae.id);
+        }
+      }
+    }
     // Members follow their story; each keeps its status and assignee.
     const members = await tx<{ id: string; status: string; version: number }[]>`UPDATE queue_items
       SET story_item_id=${target.id}::uuid, version=version+1, updated_at=clock_timestamp()
@@ -134,11 +156,12 @@ export async function reconcileSections(tx: Tx, limit = 200) {
     WITH cur AS (
       SELECT q.id,q.status,q.version,q.section,q.story_item_id,q.section_hold,q.team_id,
         u.id AS unit_id,u.team_id AS unit_team,(p.id IS NULL) AS source_gone,
-        (ti.id IS NOT NULL) AS influencer
+        (ti.id IS NOT NULL) AS influencer,coalesce(c.intent::text IN ('inquiry','complaint'),false) AS general_intent
       FROM queue_items q
       LEFT JOIN signal_story_members m ON m.post_id=q.post_id AND m.posted_at=q.post_posted_at
       LEFT JOIN queue_items u ON u.interaction_type='story' AND u.story_id=m.story_id AND u.merged_into_id IS NULL
       LEFT JOIN posts p ON p.id=q.post_id AND p.posted_at=q.post_posted_at
+      LEFT JOIN post_classifications c ON c.post_id=p.id AND c.posted_at=p.posted_at
       LEFT JOIN authors a ON a.id=p.author_id
       LEFT JOIN tracked_influencers ti ON lower(ti.username)=lower(a.username) AND ti.is_active
       WHERE q.interaction_type='post'
@@ -147,7 +170,11 @@ export async function reconcileSections(tx: Tx, limit = 200) {
         CASE WHEN unit_id IS NOT NULL AND unit_team=team_id THEN 'story'
              -- A source removed by retention/redaction cannot be re-judged; leave it be.
              WHEN source_gone THEN CASE WHEN section='story' AND story_item_id IS NOT NULL THEN 'story' ELSE section END
-             WHEN influencer THEN 'influencer' ELSE 'general' END AS to_section,
+             WHEN influencer THEN 'influencer'
+             -- No longer an influencer's, but general only takes inquiries and
+             -- complaints: an influencer-only item keeps its section.
+             WHEN section='influencer' AND NOT general_intent THEN 'influencer'
+             ELSE 'general' END AS to_section,
         CASE WHEN unit_id IS NOT NULL AND unit_team=team_id THEN unit_id
              WHEN source_gone AND section='story' THEN story_item_id END AS to_unit,
         CASE WHEN unit_id IS NOT NULL AND unit_team<>team_id THEN 'story' END AS to_hold
@@ -194,7 +221,7 @@ export async function alertForEvents(tx: Tx, eventIds: string[]) {
         CASE
           WHEN e.event_type='created' AND q.interaction_type='story' THEN 'story'
           WHEN e.event_type IN ('created','section_changed') AND q.interaction_type='post' AND q.section='influencer' THEN 'influencer'
-          WHEN e.event_type IN ('assigned','reassigned','deescalated') AND q.section IN ('influencer','story')
+          WHEN e.event_type IN ('assigned','reassigned','deescalated','transferred') AND q.section IN ('influencer','story')
             AND e.to_assignee IS NOT NULL AND e.to_assignee IS DISTINCT FROM e.actor_id THEN 'assigned'
         END AS kind
       FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id

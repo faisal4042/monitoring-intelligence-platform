@@ -34,7 +34,10 @@ export async function intakeQueue() {
           CASE WHEN ${authoredByInfluencer} THEN 'influencer' ELSE 'general' END
         FROM posts p JOIN post_classifications c ON c.post_id=p.id AND c.posted_at=p.posted_at
         JOIN programs pr ON pr.id=c.program_id JOIN team_programs tp ON tp.program_id=c.program_id JOIN teams t ON t.id=tp.team_id
-        WHERE p.collected_at>=${intakeStart}::timestamptz AND c.relevance='relevant' AND c.intent IN ('inquiry','complaint')
+        -- General takes inquiries and complaints; a tracked influencer's relevant
+        -- interaction is taken whatever its intent. Exclusions apply to both.
+        WHERE p.collected_at>=${intakeStart}::timestamptz AND c.relevance='relevant'
+          AND (c.intent IN ('inquiry','complaint') OR ${authoredByInfluencer})
           AND p.status NOT IN ('duplicate','filtered_out') AND p.duplicate_of_id IS NULL AND p.duplicate_type IS NULL
           AND NOT p.is_redacted AND t.is_active
           AND NOT EXISTS(SELECT 1 FROM queue_items qi WHERE qi.post_id=p.id AND qi.interaction_type='post')
