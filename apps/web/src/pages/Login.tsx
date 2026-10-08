@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../lib/auth';
-import { Activity, ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useTheme } from '../lib/theme';
+import BrandLogo from '../components/BrandLogo';
 
 export default function Login() {
   const { login } = useAuth();
@@ -30,22 +31,22 @@ export default function Login() {
       <button className="icon-button login-theme" type="button" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="تبديل المظهر">
         {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
       </button>
-      <div className="login-visual" aria-hidden="true">
-        <div className="login-grid" />
+      {/* Deep Navy identity panel: the negative stacked logo is the guide's default on navy. */}
+      <div className="login-visual">
         <div className="login-visual-content">
-          <div className="brand-mark brand-mark-large"><Activity size={29} /></div>
-          <p className="eyebrow text-white/70">ذكاء الرصد والتحليل</p>
+          <div className="login-logo"><BrandLogo variant="stacked" width={232} /></div>
+          <p className="login-product">منصة الرصد <span className="num">MIP</span></p>
           <h2>حوّل ضجيج المشهد الرقمي إلى إشارات واضحة.</h2>
           <p>رصد لحظي، تحليل دقيق، ورؤية موحّدة تساعد فريقك على اتخاذ القرار بثقة.</p>
-          <div className="login-trust"><ShieldCheck size={18} /><span>منصة داخلية آمنة ومتكاملة</span></div>
+          <div className="login-trust"><ShieldCheck size={17} aria-hidden="true" /><span>منصة داخلية آمنة من إثراء المتحدة لخدمات الأعمال</span></div>
         </div>
       </div>
       <div className="login-panel">
       <form onSubmit={submit} className="login-form">
         <div className="mb-8">
-          <div className="login-mobile-brand"><span className="brand-mark"><Activity size={21} /></span><span>منصة الرصد</span></div>
+          <div className="login-mobile-brand"><BrandLogo width={176} /><span className="login-mobile-product">منصة الرصد <span className="num">MIP</span></span></div>
           <p className="eyebrow">مرحبًا بعودتك</p>
-          <h1 className="text-2xl font-bold tracking-tight">تسجيل الدخول</h1>
+          <h1 className="login-title">تسجيل الدخول</h1>
           <p className="text-sm muted mt-2">أدخل بيانات حسابك للوصول إلى لوحة الرصد.</p>
         </div>
 
@@ -63,7 +64,7 @@ export default function Login() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400 px-3 py-2 text-sm">
+          <div className="form-error mb-4" role="alert">
             {error}
           </div>
         )}

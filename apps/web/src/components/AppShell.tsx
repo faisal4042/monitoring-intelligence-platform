@@ -7,9 +7,10 @@ import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import AlertCenter from './AlertCenter';
+import BrandLogo from './BrandLogo';
 import {
   Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
-  CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose,
+  CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose, PanelRightOpen,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
   UserCog, UsersRound, X,
 } from 'lucide-react';
@@ -45,22 +46,16 @@ const ADMIN_NAV = [
 ];
 
 const MODE_BADGE: Record<string, { text: string; cls: string; title: string }> = {
-  demo: {
-    text: 'وضع تجريبي',
-    cls: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
-    title: 'LIVE_X_API=false — لا يوجد أي اتصال بـ X API',
-  },
-  dry_run: {
-    text: 'تشغيل جاف',
-    cls: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-    title: 'الاستعلامات تُبنى وتُحاسب لكن لا تُرسل',
-  },
-  live: {
-    text: 'تشغيل حي',
-    cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-    title: 'طلبات حقيقية تستهلك حصة فعلية',
-  },
+  demo: { text: 'وضع تجريبي', cls: 'status-pill--info', title: 'LIVE_X_API=false — لا يوجد أي اتصال بـ X API' },
+  dry_run: { text: 'تشغيل جاف', cls: 'status-pill--warning', title: 'الاستعلامات تُبنى وتُحاسب لكن لا تُرسل' },
+  live: { text: 'تشغيل حي', cls: 'status-pill--success', title: 'طلبات حقيقية تستهلك حصة فعلية' },
 };
+
+/** Header title for routes outside the sidebar lists. */
+const EXTRA_TITLES: Array<[string, string]> = [
+  ['/queries/new', 'منشئ الاستعلام'], ['/queries/', 'اختبار الاستعلام'], ['/account/password', 'تغيير كلمة المرور'],
+];
+const COLLAPSE_KEY = 'mip.sidebar.collapsed';
 
 export default function AppShell() {
   const { user, logout, can } = useAuth();
@@ -71,6 +66,9 @@ export default function AppShell() {
   const [showKill, setShowKill] = useState(false);
   const [reason, setReason] = useState('');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Desktop only; a per-device convenience, so local storage is enough.
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch { return false; } });
+  const toggleCollapsed = () => setCollapsed((c) => { try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* private mode */ } return !c; });
 
   const visibleAdminNav = ADMIN_NAV.filter((n) => !n.perm || can(n.perm));
   const isAdminActive = visibleAdminNav.some((n) => location.pathname === n.to);
@@ -105,18 +103,23 @@ export default function AppShell() {
   const globalKill = cost?.killSwitches?.find((k) => k.scope === 'global');
   const mode = MODE_BADGE[cost?.collectionMode ?? 'demo'] ?? MODE_BADGE.demo;
   const pct = cost?.usagePct ?? 0;
-  const barColor = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  const barColor = pct >= 90 ? 'var(--status-danger-solid)' : pct >= 70 ? '#d97706' : 'var(--ithra-teal)';
+  const allNav = [...NAV, ...ADMIN_NAV];
+  const pageTitle = EXTRA_TITLES.find(([prefix]) => location.pathname.startsWith(prefix))?.[1]
+    ?? allNav.filter((n) => location.pathname === n.to || location.pathname.startsWith(n.to + '/')).sort((a, b) => b.to.length - a.to.length)[0]?.label
+    ?? 'منصة الرصد';
 
   return (
-    <div className="app-frame min-h-screen flex">
+    <div className={`app-frame min-h-screen flex ${collapsed ? 'is-collapsed' : ''}`}>
       {mobileNavOpen && <button className="sidebar-backdrop" aria-label="إغلاق القائمة" onClick={() => setMobileNavOpen(false)} />}
       {/* Sidebar */}
       <aside className={`app-sidebar ${mobileNavOpen ? 'is-open' : ''}`}>
+        {/* Corporate identity, then the product name. The logo keeps its clear space and never shrinks below 160px. */}
         <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true"><Activity size={22} strokeWidth={2.4} /></div>
-          <div className="min-w-0">
-            <div className="font-bold text-[1.05rem] leading-tight">منصة الرصد</div>
-            <div className="text-[0.68rem] muted mt-1 tracking-wide">ذكاء الرصد والتحليل</div>
+          <div className="brand-lockup-logo"><BrandLogo width={184} /></div>
+          <div className="brand-product">
+            <span className="brand-product-name">منصة الرصد <span className="num">MIP</span></span>
+            <span className="brand-product-tagline">منصة الرصد والتحليل</span>
           </div>
           <button className="icon-button sidebar-close" aria-label="إغلاق القائمة" onClick={() => setMobileNavOpen(false)}><PanelRightClose size={19} /></button>
         </div>
@@ -129,9 +132,10 @@ export default function AppShell() {
               end={n.to === '/'}
               onClick={() => setMobileNavOpen(false)}
               className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+              title={collapsed ? n.label : undefined}
             >
-              <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.9} />
-              <span className="flex-1">{n.to==='/queue' ? (can(PERMISSIONS.QUEUE_SUPERVISE,PERMISSIONS.QUEUE_VIEW_ALL)?'طابور الرصد':'مهامي — My Queue') : n.label}</span>
+              <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+              <span className="sidebar-link-label flex-1">{n.to==='/queue' ? (can(PERMISSIONS.QUEUE_SUPERVISE,PERMISSIONS.QUEUE_VIEW_ALL)?'طابور الرصد':'مهامي — My Queue') : n.label}</span>
               <ChevronLeft className="sidebar-link-arrow" size={15} />
             </NavLink>
           ))}
@@ -141,14 +145,15 @@ export default function AppShell() {
               <button
                 type="button"
                 className={`sidebar-link sidebar-group-btn ${adminOpen ? 'is-open' : ''} ${isAdminActive ? 'is-active' : ''}`}
-                onClick={() => setAdminOpen((v) => !v)}
+                onClick={() => { if (collapsed) toggleCollapsed(); setAdminOpen((v) => !v); }}
                 aria-expanded={adminOpen}
+                title={collapsed ? 'الإدارة' : undefined}
               >
-                <LayoutGrid className="sidebar-link-icon" size={18} strokeWidth={1.9} />
-                <span className="flex-1">الإدارة</span>
+                <Settings2 className="sidebar-link-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+                <span className="sidebar-link-label flex-1">الإدارة</span>
                 <ChevronDown className="sidebar-group-chevron" size={16} />
               </button>
-              {adminOpen && (
+              {adminOpen && !collapsed && (
                 <div className="sidebar-subnav">
                   {visibleAdminNav.map((n) => (
                     <NavLink
@@ -157,7 +162,7 @@ export default function AppShell() {
                       onClick={() => setMobileNavOpen(false)}
                       className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
                     >
-                      <n.icon className="sidebar-link-icon" size={16} strokeWidth={1.9} />
+                      <n.icon className="sidebar-link-icon" size={16} strokeWidth={1.75} aria-hidden="true" />
                       <span className="flex-1">{n.label}</span>
                       <ChevronLeft className="sidebar-link-arrow" size={14} />
                     </NavLink>
@@ -178,7 +183,7 @@ export default function AppShell() {
               </span>
             </div>
             <div className="progress-track">
-              <div className={`h-full ${barColor} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+              <div className="h-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: barColor }} />
             </div>
           </div>
         )}
@@ -189,7 +194,7 @@ export default function AppShell() {
             <div className="font-semibold text-sm truncate">{user?.fullName}</div>
             <div className="muted text-xs truncate mt-0.5">{user?.roleNameAr}</div>
           </div>
-          <div className="flex gap-1">
+          <div className="sidebar-profile-actions">
             <button
               className="icon-button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -224,7 +229,11 @@ export default function AppShell() {
           className="app-header"
         >
           <button className="icon-button mobile-menu" aria-label="فتح القائمة" onClick={() => setMobileNavOpen(true)}><Menu size={20} /></button>
-          <span className={`badge mode-badge ${mode.cls}`} title={mode.title}>
+          <button className="icon-button desktop-collapse" aria-label={collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'} aria-pressed={collapsed}
+            title={collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'} onClick={toggleCollapsed}>
+            {collapsed ? <PanelRightOpen size={18} /> : <PanelRightClose size={18} />}</button>
+          <div className="app-header-title" aria-live="polite"><span className="app-header-product">منصة الرصد</span><span aria-hidden="true">/</span><strong>{pageTitle}</strong></div>
+          <span className={`badge mode-badge status-pill ${mode.cls}`} title={mode.title}>
             {cost?.collectionMode === 'live' ? (
               <span className="live-orbit-icon" aria-hidden="true">
                 <span className="live-orbit-ring" />
@@ -248,7 +257,7 @@ export default function AppShell() {
           )}
 
           {globalKill && (
-            <span className="badge bg-red-600 text-white">
+            <span className="badge status-pill status-pill--danger-solid">
               الجمع موقوف — {globalKill.reason}
             </span>
           )}
@@ -261,7 +270,7 @@ export default function AppShell() {
           {/* The emergency stop stays reachable at all times, by design. */}
           {can(PERMISSIONS.KILLSWITCH_OPERATE) && (
             globalKill ? (
-              <button className="btn-ghost !text-emerald-600" aria-label="استئناف الجمع" onClick={() => resume.mutate(globalKill.id)}>
+              <button className="btn-ghost btn-success-text" aria-label="استئناف الجمع" onClick={() => resume.mutate(globalKill.id)}>
                 <ShieldCheck size={17} /> <span className="emergency-label">استئناف الجمع</span>
               </button>
             ) : (
@@ -278,7 +287,7 @@ export default function AppShell() {
       </div>
 
       {showKill && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowKill(false)}>
+        <div className="modal-overlay" onClick={() => setShowKill(false)}>
           <div className="card modal-card p-5 w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="kill-title" onClick={(e) => e.stopPropagation()}>
             <button className="icon-button absolute top-4 end-4" aria-label="إغلاق" onClick={() => setShowKill(false)}><X size={18} /></button>
             <h3 id="kill-title" className="font-bold text-lg mb-1">إيقاف جمع بيانات X</h3>
