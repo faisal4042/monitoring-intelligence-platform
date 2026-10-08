@@ -109,7 +109,7 @@ export default function MonitoringQueue() {
         {list.error&&<p role="alert" className="card p-4 text-red-600">{list.error.message}</p>}
         {list.isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
         {!list.isLoading&&!list.error&&!items.length&&<div className="card p-10 text-center">
-          <Inbox size={34} className="mx-auto mb-3 text-brand-500"/><h2 className="font-bold">لا توجد عناصر هنا</h2>
+          <Inbox size={34} className="mx-auto mb-3 text-brand-600"/><h2 className="font-bold">لا توجد عناصر هنا</h2>
           <p className="muted text-sm mt-2">{isStory?'تظهر هنا القصص المعتمدة (بمصدرين مستقلين على الأقل) ضمن نطاقك.':section==='influencer'?'تظهر هنا تفاعلات الحسابات المؤثرة المتابَعة.':'تظهر هنا التفاعلات المناسبة لنطاقك والفلاتر المحددة.'}</p></div>}
         {items.map(item=><QueueCard key={item.id} item={item} supervise={supervise} now={now} warnMinutes={warnMinutes} selected={item.id===selected} onOpen={()=>set('item',item.id,true)}/>)}
         {list.hasNextPage&&<button className="btn-ghost w-full" disabled={list.isFetchingNextPage} onClick={()=>list.fetchNextPage()}>تحميل المزيد — الأقدم أولاً</button>}
@@ -138,7 +138,7 @@ export default function MonitoringQueue() {
           <ul className="queue-workload space-y-0.5">{summary.data.workload.map(w=><li key={w.id+w.team_id}>
             <button aria-pressed={params.get('employeeId')===w.id} onClick={()=>set('employeeId',params.get('employeeId')===w.id?'':w.id)}>
               <span className="min-w-0"><strong className="block text-sm truncate">{w.full_name}</strong><span className="block text-xs muted truncate">{w.team_name}</span></span>
-              <span className="queue-workload-nums self-center"><span title="مفتوح">{w.open}</span><span className="text-violet-600" title="قيد العمل">{w.in_progress}</span><span className="text-emerald-600" title="مكتمل اليوم">{w.completed_today}</span></span>
+              <span className="queue-workload-nums self-center"><span title="مفتوح">{w.open}</span><span className="text-(--status-info)" title="قيد العمل">{w.in_progress}</span><span className="text-emerald-600" title="مكتمل اليوم">{w.completed_today}</span></span>
             </button></li>)}</ul>}
         </div>}
       </aside>}

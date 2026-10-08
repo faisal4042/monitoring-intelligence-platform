@@ -71,7 +71,7 @@ export default function Influencers() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold"><UsersRound size={22} className="text-brand-500" /> العملاء المؤثرون</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><UsersRound size={22} className="text-brand-600" /> العملاء المؤثرون</h1>
           <p className="text-sm muted">
             متابعة حسابات محدَّدة — تُجلب تغريداتها فقط إن طابقت قاموس أحد برامجنا، تماماً كأي منشور آخر.
             {data && <> {withPosts} من {data.items.length} تكلّموا عن برامجنا حتى الآن.</>}

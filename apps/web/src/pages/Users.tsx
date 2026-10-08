@@ -99,7 +99,7 @@ export default function Users() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold"><UsersRound size={22} className="text-brand-500" /> إدارة المستخدمين</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><UsersRound size={22} className="text-brand-600" /> إدارة المستخدمين</h1>
           <p className="text-sm muted">الحسابات والأدوار. لا يُحذف أي حساب — يُعطَّل ويمكن إعادة تفعيله.</p>
         </div>
         {canWrite && canAssign && (
@@ -110,7 +110,7 @@ export default function Users() {
       {isLoading && <div className="card p-10 text-center muted text-sm">جارٍ التحميل…</div>}
 
       {!isLoading && (
-        <div className="card overflow-x-auto">
+        <div className="card overflow-x-auto relative">
           <table className="w-full min-w-[860px]">
             <thead style={{ background: 'var(--surface-2)' }}>
               <tr>
@@ -132,7 +132,7 @@ export default function Users() {
                     <td className="td text-sm muted" dir="ltr" style={{ textAlign: 'right' }}>{u.email}</td>
                     <td className="td text-sm">
                       <span className="inline-flex items-center gap-1">
-                        {u.role_key === 'admin' && <ShieldCheck size={13} className="text-brand-500" aria-hidden="true" />} {u.role_name}
+                        {u.role_key === 'admin' && <ShieldCheck size={13} className="text-brand-600" aria-hidden="true" />} {u.role_name}
                       </span>
                       {u.extra_permissions.length > 0 && (
                         <div className="text-[11px] muted" title={u.extra_permissions.join('، ')}>+{u.extra_permissions.length} صلاحية إضافية</div>
@@ -280,7 +280,7 @@ export default function Users() {
 
       {issued && (
         <Modal onClose={() => undefined}>
-          <h3 className="font-bold mb-1 flex items-center gap-2"><KeyRound size={18} className="text-brand-500" /> كلمة المرور المؤقتة</h3>
+          <h3 className="font-bold mb-1 flex items-center gap-2"><KeyRound size={18} className="text-brand-600" /> كلمة المرور المؤقتة</h3>
           <p className="text-xs muted mb-3">{issued.reason === 'create' ? 'أُنشئ الحساب' : 'أُعيد تعيين كلمة المرور'} لـ <span dir="ltr">{issued.email}</span></p>
           <div className="flex items-center gap-2 rounded-lg p-3 mb-3" style={{ background: 'var(--surface-2)' }}>
             <code className="flex-1 select-all break-all text-sm font-semibold" dir="ltr">{issued.password}</code>

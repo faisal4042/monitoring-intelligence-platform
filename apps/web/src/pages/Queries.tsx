@@ -16,7 +16,7 @@ interface Row {
 const STATUS: Record<string, { text: string; cls: string }> = {
   draft:    { text: 'مسودة',  cls: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
   tested:   { text: 'مُختبَر', cls: 'bg-brand-500/15 text-brand-600 dark:text-brand-400' },
-  approved: { text: 'معتمد',  cls: 'bg-violet-500/15 text-violet-600' },
+  approved: { text: 'معتمد',  cls: 'bg-(--status-info-soft) text-(--status-info)' },
   active:   { text: 'نشط',    cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
   paused:   { text: 'موقوف',  cls: 'bg-amber-500/15 text-amber-600' },
   archived: { text: 'مؤرشف',  cls: 'bg-slate-500/15 text-slate-500' },
@@ -36,7 +36,7 @@ export default function Queries() {
     <div className="space-y-5">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold"><SearchCode size={22} className="text-brand-500" /> الاستعلامات</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><SearchCode size={22} className="text-brand-600" /> الاستعلامات</h1>
           <p className="text-sm muted">لا يصل استعلام إلى الإنتاج قبل اجتياز اختبار Sandbox بدقة ≥ 70%</p>
         </div>
         {can(PERMISSIONS.QUERIES_WRITE) && (

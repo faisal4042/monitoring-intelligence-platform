@@ -144,7 +144,7 @@ export default function NewsSources() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold"><Rss size={22} className="text-brand-500" /> مصادر الأخبار</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><Rss size={22} className="text-brand-600" /> مصادر الأخبار</h1>
           <p className="text-sm muted">تسجيل واختبار المصادر فقط في هذه المرحلة — لا جلب دوري بعد</p>
         </div>
         {canManage && (

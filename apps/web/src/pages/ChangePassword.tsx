@@ -48,7 +48,7 @@ export default function ChangePassword() {
 
   const form = (
     <form className="card w-full max-w-md p-6" onSubmit={submit}>
-      <h1 className="mb-1 flex items-center gap-2 text-lg font-bold"><KeyRound size={20} className="text-brand-500" /> تغيير كلمة المرور</h1>
+      <h1 className="mb-1 flex items-center gap-2 text-lg font-bold"><KeyRound size={20} className="text-brand-600" /> تغيير كلمة المرور</h1>
       {forced ? (
         <p className="mb-5 rounded-lg bg-amber-500/10 p-3 text-sm leading-relaxed text-amber-700 dark:text-amber-400" role="status">
           تستخدم كلمة مرور مؤقتة. اختر كلمة مرور جديدة خاصة بك للمتابعة إلى المنصة.

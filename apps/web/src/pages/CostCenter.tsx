@@ -68,7 +68,7 @@ export default function CostCenter() {
     <div className="space-y-5">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><BadgeDollarSign size={22} className="text-brand-500" /> مركز التكلفة</h1>
+          <h1 className="flex items-center gap-2.5"><BadgeDollarSign size={22} className="text-brand-600" /> مركز التكلفة</h1>
           <p>الاستهلاك بوحدات الحصة (عدد المنشورات) — وهي العملة الحقيقية لـ X API</p>
         </div>
       </div>

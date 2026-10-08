@@ -157,7 +157,7 @@ export default function Notifications() {
     <div className="space-y-5">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Bell size={22} className="text-brand-500" /> الإشعارات والتنبيهات</h1>
+          <h1 className="flex items-center gap-2.5"><Bell size={22} className="text-brand-600" /> الإشعارات والتنبيهات</h1>
           <p>راقب البريد أو تيليجرام تلقائياً عند نشاط عميل مؤثر، ارتفاع قصة، كلمات محدّدة، أو عدد متابعين معيّن.</p>
         </div>
         <button className="btn-ghost" disabled={runNow.isPending} onClick={() => runNow.mutate()}>
@@ -187,7 +187,7 @@ export default function Notifications() {
               <div key={c.id} className="card p-4">
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex items-center gap-2">
-                    {c.type === 'email' ? <MailPlus size={17} className="text-brand-500" /> : <Send size={17} className="text-brand-500" />}
+                    {c.type === 'email' ? <MailPlus size={17} className="text-brand-600" /> : <Send size={17} className="text-brand-600" />}
                     <span className="font-semibold">{c.name}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -407,7 +407,7 @@ export default function Notifications() {
             <label className="block text-sm mb-1.5">القنوات</label>
             <div className="flex flex-wrap gap-2 mb-4">
               {(channels?.items ?? []).filter((c) => c.is_active).map((c) => (
-                <label key={c.id} className={`badge cursor-pointer ${ruleForm.channelIds.includes(c.id) ? 'bg-brand-600 text-white' : 'bg-[var(--surface-3)]'}`}>
+                <label key={c.id} className={`badge cursor-pointer ${ruleForm.channelIds.includes(c.id) ? 'bg-(--selected-bg) text-(--selected-fg)' : 'bg-[var(--surface-3)]'}`}>
                   <input
                     type="checkbox" className="hidden"
                     checked={ruleForm.channelIds.includes(c.id)}
@@ -431,7 +431,7 @@ export default function Notifications() {
       {linking && (
         <div className="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" onClick={() => setLinking(null)}>
           <div className="card p-5 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
-            <Link2 size={28} className="text-brand-500 mx-auto mb-3" />
+            <Link2 size={28} className="text-brand-600 mx-auto mb-3" />
             <h3 className="font-bold mb-1">رابط ربط "{linking.channel.name}"</h3>
             <p className="text-xs muted mb-5 leading-relaxed">
               افتح الرابط بنفسك لتربط حسابك، أو انسخه وأرسله لأي شخص (واتساب مثلاً) ليربط حسابه هو بنفسه — كل واحد يضغط <span className="num">Start</span> بمحادثة البوت <span className="num">@{linking.botUsername}</span> على جواله. الرابط صالح 15 دقيقة ولمرة واحدة فقط.

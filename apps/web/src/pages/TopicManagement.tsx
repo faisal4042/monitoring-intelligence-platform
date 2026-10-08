@@ -193,7 +193,7 @@ export default function TopicManagement() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold"><BookOpenText size={22} className="text-brand-500" /> إدارة المواضيع</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold"><BookOpenText size={22} className="text-brand-600" /> إدارة المواضيع</h1>
           <p className="mt-1 text-sm muted">إدارة شجرة المواضيع والكلمات والدمج والمراجعة مع سجل كامل لكل قرار.</p>
         </div>
         {canManage && <button className="btn-primary" onClick={() => setShowCreate(true)} disabled={!programId}><Plus size={16} /> موضوع جديد</button>}

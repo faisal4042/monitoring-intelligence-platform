@@ -70,7 +70,7 @@ export default function QuerySandbox() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <Link to="/queries" className="inline-flex items-center gap-1 text-sm text-brand-600 hover:underline"><ArrowRight size={14} /> الاستعلامات</Link>
-          <h1 className="flex items-center gap-2.5 text-xl font-bold mt-1"><FlaskConical size={20} className="text-brand-500" /> اختبار الاستعلام — {query?.name}</h1>
+          <h1 className="flex items-center gap-2.5 text-xl font-bold mt-1"><FlaskConical size={20} className="text-brand-600" /> اختبار الاستعلام — {query?.name}</h1>
           <p className="text-sm muted">{query?.program_name} · الإصدار {query?.version}</p>
         </div>
         <span className={`badge ${query?.status === 'active' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-[var(--surface-3)]'}`}>
@@ -98,7 +98,7 @@ export default function QuerySandbox() {
                 <button
                   key={n}
                   onClick={() => setSampleSize(n)}
-                  className={`btn !px-3 !py-1.5 num ${sampleSize === n ? 'bg-brand-600 text-white' : 'btn-ghost'}`}
+                  className={`btn !px-3 !py-1.5 num ${sampleSize === n ? 'bg-(--selected-bg) text-(--selected-fg)' : 'btn-ghost'}`}
                 >{n}</button>
               ))}
             </div>
@@ -151,7 +151,7 @@ export default function QuerySandbox() {
 
           {result.recommendations.length > 0 && (
             <div className="card p-5">
-              <h2 className="flex items-center gap-2 font-semibold mb-3"><Lightbulb size={17} className="text-brand-500" /> التوصيات</h2>
+              <h2 className="flex items-center gap-2 font-semibold mb-3"><Lightbulb size={17} className="text-brand-600" /> التوصيات</h2>
               <div className="space-y-2">
                 {result.recommendations.map((r, i) => (
                   <div
@@ -250,7 +250,7 @@ export default function QuerySandbox() {
       {!!history?.items?.length && (
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b font-semibold flex items-center gap-2" style={{ borderColor: 'var(--border)' }}>
-            <ListChecks size={16} className="text-brand-500" /> سجل الاختبارات
+            <ListChecks size={16} className="text-brand-600" /> سجل الاختبارات
           </div>
           <table className="w-full">
             <thead style={{ background: 'var(--surface-2)' }}>

@@ -8,6 +8,8 @@ import { useState } from 'react';
  * The fallback colour is derived from the username so the same account always
  * looks the same and stays scannable in a long feed.
  */
+const AVATAR_TONES = ['#1a3c66', '#127a82', '#23466f', '#0e2a47', '#2f5a86'];
+
 export default function Avatar({
   src,
   name,
@@ -26,7 +28,8 @@ export default function Avatar({
   const seed = username ?? name ?? '?';
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
+  // Identity tones only (never a random hue near the logo indigo); white initials stay above 4.5:1.
+  const tone = AVATAR_TONES[h % AVATAR_TONES.length];
 
   const initial = [...(name ?? username ?? '?')][0] ?? '?';
   const showImage = src && !failed;
@@ -34,13 +37,13 @@ export default function Avatar({
   return (
     <div
       className={`shrink-0 rounded-full overflow-hidden grid place-items-center select-none ${
-        ring ? 'ring-2 ring-amber-400/70' : ''
+        ring ? 'ring-2 ring-brand-500/70' : ''
       }`}
       style={{
         width: size,
         height: size,
-        background: showImage ? 'transparent' : `hsl(${hue} 55% 42%)`,
-        color: `hsl(${hue} 60% 93%)`,
+        background: showImage ? 'transparent' : tone,
+        color: '#ffffff',
         fontSize: size * 0.42,
         fontWeight: 600,
         lineHeight: 1,

@@ -81,7 +81,7 @@ export default function NewsArticles() {
               <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
               تحديث حي كل 5 دقائق
             </div>
-            <h1 className="flex items-center gap-2.5 text-2xl font-black sm:text-3xl"><Newspaper size={24} className="text-brand-500" /> الأخبار العقارية</h1>
+            <h1 className="flex items-center gap-2.5 text-2xl font-black sm:text-3xl"><Newspaper size={24} className="text-brand-600" /> الأخبار العقارية</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة مباشرة بالهيئة وبرامجها وخدماتها فقط، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
           </div>
 
@@ -116,23 +116,23 @@ export default function NewsArticles() {
                 {article.image_url && <img src={article.image_url} alt="" loading="lazy" className="h-28 w-28 shrink-0 rounded-xl object-cover sm:h-32 sm:w-36" />}
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-bold text-blue-600">{article.source_name}</span>
-                    {article.related_source_count > 1 && <span className="rounded-full bg-blue-500/10 px-2 py-1 font-bold text-blue-600">+{article.related_source_count - 1} مصادر</span>}
+                    <span className="font-bold text-brand-600">{article.source_name}</span>
+                    {article.related_source_count > 1 && <span className="rounded-full bg-brand-500/15 px-2 py-1 font-bold text-brand-600">+{article.related_source_count - 1} مصادر</span>}
                     <span className="muted">•</span>
                     {/* Feeds without a publish date fall back to when MIP discovered the article — say so. */}
                     {article.published_at
                       ? <DateTime value={article.published_at} className="muted" />
                       : <span className="muted">اكتُشف <DateTime value={article.effective_at} /></span>}
                     {article.program_name && (
-                      <span className="rounded-full px-2 py-1 font-bold" style={{ color: article.program_color ?? '#2563eb', background: `${article.program_color ?? '#2563eb'}18` }}>{article.program_name}</span>
+                      <span className="rounded-full px-2 py-1 font-bold" style={{ color: article.program_color ?? '#1a3c66', background: `${article.program_color ?? '#1a3c66'}18` }}>{article.program_name}</span>
                     )}
                     {article.topic_name && <span className="rounded-full bg-slate-500/10 px-2 py-1 muted">{article.topic_name}</span>}
                   </div>
-                  <h2 className="line-clamp-3 text-lg font-black leading-7 transition group-hover:text-blue-600">{decodeText(article.title)}</h2>
+                  <h2 className="line-clamp-3 text-lg font-black leading-7 transition group-hover:text-brand-600">{decodeText(article.title)}</h2>
                   {article.description && <p className="mt-2 line-clamp-2 text-sm leading-6 muted">{decodeText(article.description.replace(/<[^>]*>/g, ' '))}</p>}
                   <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
                     <span className="muted">{article.matched_keyword ? `مطابق: ${article.matched_keyword}` : 'خبر عقاري مصنف'}</span>
-                    <span className="font-bold text-blue-600">فتح الخبر ↗</span>
+                    <span className="font-bold text-brand-600">فتح الخبر ↗</span>
                   </div>
                 </div>
               </a>

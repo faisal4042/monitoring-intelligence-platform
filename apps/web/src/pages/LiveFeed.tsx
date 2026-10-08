@@ -54,7 +54,7 @@ export default function LiveFeed() {
     <div className="space-y-4">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Radio size={22} className="text-brand-500" /> الرصد المباشر</h1>
+          <h1 className="flex items-center gap-2.5"><Radio size={22} className="text-brand-600" /> الرصد المباشر</h1>
           <p>كل الفلاتر تُطبَّق على الخادم — المتصفح لا يستقبل الجدول كاملاً</p>
         </div>
       </div>

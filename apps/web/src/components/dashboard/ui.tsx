@@ -15,13 +15,15 @@ export function useChartColors() {
   }, []);
   const dark = theme === 'dark' || (theme === 'system' && systemDark);
   return dark ? {
-    dark, series: ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'],
-    positive: '#3987e5', neutral: '#5b6b70', negative: '#e66767', unclassified: '#2f3f44',
-    ink: '#eef5f4', muted: '#9bacae', grid: '#2a3b40', axis: '#3a4d53', surface: '#142126',
+    // Ithra chart palette (teal, orange, blue, rose), validated for the Deep Navy card surface.
+    dark, series: ['#18a2a2', '#d17a2e', '#4c82db', '#cc5888'],
+    positive: '#4c82db', neutral: '#5b7799', negative: '#e66767', unclassified: '#23466f',
+    ink: '#ffffff', muted: '#c5d1de', grid: '#23466f', axis: '#2f5a86', surface: '#12304f',
   } : {
-    dark, series: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#4a3aa7', '#e34948'],
-    positive: '#2a78d6', neutral: '#b9c2c6', negative: '#e34948', unclassified: '#e6eaec',
-    ink: '#132125', muted: '#687a81', grid: '#e6ebee', axis: '#cdd6dc', surface: '#ffffff',
+    // Same four hues stepped for white; official teal leads. Never the logo indigo (#4A54AE).
+    dark, series: ['#1fb5b5', '#e07b39', '#2a6fd1', '#c24d7a'],
+    positive: '#2a6fd1', neutral: '#c2cedb', negative: '#d03b3b', unclassified: '#eaf0f5',
+    ink: '#0e2a47', muted: '#52637a', grid: '#eaf0f5', axis: '#c2cedb', surface: '#ffffff',
   };
 }
 export type ChartColors = ReturnType<typeof useChartColors>;
