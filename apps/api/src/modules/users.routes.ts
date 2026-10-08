@@ -183,7 +183,17 @@ export default async function userRoutes(app: FastifyInstance) {
     if (role.id === target.role_id) return { ok: true, changed: false };
     if (role.key !== 'admin') await assertNotLastAdmin(target, 'تغيير دور');
 
-    await sql`UPDATE users SET role_id = ${role.id}::uuid, updated_at = now() WHERE id = ${id}::uuid`;
+    await sql.begin(async tx => {
+      // Serialize with team membership changes; a role change must not leave
+      // an agent supervising several teams through historical membership kinds.
+      await tx`SELECT id FROM users WHERE id = ${id}::uuid FOR UPDATE`;
+      const memberships = await tx`SELECT kind FROM team_members
+        WHERE user_id = ${id}::uuid AND left_at IS NULL`;
+      if (memberships.some(member => member.kind !== role.key)) {
+        throw conflict('أغلق عضويات الفرق الحالية قبل تغيير دور المستخدم؛ سيبقى تاريخها محفوظاً');
+      }
+      await tx`UPDATE users SET role_id = ${role.id}::uuid, updated_at = now() WHERE id = ${id}::uuid`;
+    });
     await audit(req, {
       action: 'user.role_change', entityType: 'user', entityId: id, entityLabel: target.email,
       oldValue: { role: target.role_key }, newValue: { role: role.key }, severity: 'critical',

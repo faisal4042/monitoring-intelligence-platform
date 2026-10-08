@@ -2,10 +2,8 @@
  * Resource-scoped authorization. A permission says *what* a user may do; a
  * scope says *over which records*: their own, their team's, or all of them.
  *
- * Today every interaction rule has only an `all` grant (posts:read), so the
- * scope always resolves to 'all' and behaviour is unchanged. The queue phase
- * adds `own` / `team` permissions to a rule and a matching SQL predicate in
- * scopePredicate() — routes already ask for a scope, so nothing else changes.
+ * Source interactions keep their posts:read grant. Operational queue access
+ * uses own/team/all SQL predicates, including immutable completion history.
  */
 import type { FastifyRequest } from 'fastify';
 import type { Permission } from '@mip/shared';
@@ -18,7 +16,7 @@ export type Scope = 'own' | 'team' | 'all';
 /** Which permission grants each scope of a resource. Broader scopes win. */
 export type ScopeRule = Partial<Record<Scope, Permission>>;
 
-/** Interactions (posts). Queue phase: add own/team permissions here. */
+/** Source interactions keep their existing independent permission. */
 export const INTERACTIONS: ScopeRule = { all: PERMISSIONS.POSTS_READ };
 export const QUEUE: ScopeRule = {
   own: PERMISSIONS.QUEUE_WORK, team: PERMISSIONS.QUEUE_SUPERVISE, all: PERMISSIONS.QUEUE_VIEW_ALL,

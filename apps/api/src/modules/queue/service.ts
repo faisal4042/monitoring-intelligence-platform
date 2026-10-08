@@ -81,7 +81,11 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
       escalation_count=q.escalation_count+${event==='escalated'?1:0}
       WHERE q.id=${id}::uuid AND q.version=${input.expectedVersion} AND q.status=${old.status}
         AND (${queueScope(actor,true)}) RETURNING q.*`;
-    if(!item)throw conflict('تغير العنصر أثناء العملية. حدّث القائمة.');
+    if(!item) {
+      const [visible]=await tx`SELECT q.id FROM queue_items q WHERE q.id=${id}::uuid AND (${queueScope(actor,true)})`;
+      if(!visible)throw notFound();
+      throw conflict('تغير العنصر أثناء العملية. حدّث القائمة.');
+    }
     if(action==='notes') {
       const [note]=await tx`INSERT INTO queue_notes(queue_item_id,author_id,body) VALUES (${id},${actor.id},${input.body!}) RETURNING id`;
       noteId=note.id;
@@ -101,7 +105,7 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
       FROM posts p JOIN post_classifications c ON c.post_id=p.id AND c.posted_at=p.posted_at
       JOIN programs pr ON pr.id=c.program_id JOIN team_programs tp ON tp.program_id=c.program_id
       JOIN teams t ON t.id=tp.team_id WHERE p.id=${input.postId}::uuid AND p.posted_at=${input.postedAt}::timestamptz
-      AND NOT p.is_redacted AND p.status NOT IN ('duplicate','filtered_out') AND p.duplicate_of_id IS NULL
+      AND NOT p.is_redacted AND p.status NOT IN ('duplicate','filtered_out') AND p.duplicate_of_id IS NULL AND p.duplicate_type IS NULL
       AND t.is_active AND (${queueTeamScope(req.user)})
       AND (${input.teamId??null}::uuid IS NULL OR t.id=${input.teamId??null}::uuid) FOR SHARE OF t,tp`;
     if(!source)throw notFound('المنشور أو فريق البرنامج غير متاح ضمن نطاقك');
