@@ -4,7 +4,7 @@ import type { DateRangeState } from '../lib/useDateRange';
 import { fmtDate } from '../lib/format';
 
 const PRESET_ORDER: DateRangePreset[] = [
-  'today', 'yesterday', '7d', '30d', 'this_week', 'this_month', 'last_month', 'custom',
+  'today', 'yesterday', '7d', '30d', '90d', 'this_week', 'this_month', 'last_month', 'custom',
 ];
 
 /** A Riyadh calendar day (YYYY-MM-DD) as `07 أكتوبر 2026`, independent of the browser zone. */

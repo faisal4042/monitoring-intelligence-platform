@@ -18,7 +18,7 @@
 export const APP_TIME_ZONE = 'Asia/Riyadh';
 
 export const DATE_RANGE_PRESETS = [
-  'today', 'yesterday', '7d', '30d', 'this_week', 'this_month', 'last_month', 'custom', 'all',
+  'today', 'yesterday', '7d', '30d', '90d', 'this_week', 'this_month', 'last_month', 'custom', 'all',
 ] as const;
 export type DateRangePreset = (typeof DATE_RANGE_PRESETS)[number];
 
@@ -27,6 +27,7 @@ export const DATE_RANGE_LABELS: Record<DateRangePreset, string> = {
   yesterday: 'أمس',
   '7d': 'آخر 7 أيام',
   '30d': 'آخر 30 يوم',
+  '90d': 'آخر 90 يوم',
   this_week: 'هذا الأسبوع',
   this_month: 'هذا الشهر',
   last_month: 'الشهر السابق',
@@ -166,6 +167,7 @@ export function resolvePreset(
     case 'yesterday': { const y = addDays(today, -1); return dayRange(preset, y, y, timeZone); }
     case '7d': return dayRange(preset, addDays(today, -6), today, timeZone);
     case '30d': return dayRange(preset, addDays(today, -29), today, timeZone);
+    case '90d': return dayRange(preset, addDays(today, -89), today, timeZone);
     case 'this_week': {
       const back = (weekday(today) - WEEK_START_DAY + 7) % 7;
       return dayRange(preset, addDays(today, -back), today, timeZone);
@@ -225,5 +227,29 @@ export function parseDateRangeParams(
       // An exclusive instant at midnight belongs to the previous day.
       toDate: to ? zonedDateKey(new Date(to.getTime() - 1), timeZone) : null,
     },
+  };
+}
+
+export interface ComparisonWindows {
+  /** The selected range, its end capped at `now` so a running day compares fairly. */
+  current: { from: Date; to: Date };
+  /** The equally long window that ends where the current one starts. */
+  previous: { from: Date; to: Date };
+}
+
+/**
+ * The previous-period comparison for a resolved range: the same duration
+ * immediately before it. "Today until 14:00" compares with "yesterday until
+ * 14:00", never with a whole day. Unbounded or future-only ranges have no
+ * comparison (null).
+ */
+export function comparisonWindows(range: ResolvedDateRange, now = new Date()): ComparisonWindows | null {
+  if (!range.from || !range.to) return null;
+  const end = Math.min(range.to.getTime(), now.getTime());
+  const span = end - range.from.getTime();
+  if (span <= 0) return null;
+  return {
+    current: { from: range.from, to: new Date(end) },
+    previous: { from: new Date(range.from.getTime() - span), to: range.from },
   };
 }

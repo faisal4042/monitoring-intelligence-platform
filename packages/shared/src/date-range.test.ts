@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseDateRangeParams, resolvePreset, startOfZonedDay, zonedDateKey } from './date-range.js';
+import { comparisonWindows, parseDateRangeParams, resolvePreset, startOfZonedDay, zonedDateKey } from './date-range.js';
 
 // 2026-10-07 18:30 in Riyadh (a Wednesday). Riyadh is UTC+3 with no DST.
 const NOW = new Date('2026-10-07T15:30:00Z');
@@ -139,7 +139,27 @@ test('invalid input is rejected', () => {
   assert.match(rejected({ to: 'yesterday' }), /غير صالح/);
   assert.match(rejected({ from: '07/10/2026' }), /غير صالح/);
   assert.match(rejected({ from: '1999-01-01' }), /غير صالح/);
-  assert.match(rejected({ range: '90d' }), /غير معروفة/);
+  assert.match(rejected({ range: '365d' }), /غير معروفة/);
   assert.match(rejected({ range: '7d', from: '2026-10-01' }), /لا يمكن الجمع/);
   assert.match(rejected({ range: 'custom' }), /تتطلب/);
+});
+
+test('last 90 days', () => {
+  const r = resolvePreset('90d', NOW);
+  assert.equal(r.toDate, '2026-10-07');
+  assert.equal((r.to!.getTime() - r.from!.getTime()) / 86_400_000, 90);
+  assert.equal(parseDateRangeParams({ range: '90d' }, NOW).ok, true);
+});
+
+test('comparison windows: equal length, adjacent, capped at now', () => {
+  const week = comparisonWindows(resolvePreset('7d', NOW), NOW)!;
+  assert.equal(week.previous.to.getTime(), week.current.from.getTime());
+  assert.equal(week.current.to.getTime(), NOW.getTime());
+  assert.equal(week.current.to.getTime() - week.current.from.getTime(), week.previous.to.getTime() - week.previous.from.getTime());
+  // A finished range keeps its full length.
+  const y = resolvePreset('yesterday', NOW);
+  const cy = comparisonWindows(y, NOW)!;
+  assert.equal(cy.current.to.getTime(), y.to!.getTime());
+  assert.equal((cy.previous.to.getTime() - cy.previous.from.getTime()) / 86_400_000, 1);
+  assert.equal(comparisonWindows(resolvePreset('all', NOW), NOW), null);
 });
