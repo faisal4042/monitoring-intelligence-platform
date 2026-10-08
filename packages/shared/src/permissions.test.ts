@@ -68,3 +68,10 @@ test('roles are nested: viewer ⊂ analyst ⊂ supervisor ⊂ admin, agent ⊂ s
   assert.ok(subset('supervisor', 'admin'));
   assert.ok(subset('agent', 'supervisor'));
 });
+
+test('queue operational permissions have exactly the approved role matrix',()=>{
+  for(const [role,expected] of Object.entries({agent:[P.QUEUE_WORK],supervisor:[P.QUEUE_WORK,P.QUEUE_SUPERVISE],
+    admin:[P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL],viewer:[],analyst:[]})) {
+    assert.deepEqual(ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS].filter(p=>p.startsWith('queue:')).sort(),expected.sort());
+  }
+});
