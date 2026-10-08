@@ -65,7 +65,8 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route path="/queue" element={guard([P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL], <MonitoringQueue />)} />
         <Route path="/teams" element={guard(P.USERS_READ, <Teams />)} />
-        <Route path="/" element={guard(P.POSTS_READ, <Dashboard />)} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={guard(P.POSTS_READ, <Dashboard />)} />
         <Route path="/live" element={guard(P.POSTS_READ, <LiveFeed />)} />
         <Route path="/signals" element={guard(P.TOPICS_READ, <Signals />)} />
         <Route path="/keywords" element={guard(P.KEYWORDS_READ, <Keywords />)} />

@@ -23,7 +23,7 @@ interface CostOverview {
 
 const NAV = [
   { to: '/queue', label: 'طابور الرصد / مهامي', icon: LayoutGrid, perm: PERMISSIONS.QUEUE_WORK },
-  { to: '/', label: 'لوحة التحكم', icon: Gauge, perm: PERMISSIONS.POSTS_READ },
+  { to: '/dashboard', label: 'لوحة التحكم', icon: Gauge, perm: PERMISSIONS.POSTS_READ },
   { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: PERMISSIONS.POSTS_READ },
   { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles, perm: PERMISSIONS.TOPICS_READ },
   { to: '/keywords', label: 'قاموس الكلمات', icon: Tags, perm: PERMISSIONS.KEYWORDS_READ },

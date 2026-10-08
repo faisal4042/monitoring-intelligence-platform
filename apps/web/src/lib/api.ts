@@ -52,7 +52,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 }
 
 export const api = {
-  get:   <T>(p: string) => request<T>(p),
+  get:   <T>(p: string, signal?: AbortSignal) => request<T>(p, signal ? { signal } : {}),
   post:  <T>(p: string, body?: unknown) => request<T>(p, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(p: string, body?: unknown) => request<T>(p, { method: 'PATCH', body: JSON.stringify(body) }),
   put:   <T>(p: string, body?: unknown) => request<T>(p, { method: 'PUT', body: JSON.stringify(body) }),
