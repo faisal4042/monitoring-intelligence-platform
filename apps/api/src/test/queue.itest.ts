@@ -22,6 +22,61 @@ const add=async(postId:string,token=admin)=>call(app,token,'POST',base+'/items',
 const mutate=async(token:string,item:{id:string;version:number},action:string,extra:object={})=>call(app,token,'POST',`${base}/items/${item.id}/${action}`,{expectedVersion:item.version,...extra});
 const ok=(res:Awaited<ReturnType<typeof call>>,code=200)=>{assert.equal(res.statusCode,code,res.body);return res.json();};
 
+test('review closure preserves AI, enforces reasons and taxonomy, updates views and workload, and retains immutable cycles',async()=>{
+  const id=await post();
+  const [topic]=await sql`INSERT INTO topics(program_id,level,name_ar) VALUES (${program},1,'Review main topic') RETURNING id`;
+  const [sub]=await sql`INSERT INTO topics(program_id,parent_id,level,name_ar) VALUES (${program},${topic.id},2,'Review subtopic') RETURNING id`;
+  await sql`UPDATE post_classifications SET topic_id=${sub.id},intent_confidence=0.91 WHERE post_id=${id}`;
+  await sql`INSERT INTO post_sentiments(post_id,posted_at,label,confidence,stage) VALUES (${id},${stamp},'neutral',0.82,1)`;
+  const original=(await sql`SELECT row_to_json(c) AS value FROM post_classifications c WHERE post_id=${id}`)[0].value;
+  let item=ok(await add(id),201);
+  item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
+  item=ok(await mutate(agent,item,'start'));
+  const detail=ok(await call(app,agent,'GET',`${base}/items/${item.id}`));
+  assert.equal(detail.ai_topic_id,topic.id);assert.equal(detail.ai_subtopic_id,sub.id);assert.equal(detail.intent_confidence,0.91);
+  const summary=()=>call(app,agent,'GET',base+'/summary?range=all').then(ok);
+  const before=await summary();
+  assert.equal((await mutate(agent,item,'complete')).statusCode,400);
+  assert.equal((await mutate(agent,item,'complete',{resolution:'handled'})).statusCode,400,'old contract is rejected');
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'corrected',intent:'complaint'}})).statusCode,400);
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed',intent:'complaint',reason:'Mismatch'}})).statusCode,400);
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'corrected',programId:program2,topicId:topic.id,reason:'Wrong program'}})).statusCode,400);
+  assert.equal((await mutate(other,item,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
+  item=ok(await mutate(agent,item,'notes',{body:'Verified against the interaction'}));
+  const closeVersion=item.version;
+  item=ok(await mutate(agent,item,'complete',{review:{outcome:'corrected',intent:'complaint',reason:'The interaction reports a problem'}}));
+  const after=await summary();
+  assert.equal(after.views.general.mine,before.views.general.mine-1);assert.equal(after.views.general.closed,before.views.general.closed+1);
+  const list=(view:string)=>call(app,agent,'GET',`${base}/items?range=all&view=${view}`).then(ok);
+  assert.ok(!(await list('mine')).items.some((i:{id:string})=>i.id===item.id));
+  assert.ok((await list('closed')).items.some((i:{id:string})=>i.id===item.id));
+  assert.equal((await sql`SELECT row_to_json(c) AS value FROM post_classifications c WHERE post_id=${id}`)[0].value.intent,original.intent);
+  assert.deepEqual((await sql`SELECT row_to_json(c) AS value FROM post_classifications c WHERE post_id=${id}`)[0].value,original);
+  const [review]=await sql`SELECT * FROM queue_reviews WHERE queue_item_id=${item.id}`;
+  assert.equal(review.ai.intent,'inquiry');assert.equal(review.intent,'complaint');assert.equal(review.ai.intentConfidence,0.91);
+  assert.deepEqual(review.corrected_fields,['intent']);assert.equal(review.cycle,1);
+  await assert.rejects(sql`UPDATE queue_reviews SET reason='changed' WHERE id=${review.id}`);
+  await assert.rejects(sql`DELETE FROM queue_reviews WHERE id=${review.id}`);
+  assert.equal((await mutate(sup,item,'reopen')).statusCode,400);
+  assert.equal((await mutate(sup,item,'reopen',{reason:'   '})).statusCode,400);
+  assert.equal((await mutate(agent,item,'reopen',{reason:'Agent cannot reopen'})).statusCode,403);
+  assert.equal((await mutate(sup,{...item,version:closeVersion},'reopen',{reason:'stale'})).statusCode,409);
+  item=ok(await mutate(sup,item,'reopen',{reason:'Second review requested'}));
+  assert.ok(new Date(item.assigned_at)>=new Date(review.completed_at),'new cycle excludes time spent closed');
+  assert.ok(!(await list('closed')).items.some((i:{id:string})=>i.id===item.id));
+  assert.ok((await list('mine')).items.some((i:{id:string})=>i.id===item.id));
+  assert.equal((await mutate(agent,item,'complete')).statusCode,400,'every cycle needs a review');
+  item=ok(await mutate(agent,item,'complete',{review:{outcome:'confirmed'}}));
+  const history=ok(await call(app,agent,'GET',`${base}/items/${item.id}`));
+  assert.deepEqual(history.reviews.map((r:{cycle:number})=>r.cycle),[1,2]);
+  assert.equal(history.notes.length,1);assert.equal(history.reviews[0].reason,review.reason);
+  const stats=ok(await call(app,agent,'GET',`${base}/stats?range=all`));
+  assert.equal(stats.totals.closed_items,1);assert.equal(stats.totals.review_cycles,2);
+  const work=ok(await call(app,sup,'GET',`${base}/summary?range=all`)).workload.find((w:{id:string})=>w.id===agentId);
+  assert.equal(work.completed_today,1);assert.equal(work.open,0);assert.equal(work.in_progress,0);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${item.id}`)[0].n,0,'general reviews never alert');
+});
+
 before(async()=>{
   app=await makeApp();
   const tokens:Record<string,string>={};const ids:Record<string,string>={};
@@ -104,7 +159,7 @@ test('optimistic concurrent assignment succeeds once; stale version and invalid 
   assert.deepEqual(res.map(r=>r.statusCode).sort(),[200,409]);
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_events WHERE queue_item_id=${item.id} AND event_type='assigned'`)[0].n,1);
   const assigned=ok(res.find(r=>r.statusCode===200)!);
-  assert.equal((await mutate(agent,assigned,'complete',{resolution:'handled'})).statusCode,409);
+  assert.equal((await mutate(agent,assigned,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
   assert.equal((await mutate(sup,assigned,'start')).statusCode,403);
   assert.equal((await mutate(agent,assigned,'start',{unexpected:true})).statusCode,400);
   assert.equal((await mutate(agent,item,'start')).statusCode,409);
@@ -124,19 +179,19 @@ test('explicit start, append-only notes, escalation, deescalation, completion, r
   await assert.rejects(sql`DELETE FROM queue_events WHERE id=${event.id}`);
   assert.equal((await mutate(agent,item,'escalate',{})).statusCode,400);
   item=ok(await mutate(agent,item,'escalate',{reason:'Needs supervisor'}));
-  assert.equal((await mutate(agent,item,'complete',{resolution:'handled'})).statusCode,409);
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
   item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
   item=ok(await mutate(agent,item,'start'));
   assert.equal((await mutate(agent,item,'complete')).statusCode,400);
-  item=ok(await mutate(agent,item,'complete',{resolution:'handled'}));const completed=item.completed_at;
-  assert.equal((await mutate(agent,item,'reopen')).statusCode,403);
+  item=ok(await mutate(agent,item,'complete',{review:{outcome:'confirmed'}}));const completed=item.completed_at;
+  assert.equal((await mutate(agent,item,'reopen',{reason:'Review requested'})).statusCode,403);
   const history=ok(await call(app,agent,'GET',base+'/items?view=completed&range=all'));assert.ok(history.items.some((i:{id:string})=>i.id===item.id));
   assert.equal((await call(app,other,'GET',`${base}/items/${item.id}`)).statusCode,404);
   assert.ok(!ok(await call(app,agent,'GET',base+'/items?range=all')).items.some((i:{id:string})=>i.id===item.id));
   // Reopen clears the current close (0035); the earlier close stays in queue_events below.
-  item=ok(await mutate(sup,item,'reopen'));assert.equal(item.status,'in_progress');assert.ok(completed);
+  item=ok(await mutate(sup,item,'reopen',{reason:'Review requested'}));assert.equal(item.status,'in_progress');assert.ok(completed);
   assert.deepEqual([item.completed_at,item.completed_by,item.resolution],[null,null,null]);assert.equal(item.first_started_at,started);
-  item=ok(await mutate(agent,item,'complete',{resolution:'no_action_needed'}));
+  item=ok(await mutate(agent,item,'complete',{review:{outcome:'no_action'}}));
   const events=await sql`SELECT event_type,resolution FROM queue_events WHERE queue_item_id=${item.id} ORDER BY version`;
   assert.equal(events.filter(e=>e.event_type==='completed').length,2);
   assert.deepEqual(events.filter(e=>e.event_type==='completed').map(e=>e.resolution),['handled','no_action_needed']);
@@ -243,7 +298,7 @@ test('in-progress reassignment: supervisor moves the work with a reason; history
     {type:'reassigned',from:'in_progress',to:'assigned',fromA:u.a.id,toA:u.b.id,actor:u.sup.id,reason:'إجازة طارئة'});
   assert.ok(ev.created_at);
   // The previous assignee lost it; the new one must start their own cycle.
-  assert.equal((await mutate(u.a.token,moved,'complete',{resolution:'handled'})).statusCode,404);
+  assert.equal((await mutate(u.a.token,moved,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
   const started=ok(await mutate(u.b.token,moved,'start'));
   assert.equal(started.status,'in_progress');assert.ok(new Date(started.started_at)>new Date(item.started_at));
   // Same assignee again is not a reassignment.
@@ -282,14 +337,14 @@ test('in-progress reassignment is atomic: a failed event write leaves the item e
 test('reopen lifecycle: complete, reopen clears the current close, complete again; every cycle stays in events',async()=>{
   const {users:u,inProgress}=await cycleFixture();
   const started=await inProgress();
-  const done1=ok(await mutate(u.a.token,started,'complete',{resolution:'no_action_needed'}));
+  const done1=ok(await mutate(u.a.token,started,'complete',{review:{outcome:'no_action'}}));
   assert.equal(done1.status,'completed');assert.equal(done1.completed_by,u.a.id);assert.equal(done1.resolution,'no_action_needed');
-  const reopened=ok(await mutate(u.sup.token,done1,'reopen'));
+  const reopened=ok(await mutate(u.sup.token,done1,'reopen',{reason:'Review requested'}));
   assert.equal(reopened.status,'in_progress');
   assert.deepEqual([reopened.completed_at,reopened.completed_by,reopened.resolution],[null,null,null],'a reopened item is not closed');
   assert.equal(reopened.reopen_count,1);assert.ok(reopened.last_reopened_at);assert.ok(reopened.started_at);
   assert.equal(new Date(reopened.first_started_at).getTime(),new Date(started.first_started_at).getTime());
-  const done2=ok(await mutate(u.a.token,reopened,'complete',{resolution:'handled'}));
+  const done2=ok(await mutate(u.a.token,reopened,'complete',{review:{outcome:'confirmed'}}));
   assert.equal(done2.resolution,'handled');assert.equal(done2.completed_by,u.a.id);
   assert.ok(new Date(done2.completed_at)>new Date(done1.completed_at));
   // Per-cycle handling time is reconstructible: started→completed, reopened→completed.
@@ -312,4 +367,74 @@ test('0035 is additive: only new columns and a check, no row is rewritten',async
   const cols=await sql`SELECT column_name FROM information_schema.columns WHERE table_name='queue_items'
     AND column_name IN ('started_at','reopen_count','last_reopened_at') ORDER BY 1`;
   assert.deepEqual(cols.map(c=>c.column_name),['last_reopened_at','reopen_count','started_at']);
+});
+
+test('self-claim is off by default, scoped to the active team, and records exactly one assignment',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  let item=await inProgress();
+  item=ok(await mutate(u.sup.token,item,'assign',{assigneeId:u.b.id,reason:'Prepare unassigned fixture'}));
+  item=ok(await mutate(u.sup.token,item,'unassign'));
+  assert.equal((await mutate(u.a.token,item,'claim')).statusCode,404);
+  await sql`UPDATE settings SET value='true'::jsonb WHERE key='queue.self_claim_enabled'`;
+  try {
+    const unassigned=ok(await call(app,u.a.token,'GET',`${base}/items?view=unassigned&range=all`));
+    assert.ok(unassigned.items.some((i:{id:string})=>i.id===item.id));
+    assert.equal((await mutate(other,item,'claim')).statusCode,404);
+    const race=await Promise.all([mutate(u.a.token,item,'claim'),mutate(u.b.token,item,'claim')]);
+    assert.equal(race.filter(r=>r.statusCode===200).length,1);
+    assert.ok(race.every(r=>[200,404,409].includes(r.statusCode)));
+    assert.equal((await sql`SELECT count(*)::int AS n FROM queue_events WHERE queue_item_id=${item.id} AND metadata->>'claimed'='true'`)[0].n,1);
+  } finally {await sql`UPDATE settings SET value='false'::jsonb WHERE key='queue.self_claim_enabled'`;}
+});
+
+test('reopen without an active assignee returns to unassigned while retaining the previous review',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  let item=await inProgress();
+  item=ok(await mutate(u.a.token,item,'complete',{review:{outcome:'confirmed'}}));
+  // A synthetic inactive account: never a development or production user.
+  await sql`UPDATE users SET is_active=false WHERE id=${u.a.id}`;
+  item=ok(await mutate(u.sup.token,item,'reopen',{reason:'Previous reviewer unavailable'}));
+  assert.equal(item.status,'new');assert.equal(item.assignee_id,null);assert.equal(item.started_at,null);assert.equal(item.assigned_at,null);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM queue_reviews WHERE queue_item_id=${item.id}`)[0].n,1);
+  assert.equal((await mutate(u.sup.token,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
+});
+
+test('review workflow RBAC: close, reopen, claim, catalogue, history and stats follow role and team scope',async()=>{
+  const s2=await createUser('supervisor');ok(await call(app,admin,'POST',`/api/v1/teams/${team2}/members`,{userId:s2.id}));
+  const supTeam2=(await login(app,s2.email)).accessToken;
+  let item=ok(await add(await post()),201);
+  item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
+  // No queue permission at all: every work action and the review endpoints are denied.
+  for(const token of [viewer,analyst]){
+    for(const action of ['start','complete','reopen','claim','notes'])assert.equal((await mutate(token,item,action)).statusCode,403,`${action} must be denied`);
+    for(const url of ['/review-catalog','/stats?range=all'])assert.equal((await call(app,token,'GET',base+url)).statusCode,403,url);
+  }
+  // Closing needs a started review, by the assignee; another team's agent cannot even see it.
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
+  item=ok(await mutate(agent,item,'start'));
+  assert.equal((await mutate(other,item,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
+  assert.equal((await mutate(supTeam2,item,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
+  item=ok(await mutate(agent,item,'complete',{review:{outcome:'confirmed'}}));
+  // The closed item and its review history stay inside the team's scope.
+  assert.equal((await call(app,other,'GET',`${base}/items/${item.id}`)).statusCode,404);
+  assert.equal((await call(app,supTeam2,'GET',`${base}/items/${item.id}`)).statusCode,404);
+  assert.ok(!ok(await call(app,supTeam2,'GET',`${base}/items?range=all&view=closed`)).items.some((i:{id:string})=>i.id===item.id));
+  assert.equal(ok(await call(app,sup,'GET',`${base}/items/${item.id}`)).reviews.length,1);
+  // Only a supervisor of the item's team reopens, and the reopen is audited with its reason.
+  assert.equal((await mutate(supTeam2,item,'reopen',{reason:'Out of scope'})).statusCode,404);
+  item=ok(await mutate(sup,item,'reopen',{reason:'Quality check'}));
+  const [audit]=await sql`SELECT user_id,new_value FROM audit_log WHERE action='queue.reopened' AND entity_id=${item.id}`;
+  assert.equal(audit.user_id,supId);assert.equal(audit.new_value.reason,'Quality check');
+  // Agents see only their own figures, whatever employee they ask for.
+  const mine=ok(await call(app,agent,'GET',`${base}/stats?range=all&employeeId=${otherId}`));
+  assert.deepEqual(mine.employees,[]);assert.ok(mine.totals.review_cycles>=1);
+  assert.equal(ok(await call(app,other,'GET',`${base}/stats?range=all&employeeId=${agentId}`)).totals.review_cycles,0);
+  // Supervisors see their own teams' reviewers only.
+  assert.ok(ok(await call(app,sup,'GET',`${base}/stats?range=all`)).employees.some((e:{id:string})=>e.id===agentId));
+  assert.ok(!ok(await call(app,supTeam2,'GET',`${base}/stats?range=all`)).employees.some((e:{id:string})=>e.id===agentId));
+  // The catalogue never exposes inactive topics.
+  const catalog=ok(await call(app,agent,'GET',base+'/review-catalog'));
+  const inactive=await sql`SELECT id FROM topics WHERE NOT is_active`;
+  assert.ok(!catalog.topics.some((t:{id:string})=>inactive.some(r=>r.id===t.id)));
+  assert.equal(catalog.selfClaim,false);
 });

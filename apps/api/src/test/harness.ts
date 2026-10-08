@@ -8,6 +8,11 @@ import { testDatabaseUrl } from './test-db.js';
 
 process.env.DATABASE_URL = testDatabaseUrl();
 process.env.NODE_ENV = 'test';
+// Never inherit live collection flags from the developer's .env in tests or previews.
+process.env.LIVE_X_API = 'false';
+process.env.AUTO_COLLECTION_ENABLED = 'false';
+process.env.X_STREAM_ENABLED = 'false';
+process.env.AUTO_CLASSIFICATION_ENABLED = 'false';
 
 const { buildApp } = await import('../app.js');
 const { sql } = await import('@mip/db');

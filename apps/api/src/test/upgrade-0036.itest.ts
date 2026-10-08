@@ -1,5 +1,5 @@
 /**
- * Upgrade path 0035 → 0036 → 0037 on a database shaped like a develop
+ * Upgrade path 0035 → 0036 → 0037 → 0038 on a database shaped like a develop
  * install: a separate local mip_upgrade_test, built up to 0035, filled with
  * queue data, then upgraded by the real migration runner. Proves no row is
  * lost or altered and that every new CHECK / FK / UNIQUE actually holds.
@@ -82,16 +82,17 @@ before(async()=>{
 });
 after(async()=>{await db?.end({timeout:5});await sql.unsafe('DROP DATABASE IF EXISTS mip_upgrade_test WITH (FORCE)');await sql.end({timeout:5});});
 
-test('the real runner upgrades 0035 → 0037 without losing or altering a row',async()=>{
+test('the real runner upgrades 0035 → 0038 without losing or altering a row',async()=>{
   const before=await fingerprint();
   const r=runner();
   assert.equal(r.status,0,r.stderr+r.stdout);
   assert.match(r.stdout,/skip\s+0035_queue_work_cycles\.sql/);
   assert.match(r.stdout,/apply 0036_unified_queue_sections\.sql \.\.\. ok/);
   assert.match(r.stdout,/apply 0037_queue_team_transfer\.sql \.\.\. ok/);
+  assert.match(r.stdout,/apply 0038_queue_reviews\.sql \.\.\. ok/);
   assert.deepEqual(await fingerprint(),before);
   const applied=(await db<{name:string}[]>`SELECT name FROM _migrations WHERE name>='0035' ORDER BY applied_at,name`).map(m=>m.name);
-  assert.deepEqual(applied,['0035_queue_work_cycles.sql','0036_unified_queue_sections.sql','0037_queue_team_transfer.sql']);
+  assert.deepEqual(applied,['0035_queue_work_cycles.sql','0036_unified_queue_sections.sql','0037_queue_team_transfer.sql','0038_queue_reviews.sql']);
   // Existing items get the defaults and nothing else.
   const rows=await db`SELECT section,section_hold,story_id,story_snapshot,story_item_id,merged_into_id FROM queue_items`;
   for(const row of rows)assert.deepEqual({...row},{section:'general',section_hold:null,story_id:null,story_snapshot:null,story_item_id:null,merged_into_id:null});

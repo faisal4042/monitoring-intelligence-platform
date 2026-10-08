@@ -48,6 +48,20 @@ const unitOf=async(storyId:string)=>(await sql`SELECT * FROM queue_items WHERE i
 const alertsFor=async(itemId:string)=>sql`SELECT a.kind,r.user_id FROM queue_alerts a JOIN queue_alert_recipients r ON r.alert_id=a.id WHERE a.queue_item_id=${itemId}::uuid`;
 const list=async(who:string,section:string,extra=`&programId=${program}`)=>ok(await get(who,`${base}/items?range=all&view=all&limit=100&section=${section}${extra}`)).items as Array<Record<string,unknown>>;
 
+test('reopening influencer work alerts only its assignee once and never duplicates arrival',async()=>{
+  const p=await post({influencer:true});
+  let item=ok(await call(app,tok.admin,'POST',base+'/items',{postId:p.id,postedAt:p.at}),201);
+  item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/assign`,{expectedVersion:item.version,assigneeId:uid.agent}));
+  item=ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/start`,{expectedVersion:item.version}));
+  item=ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/complete`,{expectedVersion:item.version,review:{outcome:'confirmed'}}));
+  item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/reopen`,{expectedVersion:item.version,reason:'Additional monitoring review'}));
+  const events=await sql`SELECT id FROM queue_events WHERE queue_item_id=${item.id} AND event_type='reopened'`;
+  await sql.begin(tx=>alertForEvents(tx,events.map(e=>e.id)));
+  const rows=await alertsFor(item.id);
+  assert.deepEqual(rows.filter(r=>r.kind==='reopened').map(r=>r.user_id),[uid.agent]);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${item.id} AND kind='influencer'`)[0].n,1);
+});
+
 before(async()=>{
   app=await makeApp();
   for(const role of ['admin','supervisor','agent','viewer','analyst']){const u=await createUser(role);tok[role]=(await login(app,u.email)).accessToken;uid[role]=u.id;}
@@ -157,7 +171,7 @@ test('a post moving into a story keeps its id, status, assignee and full history
   const detail=ok(await get('admin',`${base}/items/${unit.id}`));
   assert.equal(detail.members.find((m:{post_id:string})=>m.post_id===p.id).item_status,'in_progress');
   // The agent can still finish their work.
-  ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/complete`,{expectedVersion:moved.version,resolution:'handled'}));
+  ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/complete`,{expectedVersion:moved.version,review:{outcome:'confirmed'}}));
 });
 
 test('a move into another team’s story is held for review, never made silently',async()=>{
@@ -349,7 +363,7 @@ test('story merge keeps each story history, notes, assignment and completion; wo
   // Completing the surviving unit is one completion; the merged unit never completes on its own.
   let t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/start`,{expectedVersion:target.version}));
   const doneBefore=(await workload()).completed_today;
-  t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/complete`,{expectedVersion:t2.version,resolution:'handled'}));
+  t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/complete`,{expectedVersion:t2.version,review:{outcome:'confirmed'}}));
   await intakeQueue();
   assert.equal((await workload()).completed_today,doneBefore+1);
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_events WHERE queue_item_id=${ua.id}::uuid AND event_type='completed'`)[0].n,0);
@@ -402,6 +416,6 @@ test('transfer between teams: scope, validation, conflict, audit, placement and 
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${gi.id}::uuid`)[0].n,0);
   assert.equal((await call(app,tok.sup3,'POST',`${base}/items/${unit.id}/transfer`,{expectedVersion:unit.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
   let done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/start`,{expectedVersion:gm.version}));
-  done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/complete`,{expectedVersion:done.version,resolution:'handled'}));
+  done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/complete`,{expectedVersion:done.version,review:{outcome:'confirmed'}}));
   assert.equal((await call(app,tok.admin,'POST',`${base}/items/${gi.id}/transfer`,{expectedVersion:done.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
 });
