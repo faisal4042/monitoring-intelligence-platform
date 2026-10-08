@@ -18,5 +18,5 @@ export const QUEUE_RESOLUTION_LABELS = {handled:'تمت المعالجة',no_act
 export const QUEUE_EVENT_LABELS: Record<string,string> = {
   created:'أُضيف للطابور',assigned:'أُسند',reassigned:'أُعيد إسناده',unassigned:'أُلغي الإسناد',
   started:'بدأ العمل',escalated:'صُعّد',deescalated:'أُعيد توجيهه',completed:'اكتمل',reopened:'أُعيد فتحه',note_added:'أُضيفت ملاحظة',
-  section_changed:'نُقل بين الأقسام',section_review:'نقل بانتظار مراجعة المشرف',story_merged:'دُمجت القصة',
+  section_changed:'نُقل بين الأقسام',transferred:'نُقل إلى فريق آخر',section_review:'نقل بانتظار مراجعة المشرف',story_merged:'دُمجت القصة',
 };
