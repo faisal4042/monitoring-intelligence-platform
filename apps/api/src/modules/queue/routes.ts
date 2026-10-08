@@ -119,7 +119,7 @@ export default async function queueRoutes(app:FastifyInstance) {
     },async req=>{
       const {id}=parse(idParams,req.params);
       const fields={expectedVersion};
-      const schema=action==='assign'?z.object({...fields,assigneeId:uuid}):
+      const schema=action==='assign'?z.object({...fields,assigneeId:uuid,reason:z.string().trim().min(1).max(2000).optional()}):
         action==='escalate'?z.object({...fields,reason:z.string().trim().min(1).max(2000)}):
         action==='complete'?z.object({...fields,resolution:z.enum(QUEUE_RESOLUTIONS)}):
         action==='notes'?z.object({...fields,body:z.string().trim().min(1).max(5000)}):z.object(fields);

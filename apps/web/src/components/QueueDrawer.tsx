@@ -11,14 +11,14 @@ import AuthorHistoryModal from './AuthorHistoryModal';
 
 export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
   const {user,can}=useAuth();const qc=useQueryClient();const supervise=can(P.QUEUE_SUPERVISE);
-  const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[note,setNote]=useState(''),[resolution,setResolution]=useState('');
+  const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[assignReason,setAssignReason]=useState(''),[note,setNote]=useState(''),[resolution,setResolution]=useState('');
   const [history,setHistory]=useState(false);
   const {data:item,error,isLoading}=useQuery({queryKey:['queue-item',id],queryFn:()=>api.get<QueueItem>(`/queue/items/${id}`),
     refetchInterval:supervise?20000:15000,refetchIntervalInBackground:false});
   const {data:options}=useQuery({queryKey:['queue-options'],queryFn:()=>api.get<QueueOptions>('/queue/options'),enabled:supervise});
   const change=useMutation({mutationFn:({action,extra={}}:{action:QueueAction;extra?:object})=>
     api.post(`/queue/items/${id}/${action}`,{expectedVersion:item!.version,...extra}),
-    onSuccess:()=>{setNote('');setReason('');setResolution('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
+    onSuccess:()=>{setNote('');setReason('');setAssignReason('');setAssignee('');setResolution('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
     onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});qc.invalidateQueries({queryKey:['queue']});}});
   const feedback=useMutation({mutationFn:(correct:boolean)=>api.post(`/classification/interactions/${item!.post_id}/topic-feedback`,{correct}),
     onSuccess:()=>qc.invalidateQueries({queryKey:['queue-item',id]})});
@@ -49,10 +49,15 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           <div>حتى البدء: {duration(item.first_assigned_at,item.first_started_at)}</div><div>وقت المعالجة: {duration(item.first_started_at,item.status==='completed'?item.completed_at:undefined)}</div>
           <div>وقت الإكمال: {duration(item.entered_at,item.status==='completed'?item.completed_at:null)}</div><div>تأخر الاكتشاف (معلوماتي): {duration(item.post_posted_at,item.entered_at)}</div>
           <div>إعادة الإسناد: {item.reassignment_count}</div><div>التصعيد: {item.escalation_count}</div>
+          <div>إعادة الفتح: {item.reopen_count??0}</div><div>الدورة الحالية بدأت: {item.started_at?fmtDateTime(item.started_at):'لم تبدأ بعد'}</div>
         </div>
         {change.error&&<p role="alert" className="rounded-lg p-3 bg-red-500/10 text-red-600">{change.error.message}</p>}
         <fieldset disabled={change.isPending} className="space-y-3">
-          {supervise&&['new','assigned','escalated'].includes(item.status)&&<div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id).map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select><button className="btn-primary" disabled={!assignee} onClick={()=>change.mutate({action:'assign',extra:{assigneeId:assignee}})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='assigned'?'إعادة الإسناد':'إسناد'}</button></div>}
+          {supervise&&['new','assigned','escalated','in_progress'].includes(item.status)&&<div className="space-y-2">
+            <div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id&&m.id!==item.assignee_id).map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select><button className="btn-primary" disabled={!assignee||(item.status==='in_progress'&&!assignReason.trim())} onClick={()=>change.mutate({action:'assign',extra:{assigneeId:assignee,...(assignReason.trim()?{reason:assignReason}:{})}})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='new'?'إسناد':'إعادة الإسناد'}</button></div>
+            {/* Taking work from someone mid-task needs a reason; the new assignee starts their own cycle. */}
+            {item.status==='in_progress'&&<input aria-label="سبب إعادة الإسناد" placeholder="سبب إعادة الإسناد أثناء المعالجة (إلزامي)" className="input w-full" value={assignReason} maxLength={2000} onChange={e=>setAssignReason(e.target.value)}/>}
+          </div>}
           <div className="flex gap-2">
             {item.status==='assigned'&&mine&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'start'})}><Play size={16}/>بدء العمل</button>}
             {item.status==='assigned'&&supervise&&<button className="btn-ghost" onClick={()=>change.mutate({action:'unassign'})}>إلغاء الإسناد</button>}

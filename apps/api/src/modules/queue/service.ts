@@ -7,8 +7,9 @@ import type { FastifyRequest } from 'fastify';
 export type QueueTx = Transaction;
 export interface Item {
   id:string; status:QueueStatus; assignee_id:string|null; team_id:string; version:number;
-  first_assigned_at:Date|null; first_started_at:Date|null; completed_at:Date|null;
+  first_assigned_at:Date|null; first_started_at:Date|null; started_at:Date|null; completed_at:Date|null;
   completed_by:string|null; resolution:string|null; reassignment_count:number; escalation_count:number;
+  reopen_count:number; last_reopened_at:Date|null;
 }
 export interface Mutation { expectedVersion:number; assigneeId?:string; reason?:string; resolution?:string; body?:string }
 const has = (a:QueueActor,p:string)=>a.permissions.includes(p);
@@ -34,8 +35,10 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     let status=old.status, assignee=old.assignee_id, event:string=action, noteId:string|null=null;
     switch(action) {
       case 'assign':
-        if (!['new','assigned','escalated'].includes(old.status)) throw conflict('لا يمكن الإسناد من هذه الحالة');
+        if (!['new','assigned','escalated','in_progress'].includes(old.status)) throw conflict('لا يمكن الإسناد من هذه الحالة');
         if (!input.assigneeId) throw badRequest('الموظف مطلوب');
+        // Taking work away from someone mid-task must say why; the new assignee starts their own cycle.
+        if (old.status==='in_progress' && !input.reason?.trim()) throw badRequest('سبب إعادة الإسناد مطلوب أثناء المعالجة');
         // Lock membership and team while assigning; member move/remove uses the same rows.
         const [member]=await tx`SELECT tm.id FROM team_members tm JOIN users u ON u.id=tm.user_id
           JOIN roles r ON r.id=u.role_id JOIN teams t ON t.id=tm.team_id
@@ -44,7 +47,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
             AND ((tm.kind='agent' AND r.key='agent') OR (tm.kind='supervisor' AND r.key='supervisor'))
           FOR SHARE OF tm,u,t`;
         if(!member) throw badRequest('الموظف ليس عضواً نشطاً في فريق العنصر');
-        if(old.status==='assigned' && input.assigneeId===old.assignee_id) throw conflict('العنصر مسند لهذا الموظف بالفعل');
+        if(['assigned','in_progress'].includes(old.status) && input.assigneeId===old.assignee_id) throw conflict('العنصر مسند لهذا الموظف بالفعل');
         status='assigned';assignee=input.assigneeId;
         event=old.status==='new'?'assigned':old.status==='escalated'?'deescalated':'reassigned';break;
       case 'unassign':
@@ -73,9 +76,15 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
       first_assigned_at=CASE WHEN ${action==='assign'} THEN coalesce(q.first_assigned_at,clock_timestamp()) ELSE q.first_assigned_at END,
       assigned_at=CASE WHEN ${action==='assign'} THEN clock_timestamp() ELSE q.assigned_at END,
       first_started_at=CASE WHEN ${action==='start'||action==='reopen'} THEN coalesce(q.first_started_at,clock_timestamp()) ELSE q.first_started_at END,
-      completed_at=CASE WHEN ${action==='complete'} THEN clock_timestamp() ELSE q.completed_at END,
-      completed_by=CASE WHEN ${action==='complete'} THEN ${actor.id}::uuid ELSE q.completed_by END,
-      resolution=CASE WHEN ${action==='complete'} THEN ${input.resolution??null} ELSE q.resolution END,
+      -- Current work cycle: begins at start/reopen, ends with the assignment it belonged to.
+      started_at=CASE WHEN ${action==='start'||action==='reopen'} THEN clock_timestamp()
+        WHEN ${action==='assign'||action==='unassign'} THEN NULL ELSE q.started_at END,
+      -- A reopened item is open: its previous close lives only in queue_events.
+      completed_at=CASE WHEN ${action==='complete'} THEN clock_timestamp() WHEN ${action==='reopen'} THEN NULL ELSE q.completed_at END,
+      completed_by=CASE WHEN ${action==='complete'} THEN ${actor.id}::uuid WHEN ${action==='reopen'} THEN NULL ELSE q.completed_by END,
+      resolution=CASE WHEN ${action==='complete'} THEN ${input.resolution??null} WHEN ${action==='reopen'} THEN NULL ELSE q.resolution END,
+      reopen_count=q.reopen_count+${action==='reopen'?1:0},
+      last_reopened_at=CASE WHEN ${action==='reopen'} THEN clock_timestamp() ELSE q.last_reopened_at END,
       last_escalated_at=CASE WHEN ${action==='escalate'} THEN clock_timestamp() ELSE q.last_escalated_at END,
       reassignment_count=q.reassignment_count+${event==='reassigned'?1:0},
       escalation_count=q.escalation_count+${event==='escalated'?1:0}

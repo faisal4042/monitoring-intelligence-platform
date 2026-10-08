@@ -5,7 +5,8 @@ export interface QueueItem {
   text:string|null;x_author_id:string|null;url:string|null;username:string|null;display_name:string|null;
   intent:string|null;relevance:string|null;sentiment:string|null;topic_id?:string|null;topic_name?:string|null;reason_ar?:string|null;
   assignee_id:string|null;assignee_name:string|null;team_name:string;
-  entered_at:string;first_assigned_at:string|null;assigned_at:string|null;first_started_at:string|null;
+  entered_at:string;first_assigned_at:string|null;assigned_at:string|null;first_started_at:string|null;started_at?:string|null;
+  reopen_count?:number;last_reopened_at?:string|null;
   completed_at:string|null;completed_by:string|null;last_escalated_at:string|null;resolution:string|null;
   reassignment_count:number;escalation_count:number;
   media?:Array<{url:string|null;type:string;previewImageUrl:string|null}>;

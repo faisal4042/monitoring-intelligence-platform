@@ -133,7 +133,9 @@ test('explicit start, append-only notes, escalation, deescalation, completion, r
   const history=ok(await call(app,agent,'GET',base+'/items?view=completed&range=all'));assert.ok(history.items.some((i:{id:string})=>i.id===item.id));
   assert.equal((await call(app,other,'GET',`${base}/items/${item.id}`)).statusCode,404);
   assert.ok(!ok(await call(app,agent,'GET',base+'/items?range=all')).items.some((i:{id:string})=>i.id===item.id));
-  item=ok(await mutate(sup,item,'reopen'));assert.equal(item.status,'in_progress');assert.equal(item.completed_at,completed);assert.equal(item.first_started_at,started);
+  // Reopen clears the current close (0035); the earlier close stays in queue_events below.
+  item=ok(await mutate(sup,item,'reopen'));assert.equal(item.status,'in_progress');assert.ok(completed);
+  assert.deepEqual([item.completed_at,item.completed_by,item.resolution],[null,null,null]);assert.equal(item.first_started_at,started);
   item=ok(await mutate(agent,item,'complete',{resolution:'no_action_needed'}));
   const events=await sql`SELECT event_type,resolution FROM queue_events WHERE queue_item_id=${item.id} ORDER BY version`;
   assert.equal(events.filter(e=>e.event_type==='completed').length,2);
@@ -203,4 +205,111 @@ test('item details name the topic link that topic feedback would change',async()
   assert.equal(withTopic.topic_id,tp.id);assert.equal(withTopic.topic_name,tp.name_ar);
   const bare=ok(await call(app,admin,'GET',`${base}/items/${ok(await add(await post()),201).id}`));
   assert.equal(bare.topic_id,null);assert.equal(bare.topic_name,null);
+});
+
+// ── Work cycles: in-progress reassignment and reopen (0035) ─────────────────
+async function cycleFixture() {
+  const [p]=await sql`INSERT INTO programs(key,name_ar,name_en) VALUES (${crypto.randomUUID()},'Cycle program','Cycle program') RETURNING id`;
+  const t=ok(await call(app,admin,'POST','/api/v1/teams',{name:'Cycle '+crypto.randomUUID()}),201).id;
+  ok(await call(app,admin,'PUT',`/api/v1/teams/${t}/programs`,{programIds:[p.id]}));
+  const users:Record<string,{id:string;token:string}>={};
+  for(const [name,role] of [['a','agent'],['b','agent'],['sup','supervisor'],['outsider','supervisor']] as const){
+    const u=await createUser(role);users[name]={id:u.id,token:(await login(app,u.email)).accessToken};
+    if(name!=='outsider')ok(await call(app,admin,'POST',`/api/v1/teams/${t}/members`,{userId:u.id}));
+  }
+  const inProgress=async()=>{
+    let item=ok(await add(await post('inquiry',{program:p.id}),users.sup.token),201);
+    item=ok(await mutate(users.sup.token,item,'assign',{assigneeId:users.a.id}));
+    return ok(await mutate(users.a.token,item,'start'));
+  };
+  return {users,inProgress};
+}
+
+test('in-progress reassignment: supervisor moves the work with a reason; history and cycles stay exact',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  const item=await inProgress();
+  assert.equal(item.status,'in_progress');assert.ok(item.started_at);
+  const firstStart=item.first_started_at;
+  // Reason is mandatory, the item is untouched without it.
+  assert.equal((await mutate(u.sup.token,item,'assign',{assigneeId:u.b.id})).statusCode,400);
+  assert.equal((await sql`SELECT version FROM queue_items WHERE id=${item.id}`)[0].version,item.version);
+  const moved=ok(await mutate(u.sup.token,item,'assign',{assigneeId:u.b.id,reason:'إجازة طارئة'}));
+  assert.equal(moved.status,'assigned');assert.equal(moved.assignee_id,u.b.id);
+  assert.equal(moved.started_at,null,'the new assignee does not inherit the running cycle');
+  assert.equal(new Date(moved.first_started_at).getTime(),new Date(firstStart).getTime(),'first start of the item is kept');
+  assert.equal(moved.reassignment_count,1);
+  const [ev]=await sql`SELECT * FROM queue_events WHERE queue_item_id=${item.id} AND version=${moved.version}`;
+  assert.deepEqual({type:ev.event_type,from:ev.from_status,to:ev.to_status,fromA:ev.from_assignee,toA:ev.to_assignee,actor:ev.actor_id,reason:ev.reason},
+    {type:'reassigned',from:'in_progress',to:'assigned',fromA:u.a.id,toA:u.b.id,actor:u.sup.id,reason:'إجازة طارئة'});
+  assert.ok(ev.created_at);
+  // The previous assignee lost it; the new one must start their own cycle.
+  assert.equal((await mutate(u.a.token,moved,'complete',{resolution:'handled'})).statusCode,404);
+  const started=ok(await mutate(u.b.token,moved,'start'));
+  assert.equal(started.status,'in_progress');assert.ok(new Date(started.started_at)>new Date(item.started_at));
+  // Same assignee again is not a reassignment.
+  assert.equal((await mutate(u.sup.token,started,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,409);
+  // The earlier cycle of agent a remains reconstructible from events.
+  const events=(await sql`SELECT event_type,actor_id FROM queue_events WHERE queue_item_id=${item.id} ORDER BY version`)
+    .map(e=>`${e.event_type}:${e.actor_id===u.a.id?'a':e.actor_id===u.b.id?'b':'sup'}`);
+  assert.deepEqual(events,['created:sup','assigned:sup','started:a','reassigned:sup','started:b']);
+});
+
+test('in-progress reassignment: admin may, agent may not, outside supervisor 404, invalid assignee 400, stale version 409',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  let item=await inProgress();
+  assert.equal((await mutate(u.a.token,item,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,403,'agent');
+  assert.equal((await mutate(u.outsider.token,item,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,404,'other team supervisor');
+  assert.equal((await mutate(u.sup.token,item,'assign',{assigneeId:otherId,reason:'x'})).statusCode,400,'not a member of this team');
+  const off=await createUser('agent');
+  await sql`INSERT INTO team_members(team_id,user_id,kind) SELECT team_id,${off.id},'agent' FROM queue_items WHERE id=${item.id}`;
+  await sql`UPDATE users SET is_active=false WHERE id=${off.id}`;
+  assert.equal((await mutate(u.sup.token,item,'assign',{assigneeId:off.id,reason:'x'})).statusCode,400,'disabled member');
+  assert.equal((await mutate(u.sup.token,{...item,version:item.version-1},'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,409,'stale version');
+  item=ok(await mutate(admin,item,'assign',{assigneeId:u.b.id,reason:'admin rebalancing'}));
+  assert.equal(item.status,'assigned');assert.equal(item.assignee_id,u.b.id);
+});
+
+test('in-progress reassignment is atomic: a failed event write leaves the item exactly as it was',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  const item=await inProgress();
+  await sql`INSERT INTO queue_events(queue_item_id,event_type,to_status,version) VALUES (${item.id},'note_added','in_progress',${item.version+1})`;
+  assert.equal((await mutate(u.sup.token,item,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,500);
+  const [now]=await sql`SELECT status,assignee_id,version,started_at,reassignment_count FROM queue_items WHERE id=${item.id}`;
+  assert.deepEqual({...now,started_at:new Date(now.started_at).toISOString()},
+    {status:'in_progress',assignee_id:u.a.id,version:item.version,started_at:new Date(item.started_at).toISOString(),reassignment_count:0});
+});
+
+test('reopen lifecycle: complete, reopen clears the current close, complete again; every cycle stays in events',async()=>{
+  const {users:u,inProgress}=await cycleFixture();
+  const started=await inProgress();
+  const done1=ok(await mutate(u.a.token,started,'complete',{resolution:'no_action_needed'}));
+  assert.equal(done1.status,'completed');assert.equal(done1.completed_by,u.a.id);assert.equal(done1.resolution,'no_action_needed');
+  const reopened=ok(await mutate(u.sup.token,done1,'reopen'));
+  assert.equal(reopened.status,'in_progress');
+  assert.deepEqual([reopened.completed_at,reopened.completed_by,reopened.resolution],[null,null,null],'a reopened item is not closed');
+  assert.equal(reopened.reopen_count,1);assert.ok(reopened.last_reopened_at);assert.ok(reopened.started_at);
+  assert.equal(new Date(reopened.first_started_at).getTime(),new Date(started.first_started_at).getTime());
+  const done2=ok(await mutate(u.a.token,reopened,'complete',{resolution:'handled'}));
+  assert.equal(done2.resolution,'handled');assert.equal(done2.completed_by,u.a.id);
+  assert.ok(new Date(done2.completed_at)>new Date(done1.completed_at));
+  // Per-cycle handling time is reconstructible: started→completed, reopened→completed.
+  const ev=await sql`SELECT event_type,actor_id,resolution,created_at FROM queue_events WHERE queue_item_id=${started.id} ORDER BY version`;
+  assert.deepEqual(ev.map(e=>e.event_type),['created','assigned','started','completed','reopened','completed']);
+  const [c1,r,c2]=[ev[3],ev[4],ev[5]];
+  assert.equal(c1.resolution,'no_action_needed');assert.equal(c1.actor_id,u.a.id);
+  assert.equal(r.actor_id,u.sup.id);assert.equal(c2.resolution,'handled');
+  assert.ok(new Date(c1.created_at)>=new Date(ev[2].created_at));
+  assert.ok(new Date(c2.created_at)>=new Date(r.created_at));
+  // The agent's history lists the item once, as completed by them.
+  const hist=ok(await call(app,u.a.token,'GET',`${base}/items?range=all&view=completed`));
+  assert.equal(hist.items.filter((i:{id:string})=>i.id===started.id).length,1);
+});
+
+test('0035 is additive: only new columns and a check, no row is rewritten',async()=>{
+  const source=await readFile(new URL('../../../../packages/db/migrations/0035_queue_work_cycles.sql',import.meta.url),'utf8');
+  const code=source.split('\n').filter(l=>!l.trim().startsWith('--')).join('\n');
+  assert.doesNotMatch(code,/\b(?:DROP|TRUNCATE|DELETE|UPDATE|INSERT)\b/i);
+  const cols=await sql`SELECT column_name FROM information_schema.columns WHERE table_name='queue_items'
+    AND column_name IN ('started_at','reopen_count','last_reopened_at') ORDER BY 1`;
+  assert.deepEqual(cols.map(c=>c.column_name),['last_reopened_at','reopen_count','started_at']);
 });
