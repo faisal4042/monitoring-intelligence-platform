@@ -15,10 +15,16 @@ process.env.X_STREAM_ENABLED = 'false';
 process.env.AUTO_CLASSIFICATION_ENABLED = 'false';
 
 const { buildApp } = await import('../app.js');
-const { sql } = await import('@mip/db');
+const { sql, analyticsSql } = await import('@mip/db');
+// Hard stop if @mip/db was loaded before this file switched DATABASE_URL (an
+// import above the harness): every pool must be on the *_test database.
+for (const pool of [sql, analyticsSql]) {
+  const [{ db }] = await pool<{ db: string }[]>`SELECT current_database() AS db`;
+  if (!db.endsWith('_test')) throw new Error(`Refusing to run: connected to "${db}", not a *_test database. Import ./harness.js before anything that loads @mip/db.`);
+}
 const { hashPassword } = await import('../plugins/auth.js');
 
-export { sql };
+export { sql, analyticsSql };
 export type App = Awaited<ReturnType<typeof buildApp>>;
 
 export async function makeApp(): Promise<App> {
