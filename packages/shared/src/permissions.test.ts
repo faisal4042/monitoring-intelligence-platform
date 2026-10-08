@@ -17,7 +17,7 @@ test('every role is defined, labelled and free of duplicates or unknown keys', (
 
 test('agent: exactly the monitoring set, nothing administrative', () => {
   assert.deepEqual([...ROLE_PERMISSIONS.agent].sort(), [
-    P.CUSTOMERS_READ, P.FEEDBACK_WRITE, P.NEWS_READ, P.POSTS_READ, P.PROGRAMS_READ, P.TOPICS_READ,
+    P.CUSTOMERS_READ, P.FEEDBACK_WRITE, P.NEWS_READ, P.POSTS_READ, P.PROGRAMS_READ, P.TOPICS_READ, P.QUEUE_WORK,
   ].sort());
   for (const forbidden of [
     P.QUERY_TEST, P.QUERY_PROMOTE, P.KEYWORDS_WRITE, P.QUERIES_WRITE, P.INFLUENCERS_WRITE,
@@ -67,4 +67,11 @@ test('roles are nested: viewer ⊂ analyst ⊂ supervisor ⊂ admin, agent ⊂ s
   assert.ok(subset('analyst', 'supervisor'));
   assert.ok(subset('supervisor', 'admin'));
   assert.ok(subset('agent', 'supervisor'));
+});
+
+test('queue operational permissions have exactly the approved role matrix',()=>{
+  for(const [role,expected] of Object.entries({agent:[P.QUEUE_WORK],supervisor:[P.QUEUE_WORK,P.QUEUE_SUPERVISE],
+    admin:[P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL],viewer:[],analyst:[]})) {
+    assert.deepEqual(ROLE_PERMISSIONS[role as keyof typeof ROLE_PERMISSIONS].filter(p=>p.startsWith('queue:')).sort(),expected.sort());
+  }
 });

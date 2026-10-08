@@ -11,3 +11,4 @@ export const sql = postgres(config.DATABASE_URL, {
 
 export const db = drizzle(sql, { schema });
 export type Db = typeof db;
+export type Transaction = postgres.TransactionSql;

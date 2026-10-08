@@ -20,6 +20,8 @@ import Signals from './pages/Signals';
 import NewsSources from './pages/NewsSources';
 import NewsArticles from './pages/NewsArticles';
 import ChangePassword from './pages/ChangePassword';
+import MonitoringQueue from './pages/MonitoringQueue';
+import Teams from './pages/Teams';
 import RequirePermission from './components/RequirePermission';
 import { PERMISSIONS as P } from '@mip/shared';
 
@@ -55,12 +57,14 @@ export default function App() {
 
   // Each page declares the permission its own requests need; the API is the
   // real boundary, this only avoids rendering a page of 403s.
-  const guard = (perm: string, element: ReactElement) => <RequirePermission perm={perm}>{element}</RequirePermission>;
+  const guard = (perm: string | string[], element: ReactElement) => <RequirePermission perm={perm}>{element}</RequirePermission>;
 
   return (
     <Routes>
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route element={<AppShell />}>
+        <Route path="/queue" element={guard([P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL], <MonitoringQueue />)} />
+        <Route path="/teams" element={guard(P.USERS_READ, <Teams />)} />
         <Route path="/" element={guard(P.POSTS_READ, <Dashboard />)} />
         <Route path="/live" element={guard(P.POSTS_READ, <LiveFeed />)} />
         <Route path="/signals" element={guard(P.TOPICS_READ, <Signals />)} />

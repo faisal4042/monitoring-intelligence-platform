@@ -12,6 +12,9 @@ import {
 } from '@mip/shared';
 
 const PERMISSION_DESCRIPTIONS: Record<string, [string, string]> = {
+  'queue:work': ['queue', 'العمل على التفاعلات المسندة'],
+  'queue:supervise': ['queue', 'الإشراف على طابور الفريق'],
+  'queue:view_all': ['queue', 'عرض طوابير جميع الفرق'],
   'programs:read': ['programs', 'عرض البرامج والخدمات'],
   'programs:write': ['programs', 'إضافة وتعديل البرامج'],
   'keywords:read': ['keywords', 'عرض القواميس'],
@@ -243,6 +246,12 @@ const SETTINGS: Array<[string, unknown, string, string, string]> = [
 
 async function main() {
   console.log('\nSeeding database...\n');
+  // Monitoring queue intake ships disabled with no start boundary; never
+  // overwrites a value an administrator has already set.
+  await sql`INSERT INTO settings(key,value,value_type,category,description_ar) VALUES
+    ('queue.intake_enabled','false'::jsonb,'boolean','queue','تفعيل استقبال طابور الرصد'),
+    ('queue.intake_starts_at','null'::jsonb,'string','queue','بداية استقبال المنشورات الجديدة')
+    ON CONFLICT (key) DO NOTHING`;
 
   // ── Permissions ──
   for (const key of ALL_PERMISSIONS) {

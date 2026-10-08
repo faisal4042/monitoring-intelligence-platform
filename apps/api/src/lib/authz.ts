@@ -2,14 +2,13 @@
  * Resource-scoped authorization. A permission says *what* a user may do; a
  * scope says *over which records*: their own, their team's, or all of them.
  *
- * Today every interaction rule has only an `all` grant (posts:read), so the
- * scope always resolves to 'all' and behaviour is unchanged. The queue phase
- * adds `own` / `team` permissions to a rule and a matching SQL predicate in
- * scopePredicate() — routes already ask for a scope, so nothing else changes.
+ * Source interactions keep their posts:read grant. Operational queue access
+ * uses own/team/all SQL predicates, including immutable completion history.
  */
 import type { FastifyRequest } from 'fastify';
 import type { Permission } from '@mip/shared';
 import { PERMISSIONS } from '@mip/shared';
+import { sql } from '@mip/db';
 import { forbidden, unauthorized } from './errors.js';
 
 export type Scope = 'own' | 'team' | 'all';
@@ -17,8 +16,33 @@ export type Scope = 'own' | 'team' | 'all';
 /** Which permission grants each scope of a resource. Broader scopes win. */
 export type ScopeRule = Partial<Record<Scope, Permission>>;
 
-/** Interactions (posts). Queue phase: add own/team permissions here. */
+/** Source interactions keep their existing independent permission. */
 export const INTERACTIONS: ScopeRule = { all: PERMISSIONS.POSTS_READ };
+export const QUEUE: ScopeRule = {
+  own: PERMISSIONS.QUEUE_WORK, team: PERMISSIONS.QUEUE_SUPERVISE, all: PERMISSIONS.QUEUE_VIEW_ALL,
+};
+export interface QueueActor { id: string; permissions: string[] }
+
+/** SQL fragment for the queue_items alias q. Never trust client team/owner IDs. */
+export function queueScope(actor: QueueActor, mutation = false) {
+  const scope = resolveScope(actor.permissions, QUEUE);
+  if (scope === 'all') return sql`true`;
+  if (scope === 'team') return sql`EXISTS (SELECT 1 FROM team_members tm JOIN teams t ON t.id=tm.team_id
+    WHERE tm.user_id=${actor.id}::uuid AND tm.team_id=q.team_id AND tm.kind='supervisor'
+      AND tm.left_at IS NULL AND t.is_active)`;
+  if (scope === 'own') return mutation
+    ? sql`q.assignee_id=${actor.id}::uuid AND q.status<>'completed'`
+    : sql`((q.assignee_id=${actor.id}::uuid AND q.status<>'completed') OR EXISTS
+        (SELECT 1 FROM queue_events qe WHERE qe.queue_item_id=q.id AND qe.event_type='completed' AND qe.actor_id=${actor.id}::uuid))`;
+  return sql`false`;
+}
+
+/** SQL fragment for a teams alias t, used for intake routing and directory choices. */
+export function queueTeamScope(actor: QueueActor) {
+  if (actor.permissions.includes(PERMISSIONS.QUEUE_VIEW_ALL)) return sql`true`;
+  return sql`EXISTS (SELECT 1 FROM team_members tm WHERE tm.team_id=t.id
+    AND tm.user_id=${actor.id}::uuid AND tm.kind='supervisor' AND tm.left_at IS NULL)`;
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
