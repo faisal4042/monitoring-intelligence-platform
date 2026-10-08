@@ -3,7 +3,7 @@ export interface QueueItem {
   id:string;post_id:string;post_posted_at:string;program_id:string;team_id:string;status:QueueStatus;version:number;
   program_snapshot:{id:string;key:string;name:string;color:string};
   text:string|null;x_author_id:string|null;url:string|null;username:string|null;display_name:string|null;
-  intent:string|null;relevance:string|null;sentiment:string|null;topic_id?:string|null;reason_ar?:string|null;
+  intent:string|null;relevance:string|null;sentiment:string|null;topic_id?:string|null;topic_name?:string|null;reason_ar?:string|null;
   assignee_id:string|null;assignee_name:string|null;team_name:string;
   entered_at:string;first_assigned_at:string|null;assigned_at:string|null;first_started_at:string|null;
   completed_at:string|null;completed_by:string|null;last_escalated_at:string|null;resolution:string|null;

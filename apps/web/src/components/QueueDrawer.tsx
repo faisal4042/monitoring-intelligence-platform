@@ -34,12 +34,14 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
         <article className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="font-bold">{item.display_name??item.username??'تفاعل محفوظ المرجع'}</div>
           <p className="whitespace-pre-wrap leading-8">{item.text??'المصدر غير متاح بعد انتهاء الاحتفاظ أو الحجب. السجل التشغيلي محفوظ.'}</p>
-          <div className="text-sm muted">التصنيف: {item.intent??'—'} · المشاعر: {item.sentiment??'—'}</div>
+          <div className="text-sm muted">النيّة: {item.intent??'—'} · المشاعر: {item.sentiment??'—'} · الموضوع: {item.topic_name??'غير مرتبط بموضوع'}</div>
           <div className="text-xs muted">نُشر: {fmtDateTime(item.post_posted_at)} · دخل الطابور: {fmtDateTime(item.entered_at)}</div>
           <div className="grid grid-cols-2 gap-2">{item.media?.map((m,i)=>m.type==='photo'&&m.url?<img key={i} src={m.url} alt="وسائط التفاعل" className="rounded-lg max-h-56 object-contain"/>:m.url?<a key={i} href={m.url} target="_blank" rel="noreferrer" className="text-brand-600 underline">فتح الوسائط</a>:null)}</div>
           <div className="flex gap-2 flex-wrap">
             {item.x_author_id&&can(P.CUSTOMERS_READ)&&<button className="btn-ghost" onClick={()=>setHistory(true)}>سجل تفاعلات العميل</button>}
-            {item.text&&can(P.FEEDBACK_WRITE)&&<><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>feedback.mutate(true)}>التصنيف صحيح</button><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>feedback.mutate(false)}>التصنيف خاطئ</button><Link className="btn-ghost" to="/classification">مراجعة التصنيف</Link></>}
+            {/* topic-feedback edits the post's topic link: only offer it when there is one, and say so. */}
+            {item.text&&item.topic_id&&can(P.FEEDBACK_WRITE)&&<><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>feedback.mutate(true)}>ربط الموضوع صحيح</button><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>{if(window.confirm(`إزالة ربط هذا التفاعل بموضوع «${item.topic_name??''}»؟ يُسجَّل كتصحيح بشري.`))feedback.mutate(false);}}>ربط الموضوع خاطئ</button></>}
+            {item.text&&can(P.FEEDBACK_WRITE)&&<Link className="btn-ghost" to="/classification">مراجعة التصنيف</Link>}
           </div>{feedback.isSuccess&&<p className="text-sm text-emerald-600">حُفظت المراجعة</p>}{feedback.error&&<p role="alert">{feedback.error.message}</p>}
         </article>
         <div className="grid grid-cols-2 gap-3 text-sm">

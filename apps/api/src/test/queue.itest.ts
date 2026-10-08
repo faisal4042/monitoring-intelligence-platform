@@ -194,3 +194,13 @@ test('role changes cannot bypass active team membership cardinality or kind',asy
   assert.equal((await call(app,admin,'POST',`/api/v1/teams/${team2}/members`,{userId:member.id})).statusCode,409);
   assert.equal((await sql`SELECT count(*)::int AS n FROM team_members WHERE user_id=${member.id} AND left_at IS NOT NULL`)[0].n,2);
 });
+test('item details name the topic link that topic feedback would change',async()=>{
+  // The drawer's topic-feedback buttons edit post_classifications.topic_id; they
+  // must only be offered with the topic in view, so the details carry its name.
+  const [tp]=await sql`INSERT INTO topics(program_id,level,name_ar,name_en,is_active) VALUES (${program},1,${'موضوع طابور '+crypto.randomUUID().slice(0,8)},'Queue topic',true) RETURNING id,name_ar`;
+  const linked=await post();await sql`UPDATE post_classifications SET topic_id=${tp.id} WHERE post_id=${linked}`;
+  const withTopic=ok(await call(app,admin,'GET',`${base}/items/${ok(await add(linked),201).id}`));
+  assert.equal(withTopic.topic_id,tp.id);assert.equal(withTopic.topic_name,tp.name_ar);
+  const bare=ok(await call(app,admin,'GET',`${base}/items/${ok(await add(await post()),201).id}`));
+  assert.equal(bare.topic_id,null);assert.equal(bare.topic_name,null);
+});

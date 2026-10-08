@@ -71,10 +71,11 @@ export default async function queueRoutes(app:FastifyInstance) {
   app.get('/items/:id',read,async req=>{
     const {id}=parse(idParams,req.params);
     const [item]=await sql`SELECT q.*,p.text,p.x_author_id,p.url,a.username,a.display_name,c.intent,c.relevance,
-      c.topic_id,c.reason_ar,s.label AS sentiment,u.full_name AS assignee_name,t.name AS team_name,
+      c.topic_id,tp.name_ar AS topic_name,c.reason_ar,s.label AS sentiment,u.full_name AS assignee_name,t.name AS team_name,
       coalesce((SELECT jsonb_agg(jsonb_build_object('url',m.url,'type',m.type,'previewImageUrl',m.preview_image_url))
         FROM post_media m WHERE m.post_id=p.id AND m.posted_at=p.posted_at),'[]') AS media
-      FROM queue_items q ${joins} LEFT JOIN authors a ON a.id=p.author_id LEFT JOIN users u ON u.id=q.assignee_id
+      FROM queue_items q ${joins} LEFT JOIN topics tp ON tp.id=c.topic_id LEFT JOIN authors a ON a.id=p.author_id
+      LEFT JOIN users u ON u.id=q.assignee_id
       JOIN teams t ON t.id=q.team_id WHERE q.id=${id}::uuid AND (${queueScope(req.user)})`;
     if(!item)throw notFound();
     const events=await sql`SELECT e.*,u.full_name AS actor_name FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id
