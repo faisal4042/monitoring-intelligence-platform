@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
+import AlertCenter from './AlertCenter';
 import {
   Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
   CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose,
@@ -254,11 +255,14 @@ export default function AppShell() {
 
           <div className="flex-1" />
 
+          {/* Influencer/story alerts: only for users who work the queue. */}
+          {can(PERMISSIONS.QUEUE_WORK, PERMISSIONS.QUEUE_SUPERVISE, PERMISSIONS.QUEUE_VIEW_ALL) && <AlertCenter />}
+
           {/* The emergency stop stays reachable at all times, by design. */}
           {can(PERMISSIONS.KILLSWITCH_OPERATE) && (
             globalKill ? (
-              <button className="btn-ghost !text-emerald-600" onClick={() => resume.mutate(globalKill.id)}>
-                <ShieldCheck size={17} /> استئناف الجمع
+              <button className="btn-ghost !text-emerald-600" aria-label="استئناف الجمع" onClick={() => resume.mutate(globalKill.id)}>
+                <ShieldCheck size={17} /> <span className="emergency-label">استئناف الجمع</span>
               </button>
             ) : (
               <button className="btn-danger" onClick={() => setShowKill(true)}>
