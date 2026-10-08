@@ -5,7 +5,7 @@ import {Inbox,RefreshCw,UsersRound,SlidersHorizontal,Rows3,Rows2,Sparkles,UserRo
 import {PERMISSIONS as P,QUEUE_SECTIONS,QUEUE_SECTION_LABELS,QUEUE_STATUSES,QUEUE_STATUS_LABELS,type QueueSection,type QueueStatus} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
-import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,sourceOf,type AlertUnread,type QueueItem,type QueueOptions,type QueueSummary} from '../lib/queue';
+import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,sourceOf,useServerClock,workTimer,type AlertUnread,type QueueItem,type QueueOptions,type QueueSummary,type ReviewCatalog} from '../lib/queue';
 import {fmtCompact,fmtDateTime,fmtRelative} from '../lib/format';
 import {useDateRange} from '../lib/useDateRange';
 import DateRangeFilter from '../components/DateRangeFilter';
@@ -33,7 +33,8 @@ export default function MonitoringQueue() {
   const sectionParam=params.get('section');
   const section:QueueSection=(QUEUE_SECTIONS as readonly string[]).includes(sectionParam??'')?sectionParam as QueueSection:'general';
   const isStory=section==='story';
-  const view=params.get('view')??(supervise?'all':'open');
+  const rawView=params.get('view');
+  const view=rawView==='completed'?'closed':rawView??(supervise?'open':'mine');
   const base=new URLSearchParams(date.apiQuery);
   for(const key of FILTER_KEYS){
     // Interaction-only filters never apply to story cards.
@@ -51,6 +52,7 @@ export default function MonitoringQueue() {
     enabled:!date.error,refetchInterval:interval,refetchIntervalInBackground:false});
   const {data:options}=useQuery({queryKey:['queue-options'],queryFn:()=>api.get<QueueOptions>('/queue/options'),enabled:can(P.QUEUE_SUPERVISE)});
   const {data:catalog}=useQuery({queryKey:['programs'],queryFn:()=>api.get<{items:Array<{id:string;name_ar:string}>}>('/programs'),enabled:can(P.PROGRAMS_READ)&&!options});
+  const {data:reviewCatalog}=useQuery({queryKey:['queue-review-catalog'],queryFn:()=>api.get<ReviewCatalog>('/queue/review-catalog')});
   const {data:alerts}=useQuery<AlertUnread>({queryKey:ALERTS_UNREAD_KEY,queryFn:()=>api.get<AlertUnread>('/queue/alerts'),staleTime:Infinity});
 
   const selected=params.get('item');const items=list.data?.pages.flatMap(p=>p.items)??[];
@@ -60,6 +62,8 @@ export default function MonitoringQueue() {
   const counts=sections?.[section];
   const members=options?.members.filter((m,i,all)=>all.findIndex(n=>n.id===m.id)===i)??[];
   const refreshing=list.isFetching||summary.isFetching;
+  // Cards tick every 30s from the server's clock (summary refreshes it).
+  const now=useServerClock(summary.data?.serverNow,30000);const warnMinutes=reviewCatalog?.waitWarningMinutes??60;
   const updatedAt=list.dataUpdatedAt?new Date(Math.max(list.dataUpdatedAt,summary.dataUpdatedAt)).toISOString():null;
 
   return <div className="space-y-4">
@@ -91,13 +95,13 @@ export default function MonitoringQueue() {
         </button>;})}
     </nav>
 
-    <div className="flex flex-wrap items-center gap-2">
-      {supervise?<div className="queue-statuses" aria-label="حالة المعالجة">{QUEUE_STATUSES.map(s=>
-        <button key={s} className="queue-status" aria-pressed={params.get('status')===s} onClick={()=>set('status',params.get('status')===s?'':s)}>
-          <span className={`queue-dot queue-status-badge--${s}`}/>{QUEUE_STATUS_LABELS[s]}<strong>{counts?.[s]??'—'}</strong></button>)}</div>
-      :<div role="tablist" aria-label="قوائم عملي" className="flex gap-2">
-        <button role="tab" aria-selected={view==='open'} className={view==='open'?'btn-primary':'btn-ghost'} onClick={()=>set('view','open')}>المفتوحة</button>
-        <button role="tab" aria-selected={view==='completed'} className={view==='completed'?'btn-primary':'btn-ghost'} onClick={()=>set('view','completed')}>أكملتها سابقاً</button></div>}
+    <div role="tablist" aria-label="قوائم العمل" className="flex flex-wrap gap-2">
+      {([{key:'mine',label:'مهامي',count:summary.data?.views[section].mine},
+        ...((supervise||reviewCatalog?.selfClaim)?[{key:'unassigned',label:'غير مسند',count:summary.data?.views[section].unassigned}]:[]),
+        ...(supervise?[{key:'open',label:'كل المفتوح',count:counts?counts.new+counts.assigned+counts.in_progress+counts.escalated:undefined}]:[]),
+        {key:'closed',label:'المغلق',count:summary.data?.views[section].closed}]).map(v=><button key={v.key} role="tab" aria-selected={view===v.key}
+          className={view===v.key?'btn-primary':'btn-ghost'} onClick={()=>setParams(old=>{const next=new URLSearchParams(old);next.set('view',v.key);next.delete('status');next.delete('item');return next;})}>
+          {v.label} <span>{v.count??'?'}</span></button>)}
     </div>
 
     <div className={`queue-layout ${showFilters?'':'is-collapsed'} ${compact?'queue-compact':''}`}>
@@ -107,7 +111,7 @@ export default function MonitoringQueue() {
         {!list.isLoading&&!list.error&&!items.length&&<div className="card p-10 text-center">
           <Inbox size={34} className="mx-auto mb-3 text-brand-500"/><h2 className="font-bold">لا توجد عناصر هنا</h2>
           <p className="muted text-sm mt-2">{isStory?'تظهر هنا القصص المعتمدة (بمصدرين مستقلين على الأقل) ضمن نطاقك.':section==='influencer'?'تظهر هنا تفاعلات الحسابات المؤثرة المتابَعة.':'تظهر هنا التفاعلات المناسبة لنطاقك والفلاتر المحددة.'}</p></div>}
-        {items.map(item=><QueueCard key={item.id} item={item} supervise={supervise} selected={item.id===selected} onOpen={()=>set('item',item.id,true)}/>)}
+        {items.map(item=><QueueCard key={item.id} item={item} supervise={supervise} now={now} warnMinutes={warnMinutes} selected={item.id===selected} onOpen={()=>set('item',item.id,true)}/>)}
         {list.hasNextPage&&<button className="btn-ghost w-full" disabled={list.isFetchingNextPage} onClick={()=>list.fetchNextPage()}>تحميل المزيد — الأقدم أولاً</button>}
       </section>
 
@@ -129,7 +133,7 @@ export default function MonitoringQueue() {
         {/* Short and always relevant to a supervisor, so it sits above the longer filter list. */}
         {supervise&&<div className="card p-4 order-first">
           <h2 className="font-bold text-sm mb-1">عبء الموظفين</h2>
-          <p className="text-xs muted mb-2">مفتوح · قيد العمل · مكتمل اليوم</p>
+          <p className="text-xs muted mb-2">بانتظار أو مصعّد · قيد المراجعة · مغلق اليوم دون تكرار</p>
           {!summary.data?.workload.length?<p className="text-xs muted">لا يوجد أعضاء في فرقك بعد.</p>:
           <ul className="queue-workload space-y-0.5">{summary.data.workload.map(w=><li key={w.id+w.team_id}>
             <button aria-pressed={params.get('employeeId')===w.id} onClick={()=>set('employeeId',params.get('employeeId')===w.id?'':w.id)}>
@@ -143,8 +147,9 @@ export default function MonitoringQueue() {
   </div>;
 }
 
-function QueueCard({item,supervise,selected,onOpen}:{item:QueueItem;supervise:boolean;selected:boolean;onOpen:()=>void}) {
+function QueueCard({item,supervise,now,warnMinutes,selected,onOpen}:{item:QueueItem;supervise:boolean;now?:string;warnMinutes:number;selected:boolean;onOpen:()=>void}) {
   const story=item.interaction_type==='story';
+  const timer=workTimer(item,now,warnMinutes);
   const sentiment=item.sentiment?SENTIMENT_LABELS[item.sentiment]:null;
   const label=story?`فتح القصة: ${item.story_title??''}`:`فتح تفاعل ${item.display_name??item.username??''}`;
   return <button className={`card queue-card ${selected?'is-selected':''}`} onClick={onOpen} aria-label={label}>
@@ -174,6 +179,8 @@ function QueueCard({item,supervise,selected,onOpen}:{item:QueueItem;supervise:bo
           {item.intent&&<span>{INTENT_LABELS[item.intent]??item.intent}</span>}
           {sentiment&&<span className={sentiment.cls}>{sentiment.text}</span>}
         </>}
+        {timer&&<span className={timer.warn?'text-amber-600 font-semibold':''} title={timer.warn?`تجاوز ${warnMinutes} دقيقة (تنبيه بصري)`:undefined}>{timer.label} {timer.text}</span>}
+        {item.status==='completed'&&item.completed_at&&<span>أُغلق {fmtRelative(item.completed_at)}</span>}
         {(supervise||item.assignee_name)&&<span>{item.assignee_name?`المسؤول: ${item.assignee_name}`:'غير مسند'}{supervise?` · ${item.team_name}`:''}</span>}
       </span>
     </span>

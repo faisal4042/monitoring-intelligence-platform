@@ -1,35 +1,37 @@
 import {useEffect,useRef,useState} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
-import {Link,useSearchParams} from 'react-router-dom';
-import {X,Play,CheckCircle,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight} from 'lucide-react';
-import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_RESOLUTIONS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
+import {useSearchParams} from 'react-router-dom';
+import {X,Play,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight} from 'lucide-react';
+import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_REVIEW_OUTCOME_LABELS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
-import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,duration,sourceOf,type QueueItem,type QueueOptions} from '../lib/queue';
+import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,duration,sourceOf,useServerClock,type QueueItem,type QueueOptions,type ReviewCatalog,type QueueSummary} from '../lib/queue';
 import {fmtCompact,fmtDateTime,fmtRelative} from '../lib/format';
 import AuthorHistoryModal from './AuthorHistoryModal';
 import Avatar from './Avatar';
+import QueueReview,{QueueReviewHistory} from './QueueReview';
 
 export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
   const {user,can}=useAuth();const qc=useQueryClient();const supervise=can(P.QUEUE_SUPERVISE);
   const [,setParams]=useSearchParams();
-  const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[assignReason,setAssignReason]=useState(''),[note,setNote]=useState(''),[resolution,setResolution]=useState('');
+  const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[assignReason,setAssignReason]=useState(''),[note,setNote]=useState(''),[reopenReason,setReopenReason]=useState('');
   const [history,setHistory]=useState(false);
   const [transferOpen,setTransferOpen]=useState(false),[toTeam,setToTeam]=useState(''),[toMember,setToMember]=useState(''),[transferReason,setTransferReason]=useState('');
   const closeRef=useRef<HTMLButtonElement>(null);
   const {data:item,error,isLoading}=useQuery({queryKey:['queue-item',id],queryFn:()=>api.get<QueueItem>(`/queue/items/${id}`),
     refetchInterval:supervise?20000:15000,refetchIntervalInBackground:false});
   const {data:options}=useQuery({queryKey:['queue-options'],queryFn:()=>api.get<QueueOptions>('/queue/options'),enabled:supervise});
-  const change=useMutation({mutationFn:({action,extra={}}:{action:QueueAction;extra?:object})=>
+  const change=useMutation({mutationFn:({action,extra={}}:{action:QueueAction|'claim';extra?:object})=>
     api.post(`/queue/items/${id}/${action}`,{expectedVersion:item!.version,...extra}),
-    onSuccess:()=>{setNote('');setReason('');setAssignReason('');setAssignee('');setResolution('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
+    onSuccess:async(_,variables)=>{if(variables.action==='notes')setNote('');setReason('');setAssignReason('');setAssignee('');setReopenReason('');await Promise.all([qc.invalidateQueries({queryKey:['queue']}),qc.invalidateQueries({queryKey:['queue-item',id]})]);if(variables.action==='complete')onClose();},
     onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});qc.invalidateQueries({queryKey:['queue']});}});
   // Cross-team transfer: one audited server transaction (team, assignee, reason, version).
   const transfer=useMutation({mutationFn:()=>api.post(`/queue/items/${id}/transfer`,{expectedVersion:item!.version,teamId:toTeam,assigneeId:toMember,reason:transferReason}),
     onSuccess:()=>{setTransferOpen(false);setToTeam('');setToMember('');setTransferReason('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
     onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});}});
-  const feedback=useMutation({mutationFn:(correct:boolean)=>api.post(`/classification/interactions/${item!.post_id}/topic-feedback`,{correct}),
-    onSuccess:()=>qc.invalidateQueries({queryKey:['queue-item',id]})});
+  const {data:catalog}=useQuery({queryKey:['queue-review-catalog'],queryFn:()=>api.get<ReviewCatalog>('/queue/review-catalog')});
+  const {data:clock}=useQuery({queryKey:['queue','clock'],queryFn:()=>api.get<QueueSummary>('/queue/summary?range=all'),refetchInterval:30000});
+  const serverNow=useServerClock(clock?.serverNow);
   useEffect(()=>{closeRef.current?.focus();const onKey=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose();};document.addEventListener('keydown',onKey);return()=>document.removeEventListener('keydown',onKey);},[onClose]);
   const openItem=(other:string)=>setParams(old=>{const next=new URLSearchParams(old);next.set('item',other);return next;});
   const mine=item?.assignee_id===user?.id;
@@ -82,15 +84,12 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           <div className="flex gap-2 flex-wrap">
             {item.url&&<a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={15}/>فتح في X</a>}
             {item.x_author_id&&can(P.CUSTOMERS_READ)&&<button className="btn-ghost" onClick={()=>setHistory(true)}>سجل تفاعلات العميل</button>}
-            {/* topic-feedback edits the post's topic link: only offer it when there is one, and say so. */}
-            {item.text&&item.topic_id&&can(P.FEEDBACK_WRITE)&&<><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>feedback.mutate(true)}>ربط الموضوع صحيح</button><button className="btn-ghost" disabled={feedback.isPending} onClick={()=>{if(window.confirm(`إزالة ربط هذا التفاعل بموضوع «${item.topic_name??''}»؟ يُسجَّل كتصحيح بشري.`))feedback.mutate(false);}}>ربط الموضوع خاطئ</button></>}
-            {item.text&&can(P.FEEDBACK_WRITE)&&<Link className="btn-ghost" to="/classification">مراجعة التصنيف</Link>}
-          </div>{feedback.isSuccess&&<p className="text-sm text-emerald-600">حُفظت المراجعة</p>}{feedback.error&&<p role="alert">{feedback.error.message}</p>}
+          </div>
         </article>}
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div>المسؤول: <strong>{item.assignee_name??'غير مسند'}</strong></div><div>انتظار الإسناد: {duration(item.entered_at,item.first_assigned_at??undefined)}</div>
-          <div>حتى البدء: {duration(item.first_assigned_at,item.first_started_at)}</div><div>وقت المعالجة: {duration(item.first_started_at,item.status==='completed'?item.completed_at:undefined)}</div>
+          <div>المسؤول: <strong>{item.assignee_name??'غير مسند'}</strong></div><div>انتظار الإسناد: {duration(item.entered_at,item.first_assigned_at??serverNow)}</div>
+          <div>حتى البدء: {duration(item.assigned_at,item.started_at??serverNow)}</div><div>وقت المعالجة: {duration(item.started_at??null,item.status==='completed'?item.completed_at:serverNow)}</div>
           <div>وقت الإكمال: {duration(item.entered_at,item.status==='completed'?item.completed_at:null)}</div>{!story&&<div>تأخر الاكتشاف (معلوماتي): {duration(item.post_posted_at,item.entered_at)}</div>}
           <div>إعادة الإسناد: {item.reassignment_count}</div><div>التصعيد: {item.escalation_count}</div>
           <div>إعادة الفتح: {item.reopen_count??0}</div><div>الدورة الحالية بدأت: {item.started_at?fmtDateTime(item.started_at):'لم تبدأ بعد'}</div>
@@ -103,12 +102,13 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
             {item.status==='in_progress'&&<input aria-label="سبب إعادة الإسناد" placeholder="سبب إعادة الإسناد أثناء المعالجة (إلزامي)" className="input w-full" value={assignReason} maxLength={2000} onChange={e=>setAssignReason(e.target.value)}/>}
           </div>}
           <div className="flex gap-2">
-            {item.status==='assigned'&&mine&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'start'})}><Play size={16}/>بدء العمل</button>}
+            {item.status==='assigned'&&mine&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'start'})}><Play size={16}/>بدء المراجعة</button>}
             {item.status==='assigned'&&supervise&&<button className="btn-ghost" onClick={()=>change.mutate({action:'unassign'})}>إلغاء الإسناد</button>}
-            {item.status==='completed'&&supervise&&<button className="btn-primary" onClick={()=>change.mutate({action:'reopen'})}>إعادة الفتح</button>}
+            {item.status==='completed'&&supervise&&<div className="flex gap-2 w-full"><input aria-label="سبب إعادة الفتح" className="input flex-1" placeholder="سبب إعادة الفتح (إلزامي)" maxLength={2000} value={reopenReason} onChange={e=>setReopenReason(e.target.value)}/><button className="btn-primary" disabled={!reopenReason.trim()} onClick={()=>change.mutate({action:'reopen',extra:{reason:reopenReason}})}>إعادة الفتح</button></div>}
+            {item.status==='new'&&!supervise&&catalog?.selfClaim&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'claim'})}>استلام التفاعل</button>}
           </div>
           {work&&['assigned','in_progress'].includes(item.status)&&<div className="flex gap-2"><input aria-label="سبب التصعيد" placeholder="سبب التصعيد (إلزامي)" className="input flex-1" value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/><button className="btn-ghost" disabled={!reason.trim()} onClick={()=>change.mutate({action:'escalate',extra:{reason}})}><ArrowUpRight size={16}/>تصعيد</button></div>}
-          {work&&(item.status==='in_progress'||item.status==='escalated'&&supervise)&&<div className="flex gap-2"><select aria-label="نتيجة المعالجة" className="input flex-1" value={resolution} onChange={e=>setResolution(e.target.value)}><option value="">اختر نتيجة المعالجة</option>{QUEUE_RESOLUTIONS.map(r=><option key={r} value={r}>{QUEUE_RESOLUTION_LABELS[r]}</option>)}</select><button className="btn-primary" disabled={!resolution} onClick={()=>change.mutate({action:'complete',extra:{resolution}})}><CheckCircle size={16}/>إكمال</button></div>}
+          {work&&(item.status==='in_progress'||item.status==='escalated'&&supervise)&&<><QueueReview item={item} catalog={catalog} disabled={change.isPending||!!note.trim()} onComplete={review=>change.mutate({action:'complete',extra:{review}})}/>{note.trim()&&<p className="text-sm muted">احفظ الملاحظة المكتوبة قبل إغلاق التفاعل.</p>}</>}
           {supervise&&!story&&item.status!=='completed'&&<div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
             <button className="flex items-center gap-2 text-sm font-bold" aria-expanded={transferOpen} onClick={()=>{setTransferOpen(o=>!o);if(!toTeam&&item.hold_team_id)setToTeam(item.hold_team_id);}}>
               <ArrowLeftRight size={15}/>نقل إلى فريق آخر</button>
@@ -130,6 +130,7 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           {work&&item.status!=='completed'&&<div className="space-y-2"><label className="block text-sm font-bold" htmlFor="queue-note">ملاحظة داخلية</label><textarea id="queue-note" className="input w-full" rows={3} maxLength={5000} value={note} onChange={e=>setNote(e.target.value)} placeholder="التصحيح يكون بملاحظة جديدة؛ لا يمكن تعديل الملاحظات أو حذفها."/><button className="btn-ghost" disabled={!note.trim()} onClick={()=>change.mutate({action:'notes',extra:{body:note}})}><StickyNote size={16}/>إضافة ملاحظة</button></div>}
         </fieldset>
 
+        <QueueReviewHistory item={item} catalog={catalog}/>
         {story&&<section><h3 className="font-bold mb-3">التفاعلات المرتبطة بالقصة ({item.members?.length??0})</h3>
           {!item.members?.length&&<p className="muted text-sm">لا تتوفر تفاعلات ظاهرة (قد تكون محجوبة أو خارج فترة الاحتفاظ).</p>}
           <ul className="space-y-2">{item.members?.map(m=><li key={m.post_id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
@@ -152,7 +153,7 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from].ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to].ar}`}</p>}
           {e.event_type==='transferred'&&<p>{e.metadata?.fromTeamName??'—'} ← {e.metadata?.toTeamName??'—'}</p>}
           {e.event_type==='section_review'&&<p>{e.metadata?.hold?'التفاعل ضمن قصة يملكها فريق آخر؛ لم يُنقل تلقائياً.':'انتهت حالة المراجعة.'}</p>}
-          {e.reason&&<p>{e.reason}</p>}{e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]}</p>}</li>)}</ol></section>
+          {e.reason&&<p>{e.reason}</p>}{e.metadata?.outcome?<p>{QUEUE_REVIEW_OUTCOME_LABELS[e.metadata.outcome]}</p>:e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]} (سجل سابق)</p>}</li>)}</ol></section>
       </>}
       {history&&item?.x_author_id&&<AuthorHistoryModal xAuthorId={item.x_author_id} onClose={()=>setHistory(false)}/>}
     </section>
