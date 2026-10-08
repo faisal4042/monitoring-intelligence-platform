@@ -21,6 +21,7 @@ interface CostOverview {
 }
 
 const NAV = [
+  { to: '/queue', label: 'طابور الرصد / مهامي', icon: LayoutGrid, perm: PERMISSIONS.QUEUE_WORK },
   { to: '/', label: 'لوحة التحكم', icon: Gauge, perm: PERMISSIONS.POSTS_READ },
   { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: PERMISSIONS.POSTS_READ },
   { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles, perm: PERMISSIONS.TOPICS_READ },
@@ -35,6 +36,7 @@ const NAV = [
 
 /** Grouped under one collapsible "الإدارة" entry instead of each sitting flat in the sidebar. */
 const ADMIN_NAV = [
+  { to: '/teams', label: 'فرق الرصد', icon: UsersRound, perm: PERMISSIONS.USERS_READ },
   { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_READ },
@@ -119,7 +121,7 @@ export default function AppShell() {
         </div>
 
         <nav className="sidebar-nav" aria-label="التنقل الرئيسي">
-          {NAV.filter((n) => !n.perm || can(n.perm)).map((n) => (
+          {NAV.filter((n) => n.to==='/queue' ? can(PERMISSIONS.QUEUE_WORK,PERMISSIONS.QUEUE_SUPERVISE,PERMISSIONS.QUEUE_VIEW_ALL) : !n.perm || can(n.perm)).map((n) => (
             <NavLink
               key={n.to}
               to={n.to}
@@ -128,7 +130,7 @@ export default function AppShell() {
               className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
             >
               <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.9} />
-              <span className="flex-1">{n.label}</span>
+              <span className="flex-1">{n.to==='/queue' ? (can(PERMISSIONS.QUEUE_SUPERVISE,PERMISSIONS.QUEUE_VIEW_ALL)?'طابور الرصد':'مهامي — My Queue') : n.label}</span>
               <ChevronLeft className="sidebar-link-arrow" size={15} />
             </NavLink>
           ))}

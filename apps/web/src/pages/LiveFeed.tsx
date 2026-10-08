@@ -5,6 +5,7 @@ import type { Post } from '../lib/types';
 import { Radio } from 'lucide-react';
 import AuthorHistoryModal from '../components/AuthorHistoryModal';
 import PostCard from '../components/PostCard';
+import QueueManualAdd from '../components/QueueManualAdd';
 import Lightbox from '../components/Lightbox';
 import DateRangeFilter from '../components/DateRangeFilter';
 import { useDateRange } from '../lib/useDateRange';
@@ -89,7 +90,8 @@ export default function LiveFeed() {
 
       <div className="space-y-2">
         {(data?.items ?? []).map((p) => (
-          <PostCard key={p.id} post={p} onWhy={setWhy} onHistory={setHistoryAuthorId} onLightbox={setLightboxUrl} />
+          <div key={p.id}><PostCard post={p} onWhy={setWhy} onHistory={setHistoryAuthorId} onLightbox={setLightboxUrl} />
+            <QueueManualAdd postId={p.id} postedAt={p.posted_at}/></div>
         ))}
       </div>
 

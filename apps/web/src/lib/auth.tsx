@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import {useQueryClient} from '@tanstack/react-query';
 import { api, setToken, refreshSession } from './api';
 import type { AuthUser } from '@mip/shared';
 
@@ -16,6 +17,7 @@ const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
 export const useAuth = () => useContext(Ctx);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient=useQueryClient();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,12 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const d = await api.post<{ accessToken: string; user: AuthUser }>('/auth/login', { email, password });
+    queryClient.clear();
     setToken(d.accessToken);
     setUser(d.user);
   };
 
   const logout = async () => {
     await api.post('/auth/logout').catch(() => {});
+    queryClient.clear();
     setToken(null);
     setUser(null);
   };
