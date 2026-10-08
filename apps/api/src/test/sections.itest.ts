@@ -25,13 +25,14 @@ async function author(influencer:boolean) {
   if(influencer)await sql`INSERT INTO tracked_influencers(username) VALUES (${name})`;
   return {id:a.id as string,name};
 }
-async function post(opts:{influencer?:boolean;program?:string;intent?:string;author?:{id:string;name:string}}={}) {
+async function post(opts:{influencer?:boolean;program?:string;intent?:string;author?:{id:string;name:string};status?:string;redacted?:boolean;duplicate?:boolean;relevance?:string}={}) {
   const id=crypto.randomUUID();const at=new Date().toISOString();
   const a=opts.author??await author(opts.influencer??false);
-  await sql`INSERT INTO posts(id,x_post_id,x_author_id,author_id,text,text_normalized,posted_at,collected_at,content_hash,status)
-    VALUES (${id},${id},${a.name},${a.id}::uuid,'تفاعل اختبار الأقسام','تفاعل اختبار الاقسام',${at},${boundary},'\\x00','classified')`;
+  await sql`INSERT INTO posts(id,x_post_id,x_author_id,author_id,text,text_normalized,posted_at,collected_at,content_hash,status,is_redacted,duplicate_of_id)
+    VALUES (${id},${id},${a.name},${a.id}::uuid,'تفاعل اختبار الأقسام','تفاعل اختبار الاقسام',${at},${boundary},'\\x00',${opts.status??'classified'},
+      ${opts.redacted??false},${opts.duplicate?crypto.randomUUID():null})`;
   await sql`INSERT INTO post_classifications(post_id,posted_at,relevance,intent,program_id,topic_id,stage)
-    VALUES (${id},${at},'relevant',${opts.intent??'complaint'},${opts.program??program},${(opts.program??program)===program?topic:topic2},1)`;
+    VALUES (${id},${at},${opts.relevance??'relevant'},${opts.intent??'complaint'},${opts.program??program},${(opts.program??program)===program?topic:topic2},1)`;
   return {id,at};
 }
 async function story(prog=program,state='new') {
@@ -51,6 +52,8 @@ before(async()=>{
   app=await makeApp();
   for(const role of ['admin','supervisor','agent','viewer','analyst']){const u=await createUser(role);tok[role]=(await login(app,u.email)).accessToken;uid[role]=u.id;}
   const s2=await createUser('supervisor');tok.sup2=(await login(app,s2.email)).accessToken;uid.sup2=s2.id;
+  const s3=await createUser('supervisor');tok.sup3=(await login(app,s3.email)).accessToken;uid.sup3=s3.id;
+  const a2=await createUser('agent');tok.agent2=(await login(app,a2.email)).accessToken;uid.agent2=a2.id;
   for(const n of [1,2]){
     const [p]=await sql`INSERT INTO programs(key,name_ar,name_en) VALUES (${crypto.randomUUID()},${'Sections '+n},${'Sections '+n}) RETURNING id`;
     const [tp]=await sql`INSERT INTO topics(program_id,level,name_ar) VALUES (${p.id},1,${'موضوع '+n}) RETURNING id`;
@@ -58,12 +61,13 @@ before(async()=>{
     ok(await call(app,tok.admin,'PUT',`/api/v1/teams/${t}/programs`,{programIds:[p.id]}));
     if(n===1){program=p.id;team=t;topic=tp.id;}else{program2=p.id;team2=t;topic2=tp.id;}
   }
-  for(const [id,t] of [[uid.agent,team],[uid.supervisor,team],[uid.sup2,team2]])ok(await call(app,tok.admin,'POST',`/api/v1/teams/${t}/members`,{userId:id}));
+  // sup3 supervises both teams; agent2 works in team 2.
+  for(const [id,t] of [[uid.agent,team],[uid.supervisor,team],[uid.sup2,team2],[uid.sup3,team],[uid.sup3,team2],[uid.agent2,team2]])ok(await call(app,tok.admin,'POST',`/api/v1/teams/${t}/members`,{userId:id}));
   boundary=new Date(Date.now()+500).toISOString();
   ok(await call(app,tok.admin,'PUT',base+'/intake-settings',{enabled:true,startsAt:boundary}));
   await new Promise(r=>setTimeout(r,600));
   // Leave nothing from earlier suites unannounced for these users.
-  for(const who of ['admin','supervisor','agent','sup2'])ok(await call(app,tok[who],'POST',base+'/alerts/claim',{initial:true}));
+  for(const who of ['admin','supervisor','agent','sup2','sup3','agent2'])ok(await call(app,tok[who],'POST',base+'/alerts/claim',{initial:true}));
 });
 after(async()=>{
   await sql`UPDATE settings SET value='false'::jsonb WHERE key='queue.intake_enabled'`;
@@ -71,10 +75,12 @@ after(async()=>{
   await app.close();await sql.end({timeout:5});
 });
 
-test('0036 is additive: constraints only widen, no row is rewritten or removed',async()=>{
-  const source=await readFile(new URL('../../../../packages/db/migrations/0036_unified_queue_sections.sql',import.meta.url),'utf8');
-  const code=source.split('\n').filter(l=>!l.trim().startsWith('--')).join('\n');
-  assert.doesNotMatch(code,/\b(?:TRUNCATE|DELETE|UPDATE|INSERT)\b|DROP\s+(?:TABLE|COLUMN|INDEX)/i);
+test('0036 and 0037 are additive: constraints only widen, no row is rewritten or removed',async()=>{
+  for(const file of ['0036_unified_queue_sections.sql','0037_queue_team_transfer.sql']){
+    const source=await readFile(new URL(`../../../../packages/db/migrations/${file}`,import.meta.url),'utf8');
+    const code=source.split('\n').filter(l=>!l.trim().startsWith('--')).join('\n');
+    assert.doesNotMatch(code,/\b(?:TRUNCATE|DELETE|UPDATE|INSERT)\b|DROP\s+(?:TABLE|COLUMN|INDEX)/i,file);
+  }
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_items WHERE section NOT IN ('general','influencer','story')`)[0].n,0);
 });
 
@@ -288,4 +294,114 @@ test('alert preferences are per user and validated',async()=>{
   assert.equal(ok(await get('supervisor',base+'/alerts/prefs')).soundEnabled,true);
   assert.equal((await call(app,tok.agent,'PUT',base+'/alerts/prefs',{soundEnabled:true,toastsEnabled:true,volume:4})).statusCode,400);
   assert.equal((await get('viewer',base+'/alerts/prefs')).statusCode,403);
+});
+
+test('eligibility: influencers enter with any relevant intent; general keeps inquiries and complaints; exclusions hold',async()=>{
+  const praise=await post({influencer:true,intent:'praise'});
+  const news=await post({influencer:true,intent:'news'});
+  const citizenPraise=await post({intent:'praise'});
+  const excluded=[await post({influencer:true,intent:'praise',status:'duplicate'}),await post({influencer:true,intent:'praise',duplicate:true}),
+    await post({influencer:true,intent:'praise',redacted:true}),await post({influencer:true,intent:'praise',status:'filtered_out'}),
+    await post({influencer:true,intent:'praise',relevance:'irrelevant'})];
+  await intakeQueue();
+  assert.equal((await itemOf(praise.id)).section,'influencer');
+  assert.equal((await itemOf(news.id)).section,'influencer');
+  assert.equal(await itemOf(citizenPraise.id),undefined,'general stays inquiries/complaints only');
+  for(const p of excluded)assert.equal(await itemOf(p.id),undefined);
+  // The account stops being tracked: a praise item cannot fall into general, so it stays where it is.
+  const author=(await sql`SELECT a.username FROM posts p JOIN authors a ON a.id=p.author_id WHERE p.id=${praise.id}::uuid`)[0].username;
+  await sql`UPDATE tracked_influencers SET is_active=false WHERE username=${author}`;
+  await intakeQueue();
+  assert.equal((await itemOf(praise.id)).section,'influencer');
+  assert.equal((await list('admin','general')).filter(i=>i.post_id===praise.id).length,0);
+});
+
+test('story merge keeps each story history, notes, assignment and completion; work follows without double credit',async()=>{
+  const a=await story();const pa=await post();await join(a,pa,true);
+  const b=await story();const pb=await post();await join(b,pb,true);
+  await intakeQueue();
+  let ua=await unitOf(a);const ub=await unitOf(b);
+  ua=ok(await call(app,tok.supervisor,'POST',`${base}/items/${ua.id}/assign`,{expectedVersion:ua.version,assigneeId:uid.agent}));
+  ua=ok(await call(app,tok.agent,'POST',`${base}/items/${ua.id}/start`,{expectedVersion:ua.version}));
+  ua=ok(await call(app,tok.agent,'POST',`${base}/items/${ua.id}/notes`,{expectedVersion:ua.version,body:'ملاحظة قبل الدمج'}));
+  const eventsBefore=(await sql`SELECT id,event_type,version FROM queue_events WHERE queue_item_id=${ua.id}::uuid ORDER BY version`);
+  const notesBefore=(await sql`SELECT id,body FROM queue_notes WHERE queue_item_id=${ua.id}::uuid`);
+  await sql`UPDATE signal_story_members SET story_id=${b}::uuid WHERE story_id=${a}::uuid`;
+  await sql`DELETE FROM signal_stories WHERE id=${a}::uuid`;
+  await intakeQueue();
+  const merged=(await sql`SELECT * FROM queue_items WHERE id=${ua.id}::uuid`)[0];
+  // Nothing of A is lost: same events (plus the merge), same notes, same assignee and cycle.
+  const eventsAfter=(await sql`SELECT id,event_type,version FROM queue_events WHERE queue_item_id=${ua.id}::uuid ORDER BY version`);
+  assert.deepEqual(eventsAfter.slice(0,eventsBefore.length).map(e=>e.id),eventsBefore.map(e=>e.id));
+  assert.equal(eventsAfter.at(-1)!.event_type,'story_merged');
+  assert.deepEqual((await sql`SELECT id,body FROM queue_notes WHERE queue_item_id=${ua.id}::uuid`).map(n=>n.id),notesBefore.map(n=>n.id));
+  assert.equal(merged.assignee_id,uid.agent);assert.equal(merged.status,'in_progress');assert.equal(merged.merged_into_id,ub.id);
+  // The surviving, unowned story is handed to the same agent by an audited assignment.
+  const target=(await sql`SELECT * FROM queue_items WHERE id=${ub.id}::uuid`)[0];
+  assert.equal(target.assignee_id,uid.agent);assert.equal(target.status,'assigned');
+  const handoff=(await sql`SELECT event_type,reason,metadata FROM queue_events WHERE queue_item_id=${ub.id}::uuid ORDER BY version`).at(-1)!;
+  assert.equal(handoff.event_type,'assigned');assert.equal(handoff.metadata.fromItem,ua.id);
+  // Workload counts the live unit once, never the frozen merged one.
+  const workload=async()=>ok(await get('supervisor',`${base}/summary?range=all`)).workload.find((x:{id:string})=>x.id===uid.agent);
+  const open=(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status IN ('assigned','escalated') AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n;
+  assert.equal((await workload()).open,open);
+  assert.equal((await workload()).in_progress,(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status='in_progress' AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n);
+  // Completing the surviving unit is one completion; the merged unit never completes on its own.
+  let t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/start`,{expectedVersion:target.version}));
+  const doneBefore=(await workload()).completed_today;
+  t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/complete`,{expectedVersion:t2.version,resolution:'handled'}));
+  await intakeQueue();
+  assert.equal((await workload()).completed_today,doneBefore+1);
+  assert.equal((await sql`SELECT count(*)::int AS n FROM queue_events WHERE queue_item_id=${ua.id}::uuid AND event_type='completed'`)[0].n,0);
+  // The surviving story lists the merged one, whose drawer still has its own history.
+  assert.equal(ok(await get('admin',`${base}/items/${ub.id}`)).merged[0].id,ua.id);
+  const old=ok(await get('admin',`${base}/items/${ua.id}`));
+  assert.equal(old.notes.length,1);assert.ok(old.events.some((e:{event_type:string})=>e.event_type==='started'));
+});
+
+test('transfer between teams: scope, validation, conflict, audit, placement and alerts',async()=>{
+  // A post held in team 1 because its story belongs to team 2.
+  const p=await post({influencer:true});await intakeQueue();let item=await itemOf(p.id);
+  item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/assign`,{expectedVersion:item.version,assigneeId:uid.agent}));
+  const s=await story(program2);await join(s,p,true);const other=await post({program:program2});await join(s,other);
+  await intakeQueue();item=await itemOf(p.id);assert.equal(item.section_hold,'story');
+  const unit=await unitOf(s);
+  assert.equal(ok(await get('supervisor',`${base}/items/${item.id}`)).hold_team_id,team2);
+  const body=(over:object={})=>({expectedVersion:item.version,teamId:team2,assigneeId:uid.agent2,reason:'القصة يتابعها فريق آخر',...over});
+  const transfer=(who:string,over:object={})=>call(app,tok[who],'POST',`${base}/items/${item.id}/transfer`,body(over));
+  assert.equal((await transfer('agent')).statusCode,403,'agents cannot transfer');
+  assert.equal((await transfer('viewer')).statusCode,403);
+  assert.equal((await transfer('supervisor')).statusCode,404,'target team outside the supervisor scope');
+  assert.equal((await transfer('sup2')).statusCode,404,'source item outside the supervisor scope');
+  assert.equal((await transfer('sup3',{expectedVersion:item.version-1})).statusCode,409);
+  assert.equal((await transfer('sup3',{assigneeId:uid.agent})).statusCode,400,'assignee must belong to the target team');
+  assert.equal((await transfer('sup3',{reason:'  '})).statusCode,400,'reason is required');
+  assert.equal((await transfer('sup3',{teamId:team})).statusCode,400,'same team is an assignment, not a transfer');
+  assert.equal((await itemOf(p.id)).version,item.version,'refused transfers change nothing');
+
+  const moved=ok(await transfer('sup3'));
+  assert.equal(moved.team_id,team2);assert.equal(moved.assignee_id,uid.agent2);assert.equal(moved.status,'assigned');
+  assert.equal(moved.section,'story');assert.equal(moved.story_item_id,unit.id);assert.equal(moved.section_hold,null);
+  const ev=(await sql`SELECT * FROM queue_events WHERE queue_item_id=${item.id}::uuid ORDER BY version`).at(-1)!;
+  assert.equal(ev.event_type,'transferred');assert.equal(ev.from_assignee,uid.agent);assert.equal(ev.to_assignee,uid.agent2);
+  assert.equal(ev.metadata.fromTeam,team);assert.equal(ev.metadata.toTeam,team2);assert.equal(ev.reason,'القصة يتابعها فريق آخر');
+  assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='queue.transfer' AND entity_id=${item.id}::uuid`)[0].n,1);
+  // The previous assignee loses it; the new one sees it with its whole history.
+  assert.equal((await get('agent',`${base}/items/${item.id}`)).statusCode,404);
+  assert.ok(ok(await get('agent2',`${base}/items/${item.id}`)).events.some((e:{event_type:string})=>e.event_type==='section_review'));
+  // A story-section handover is an assignment alert for the new assignee only.
+  assert.deepEqual((await sql`SELECT r.user_id FROM queue_alerts a JOIN queue_alert_recipients r ON r.alert_id=a.id
+    WHERE a.queue_event_id=${ev.id}::uuid`).map(r=>r.user_id),[uid.agent2]);
+  // The worker leaves it where the transfer put it.
+  await intakeQueue();assert.equal((await itemOf(p.id)).version,moved.version);
+
+  // A general item transfers silently; completed items and story units do not transfer.
+  const g=await post();await intakeQueue();const gi=await itemOf(g.id);
+  const gm=ok(await call(app,tok.admin,'POST',`${base}/items/${gi.id}/transfer`,{expectedVersion:gi.version,teamId:team2,assigneeId:uid.agent2,reason:'إعادة توزيع'}));
+  assert.equal(gm.section,'general');
+  assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${gi.id}::uuid`)[0].n,0);
+  assert.equal((await call(app,tok.sup3,'POST',`${base}/items/${unit.id}/transfer`,{expectedVersion:unit.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
+  let done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/start`,{expectedVersion:gm.version}));
+  done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/complete`,{expectedVersion:done.version,resolution:'handled'}));
+  assert.equal((await call(app,tok.admin,'POST',`${base}/items/${gi.id}/transfer`,{expectedVersion:done.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
 });
