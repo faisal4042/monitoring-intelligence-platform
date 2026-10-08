@@ -246,6 +246,10 @@ const SETTINGS: Array<[string, unknown, string, string, string]> = [
 
 async function main() {
   console.log('\nSeeding database...\n');
+  await sql`INSERT INTO settings(key,value,value_type,category,description_ar) VALUES
+    ('queue.intake_enabled','false'::jsonb,'boolean','queue','تفعيل استقبال طابور الرصد'),
+    ('queue.intake_starts_at','null'::jsonb,'string','queue','بداية استقبال المنشورات الجديدة')
+    ON CONFLICT (key) DO NOTHING`;
 
   // ── Permissions ──
   for (const key of ALL_PERMISSIONS) {
