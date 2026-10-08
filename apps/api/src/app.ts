@@ -20,6 +20,8 @@ import topicManagementRoutes from './modules/classification/topic-management.rou
 import influencersRoutes from './modules/influencers.routes.js';
 import adminRoutes from './modules/admin.routes.js';
 import userRoutes from './modules/users.routes.js';
+import queueRoutes from './modules/queue/routes.js';
+import teamRoutes from './modules/queue/teams.routes.js';
 import signalRoutes from './modules/signals/routes.js';
 import newsRoutes from './modules/news/routes.js';
 import notifyRoutes from './modules/notify/routes.js';
@@ -113,6 +115,8 @@ export async function buildApp(opts: FastifyServerOptions & { rateLimit?: boolea
   await app.register(influencersRoutes, { prefix: '/api/v1/influencers' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(userRoutes, { prefix: '/api/v1/admin' });
+  await app.register(queueRoutes, { prefix: '/api/v1/queue' });
+  await app.register(teamRoutes, { prefix: '/api/v1/teams' });
   await app.register(signalRoutes, { prefix: '/api/v1/signals' });
   await app.register(newsRoutes, { prefix: '/api/v1/news' });
   await app.register(notifyRoutes, { prefix: '/api/v1/notify' });
