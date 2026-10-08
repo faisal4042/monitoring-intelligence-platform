@@ -33,8 +33,20 @@ export function queueScope(actor: QueueActor, mutation = false) {
   if (scope === 'own') return mutation
     ? sql`q.assignee_id=${actor.id}::uuid AND q.status<>'completed'`
     : sql`((q.assignee_id=${actor.id}::uuid AND q.status<>'completed') OR EXISTS
-        (SELECT 1 FROM queue_events qe WHERE qe.queue_item_id=q.id AND qe.event_type='completed' AND qe.actor_id=${actor.id}::uuid))`;
+        (SELECT 1 FROM queue_events qe WHERE qe.queue_item_id=q.id AND qe.event_type='completed' AND qe.actor_id=${actor.id}::uuid)
+        OR (q.status='new' AND ${claimableByAgent(actor.id)}))`;
   return sql`false`;
+}
+
+/**
+ * Unassigned items an agent may see and take: only while self-claim is
+ * enabled (off by default), and only in a team they are an active agent of.
+ * Never another team's items.
+ */
+export function claimableByAgent(userId: string) {
+  return sql`EXISTS (SELECT 1 FROM settings st WHERE st.key='queue.self_claim_enabled' AND st.value='true'::jsonb)
+    AND EXISTS (SELECT 1 FROM team_members ctm JOIN teams ct ON ct.id=ctm.team_id
+      WHERE ctm.user_id=${userId}::uuid AND ctm.team_id=q.team_id AND ctm.kind='agent' AND ctm.left_at IS NULL AND ct.is_active)`;
 }
 
 /** SQL fragment for a teams alias t, used for intake routing and directory choices. */

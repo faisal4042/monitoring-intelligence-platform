@@ -12,11 +12,17 @@ export const QUEUE_RESOLUTIONS = ['handled','no_action_needed','not_actionable']
 export const QUEUE_ACTIONS = ['assign','unassign','start','escalate','complete','reopen','notes'] as const;
 export type QueueAction = typeof QUEUE_ACTIONS[number];
 export const QUEUE_STATUS_LABELS: Record<QueueStatus,string> = {
-  new:'غير مسند', assigned:'مسند', in_progress:'قيد العمل', escalated:'مصعّد', completed:'مكتمل',
+  new:'غير مسند', assigned:'مسند', in_progress:'قيد المراجعة', escalated:'مصعّد', completed:'مغلق',
+};
+/** Monitoring review outcomes (closing = review completed, not customer case resolved). */
+export const QUEUE_REVIEW_OUTCOMES = ['confirmed','corrected','irrelevant','no_action'] as const;
+export type QueueReviewOutcome = typeof QUEUE_REVIEW_OUTCOMES[number];
+export const QUEUE_REVIEW_OUTCOME_LABELS: Record<QueueReviewOutcome,string> = {
+  confirmed:'التصنيفات صحيحة', corrected:'تم تصحيح التصنيفات', irrelevant:'التفاعل غير ذي صلة', no_action:'التفاعل لا يتطلب إجراء',
 };
 export const QUEUE_RESOLUTION_LABELS = {handled:'تمت المعالجة',no_action_needed:'لا يحتاج إجراء',not_actionable:'غير قابل للمعالجة'};
 export const QUEUE_EVENT_LABELS: Record<string,string> = {
   created:'أُضيف للطابور',assigned:'أُسند',reassigned:'أُعيد إسناده',unassigned:'أُلغي الإسناد',
-  started:'بدأ العمل',escalated:'صُعّد',deescalated:'أُعيد توجيهه',completed:'اكتمل',reopened:'أُعيد فتحه',note_added:'أُضيفت ملاحظة',
+  started:'بدأت المراجعة',escalated:'صُعّد',deescalated:'أُعيد توجيهه',completed:'أُغلق — اكتملت المراجعة',reopened:'أُعيد فتحه',note_added:'أُضيفت ملاحظة',
   section_changed:'نُقل بين الأقسام',transferred:'نُقل إلى فريق آخر',section_review:'نقل بانتظار مراجعة المشرف',story_merged:'دُمجت القصة',
 };

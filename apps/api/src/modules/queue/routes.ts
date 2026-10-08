@@ -1,18 +1,23 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { sql, normalizeArabic } from '@mip/db';
-import { QUEUE_ACTIONS, QUEUE_RESOLUTIONS, QUEUE_SECTIONS, QUEUE_STATUSES, PERMISSIONS as P } from '@mip/shared';
+import { QUEUE_ACTIONS, QUEUE_SECTIONS, QUEUE_STATUSES, PERMISSIONS as P } from '@mip/shared';
 import { QUEUE, queueScope, queueTeamScope, requireScope, resolveScope, type QueueActor } from '../../lib/authz.js';
 import { badRequest, notFound } from '../../lib/errors.js';
 import { dateBoundsFromQuery } from '../../lib/date-range.js';
 import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
-import { administrativeAudit, manualAdd, mutateItem, transferItem } from './service.js';
+import { administrativeAudit, claimItem, manualAdd, mutateItem, transferItem } from './service.js';
+import { INTENT_LABELS, REVIEW_OUTCOMES, SENTIMENT_LABELS } from './reviews.js';
+import { queueStats } from './stats.js';
 import { expectedVersion, idParams, parse } from './validation.js';
 
 const uuid=z.string().uuid();
 const querySchema=z.object({
   range:z.string().optional(),from:z.string().optional(),to:z.string().optional(),basis:z.enum(['entered','posted']).default('entered'),
-  view:z.enum(['open','completed','all']).optional(),status:z.enum(QUEUE_STATUSES).optional(),
+  // mine: my open work · unassigned · open: everything open in scope · closed · all.
+  // 'completed' is the older name of 'closed'.
+  view:z.enum(['mine','unassigned','open','closed','completed','all']).optional(),
+  outcome:z.enum(REVIEW_OUTCOMES).optional(),status:z.enum(QUEUE_STATUSES).optional(),
   section:z.enum(QUEUE_SECTIONS).optional(),source:z.enum(['original','reply','quote']).optional(),
   programId:uuid.optional(),teamId:uuid.optional(),employeeId:uuid.optional(),
   classification:z.enum(['complaint','inquiry','suggestion','praise','news','experience','warning','issue','request','other']).optional(),
@@ -20,6 +25,15 @@ const querySchema=z.object({
   search:z.string().max(200).optional(),limit:z.coerce.number().int().min(1).max(100).default(40),cursor:z.string().max(1200).optional(),
 }).strict();
 type Query=z.infer<typeof querySchema>;
+const reviewSchema=z.object({
+  outcome:z.enum(REVIEW_OUTCOMES),
+  programId:uuid.nullable().optional(),intent:z.enum(Object.keys(INTENT_LABELS) as [string,...string[]]).nullable().optional(),
+  sentiment:z.enum(Object.keys(SENTIMENT_LABELS) as [string,...string[]]).nullable().optional(),relevant:z.boolean().optional(),
+  topicId:uuid.nullable().optional(),subtopicId:uuid.nullable().optional(),linksConfirmed:z.boolean().optional(),
+  reason:z.string().trim().max(2000).optional(),
+}).strict();
+const statsSchema=z.object({range:z.string().optional(),from:z.string().optional(),to:z.string().optional(),
+  section:z.enum(QUEUE_SECTIONS).optional(),teamId:uuid.optional(),employeeId:uuid.optional()}).strict();
 const cursorSchema=z.object({at:z.string().min(10).max(40),id:uuid,through:z.string().min(10).max(40)}).strict();
 /**
  * Cards: every item once. A merged story unit is gone (its story lives on in
@@ -31,7 +45,7 @@ function filter(actor:QueueActor,q:Query) {
   const dates=dateBoundsFromQuery({range:q.range,from:q.from,to:q.to});
   const column=q.basis==='posted'?sql`coalesce(q.post_posted_at,(q.story_snapshot->>'firstSeenAt')::timestamptz)`:sql`q.entered_at`;
   const own=resolveScope(actor.permissions,QUEUE)==='own';
-  const view=q.view??(own?'open':'all');
+  const view=q.view==='completed'?'closed':q.view??(own?'mine':'all');
   const search=q.search?.trim()?q.search.trim():null;
   return sql`(${queueScope(actor)}) AND ${cardable} AND ${column}>=${dates.from}::timestamptz AND ${column}<${dates.to}::timestamptz
     AND (${q.section??null}::text IS NULL OR q.section=${q.section??null})
@@ -45,10 +59,16 @@ function filter(actor:QueueActor,q:Query) {
       OR (${q.source==='original'} AND NOT p.is_reply AND NOT p.is_quote))
     AND (${search}::text IS NULL OR p.text_normalized LIKE ${'%'+normalizeArabic(search??'')+'%'}
       OR strpos(lower(q.story_snapshot->>'title'),lower(${search??''}))>0)
+    -- My Queue excludes closed work in SQL, so a closed item cannot linger there.
+    AND (${view!=='mine'} OR (q.assignee_id=${actor.id}::uuid AND q.status<>'completed'))
+    AND (${view!=='unassigned'} OR q.status='new')
     AND (${view!=='open'} OR (q.status<>'completed' AND (${!own} OR q.assignee_id=${actor.id}::uuid)))
-    AND (${view!=='completed'} OR ${own
+    AND (${view!=='closed'} OR (q.status='completed' AND ${own
       ?sql`EXISTS(SELECT 1 FROM queue_events e WHERE e.queue_item_id=q.id AND e.event_type='completed' AND e.actor_id=${actor.id}::uuid)`
-      :sql`q.status='completed'`})`;
+      :sql`true`}))
+    -- Outcome of the current closure (the latest review cycle).
+    AND (${q.outcome??null}::text IS NULL OR EXISTS (SELECT 1 FROM queue_reviews rv WHERE rv.queue_item_id=q.id
+      AND rv.cycle=q.reopen_count+1 AND rv.outcome=${q.outcome??null}))`;
 }
 // Source can disappear under retention/redaction; operational history survives.
 const joins=sql`LEFT JOIN posts p ON p.id=q.post_id AND p.posted_at=q.post_posted_at AND NOT p.is_redacted
@@ -103,6 +123,10 @@ export default async function queueRoutes(app:FastifyInstance) {
     const {id}=parse(idParams,req.params);
     const [item]=await sql`SELECT q.*,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,a.username,a.display_name,a.profile_image_url,
       a.followers_count,c.intent,c.relevance,c.topic_id,tp.name_ar AS topic_name,c.reason_ar,s.label AS sentiment,
+      -- The AI prediction as the reviewer sees it: main/sub topic split, confidences, model.
+      c.program_id AS ai_program_id,c.intent_confidence::float AS intent_confidence,c.relevance_confidence::float AS relevance_confidence,
+      s.confidence::float AS sentiment_confidence,c.model AS ai_model,
+      CASE WHEN tp.level=2 THEN tp.parent_id ELSE tp.id END AS ai_topic_id,CASE WHEN tp.level=2 THEN tp.id END AS ai_subtopic_id,
       u.full_name AS assignee_name,t.name AS team_name,${storyColumns},
       -- For a held move: the team that owns this post's story (the transfer's natural target).
       (SELECT ht.id FROM signal_story_members hm JOIN queue_items hu ON hu.interaction_type='story' AND hu.story_id=hm.story_id
@@ -132,7 +156,12 @@ export default async function queueRoutes(app:FastifyInstance) {
       ORDER BY sm.is_representative DESC,po.posted_at DESC LIMIT 100`);
     const merged=item.interaction_type!=='story'?[]:await sql`SELECT q.id,q.story_snapshot->>'title' AS title,q.status
       FROM queue_items q WHERE q.merged_into_id=${id}::uuid AND (${queueScope(req.user)}) ORDER BY q.entered_at`;
-    return {...redactRows([item])[0],events,notes,members,merged};
+    // Every review cycle, oldest first: a reopened item keeps its earlier reviews.
+    const reviews=await sql`SELECT r.id,r.cycle,r.outcome,r.ai,r.program_id,r.intent,r.sentiment,r.relevant,r.topic_id,r.subtopic_id,
+        r.links_confirmed,r.corrected_fields,r.reason,r.reviewed_at,r.assigned_at,r.started_at,r.completed_at,u.full_name AS reviewer_name
+      FROM queue_reviews r JOIN queue_items q ON q.id=r.queue_item_id JOIN users u ON u.id=r.reviewer_id
+      WHERE q.id=${id}::uuid AND (${queueScope(req.user)}) ORDER BY r.cycle`;
+    return {...redactRows([item])[0],events,notes,members,merged,reviews};
   });
   app.get('/summary',read,async req=>{
     const q=parse(querySchema,req.query);
@@ -157,7 +186,18 @@ export default async function queueRoutes(app:FastifyInstance) {
         AND (${q.teamId??null}::uuid IS NULL OR t.id=${q.teamId??null}::uuid) ORDER BY t.name,u.full_name`;
     const held=resolveScope(req.user.permissions,QUEUE)==='own'?0:(await sql<{n:number}[]>`SELECT count(*)::int AS n FROM queue_items q
       WHERE q.section_hold IS NOT NULL AND (${queueScope(req.user)})`)[0].n;
-    return {counts,sections,workload,held,updatedAt:new Date().toISOString()};
+    // Per-section counts of each work view, with the same filters, for the view tabs.
+    const views=await sql<{section:string;mine:number;unassigned:number;closed:number}[]>`SELECT q.section,
+        count(*) FILTER (WHERE q.assignee_id=${req.user.id}::uuid AND q.status<>'completed')::int AS mine,
+        count(*) FILTER (WHERE q.status='new')::int AS unassigned,
+        count(*) FILTER (WHERE q.status='completed' AND (${resolveScope(req.user.permissions,QUEUE)!=='own'} OR EXISTS
+          (SELECT 1 FROM queue_events e WHERE e.queue_item_id=q.id AND e.event_type='completed' AND e.actor_id=${req.user.id}::uuid)))::int AS closed
+      FROM queue_items q ${joins} WHERE ${filter(req.user,{...q,view:'all',status:undefined,section:undefined})} GROUP BY q.section`;
+    const viewCounts=Object.fromEntries(QUEUE_SECTIONS.map(sec=>{const r=views.find(v=>v.section===sec);
+      return [sec,{mine:r?.mine??0,unassigned:r?.unassigned??0,closed:r?.closed??0}];}));
+    // Server clock, so timers never depend on the browser's clock.
+    const [{now}]=await sql<{now:string}[]>`SELECT now()::text AS now`;
+    return {counts,sections,views:viewCounts,workload,held,updatedAt:new Date(now).toISOString(),serverNow:new Date(now).toISOString()};
   });
   app.get('/options',manage,async req=>{
     const teams=await sql`SELECT t.id,t.name FROM teams t WHERE t.is_active AND (${queueTeamScope(req.user)}) ORDER BY t.name`;
@@ -185,11 +225,26 @@ export default async function queueRoutes(app:FastifyInstance) {
       const fields={expectedVersion};
       const schema=action==='assign'?z.object({...fields,assigneeId:uuid,reason:z.string().trim().min(1).max(2000).optional()}):
         action==='escalate'?z.object({...fields,reason:z.string().trim().min(1).max(2000)}):
-        action==='complete'?z.object({...fields,resolution:z.enum(QUEUE_RESOLUTIONS)}):
+        action==='complete'?z.object({...fields,review:reviewSchema}):
+        action==='reopen'?z.object({...fields,reason:z.string().trim().min(1).max(2000)}):
         action==='notes'?z.object({...fields,body:z.string().trim().min(1).max(5000)}):z.object(fields);
-      return mutateItem(req.user,id,action,parse(schema.strict(),req.body));
+      return mutateItem(req.user,id,action,parse(schema.strict(),req.body),req);
     });
   }
+  app.post('/items/:id/claim',{preHandler:[app.requirePermission(P.QUEUE_WORK),requireScope(QUEUE)]},async req=>{
+    const {id}=parse(idParams,req.params);
+    return claimItem(req.user,id,parse(z.object({expectedVersion}).strict(),req.body));
+  });
+  /** The live dictionary the reviewer chooses from: programs, active topics/subtopics, intents, sentiments. */
+  app.get('/review-catalog',read,async()=>{
+    const programs=await sql`SELECT id,key,name_ar FROM programs WHERE is_active ORDER BY name_ar`;
+    const topics=await sql`SELECT id,program_id,parent_id,level,name_ar FROM topics WHERE is_active AND level IN (1,2) ORDER BY program_id,level,name_ar`;
+    const settings=await sql`SELECT key,value FROM settings WHERE key IN ('queue.self_claim_enabled','queue.wait_warning_minutes')`;
+    return {programs,topics,intents:INTENT_LABELS,sentiments:SENTIMENT_LABELS,
+      selfClaim:settings.find(r=>r.key==='queue.self_claim_enabled')?.value===true,
+      waitWarningMinutes:Number(settings.find(r=>r.key==='queue.wait_warning_minutes')?.value??60)};
+  });
+  app.get('/stats',read,async req=>queueStats(req.user,parse(statsSchema,req.query)));
 
   // ── Alerts: influencer and story sections only, per-user read/announce state ──
   // Every read re-applies the queue scope, so an alert never outlives access.

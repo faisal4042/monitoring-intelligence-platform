@@ -1,8 +1,9 @@
 import { sql, type Transaction } from '@mip/db';
 import { PERMISSIONS as P, type QueueAction, type QueueStatus } from '@mip/shared';
-import { queueScope, queueTeamScope, type QueueActor } from '../../lib/authz.js';
+import { claimableByAgent, queueScope, queueTeamScope, type QueueActor } from '../../lib/authz.js';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { alertForEvents, authoredByInfluencer, storyUnitOf } from './sections.js';
+import { prepareReview, type ReviewInput } from './reviews.js';
 import type { FastifyRequest } from 'fastify';
 
 export type QueueTx = Transaction;
@@ -11,8 +12,10 @@ export interface Item {
   first_assigned_at:Date|null; first_started_at:Date|null; started_at:Date|null; completed_at:Date|null;
   completed_by:string|null; resolution:string|null; reassignment_count:number; escalation_count:number;
   reopen_count:number; last_reopened_at:Date|null; section:string; merged_into_id:string|null;
+  interaction_type:string; post_id:string|null; post_posted_at:Date|null; story_id:string|null; program_id:string;
+  story_snapshot:Record<string,unknown>|null; entered_at:Date; assigned_at:Date|null;
 }
-export interface Mutation { expectedVersion:number; assigneeId?:string; reason?:string; resolution?:string; body?:string }
+export interface Mutation { expectedVersion:number; assigneeId?:string; reason?:string; body?:string; review?:ReviewInput }
 const has = (a:QueueActor,p:string)=>a.permissions.includes(p);
 export const supervises = (a:QueueActor)=>has(a,P.QUEUE_SUPERVISE);
 
@@ -23,7 +26,7 @@ export async function administrativeAudit(tx:QueueTx, req:FastifyRequest, action
 }
 
 /** Every state change and note uses a scoped compare-and-swap plus one event. */
-export async function mutateItem(actor:QueueActor, id:string, action:QueueAction, input:Mutation) {
+export async function mutateItem(actor:QueueActor, id:string, action:QueueAction, input:Mutation, req?:FastifyRequest) {
   const supervisory = ['assign','unassign','reopen'].includes(action);
   if (supervisory ? !supervises(actor) : !has(actor,P.QUEUE_WORK) && !supervises(actor)) throw forbidden();
   return sql.begin(async tx=>{
@@ -35,6 +38,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     if (action==='start' && !isAssignee) throw forbidden('بدء العمل متاح للمسند إليه فقط');
     if (!supervises(actor) && !isAssignee) throw forbidden();
     let status=old.status, assignee=old.assignee_id, event:string=action, noteId:string|null=null;
+    let review:Awaited<ReturnType<typeof prepareReview>>|null=null;
     switch(action) {
       case 'assign':
         if (!['new','assigned','escalated','in_progress'].includes(old.status)) throw conflict('لا يمكن الإسناد من هذه الحالة');
@@ -63,12 +67,20 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
         if(!input.reason?.trim())throw badRequest('سبب التصعيد مطلوب');
         status='escalated';event='escalated';break;
       case 'complete':
-        if(old.status!=='in_progress' && !(old.status==='escalated' && supervises(actor)))throw conflict('لا يمكن الإكمال من هذه الحالة');
-        if(!input.resolution)throw badRequest('نتيجة المعالجة مطلوبة');
+        // Closing = monitoring review completed. Only the assignee (or a
+        // supervisor for escalated work) closes, and only with a full review.
+        if(old.status!=='in_progress' && !(old.status==='escalated' && supervises(actor)))throw conflict('ابدأ المراجعة أولاً؛ الإغلاق متاح للعنصر قيد المراجعة');
+        review=await prepareReview(tx,old,input.review);
         status='completed';event='completed';break;
-      case 'reopen':
-        if(old.status!=='completed')throw conflict('إعادة الفتح متاحة للمكتمل فقط');
-        status='in_progress';event='reopened';break;
+      case 'reopen': {
+        if(old.status!=='completed')throw conflict('إعادة الفتح متاحة للمغلق فقط');
+        if(!input.reason?.trim())throw badRequest('سبب إعادة الفتح مطلوب');
+        // Back to the previous assignee only while they still belong to the team; otherwise it waits for assignment.
+        const [still]=old.assignee_id?await tx`SELECT 1 FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
+          JOIN teams t ON t.id=tm.team_id WHERE tm.team_id=${old.team_id}::uuid AND tm.user_id=${old.assignee_id}::uuid AND tm.left_at IS NULL
+            AND t.is_active AND u.is_active AND u.deleted_at IS NULL AND r.key=tm.kind FOR SHARE OF tm,u`:[];
+        status=still?'in_progress':'new';assignee=still?old.assignee_id:null;event='reopened';break;
+      }
       case 'notes':
         if(!input.body?.trim())throw badRequest('الملاحظة مطلوبة');
         event='note_added';break;
@@ -76,15 +88,16 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     const [item]=await tx<Item[]>`UPDATE queue_items q SET status=${status}, assignee_id=${assignee}::uuid,
       version=q.version+1,updated_at=clock_timestamp(),
       first_assigned_at=CASE WHEN ${action==='assign'} THEN coalesce(q.first_assigned_at,clock_timestamp()) ELSE q.first_assigned_at END,
-      assigned_at=CASE WHEN ${action==='assign'} THEN clock_timestamp() ELSE q.assigned_at END,
-      first_started_at=CASE WHEN ${action==='start'||action==='reopen'} THEN coalesce(q.first_started_at,clock_timestamp()) ELSE q.first_started_at END,
+      assigned_at=CASE WHEN ${action==='assign'||action==='reopen'&&status==='in_progress'} THEN clock_timestamp()
+        WHEN ${action==='reopen'&&status==='new'} THEN NULL ELSE q.assigned_at END,
+      first_started_at=CASE WHEN ${action==='start'||action==='reopen'&&status==='in_progress'} THEN coalesce(q.first_started_at,clock_timestamp()) ELSE q.first_started_at END,
       -- Current work cycle: begins at start/reopen, ends with the assignment it belonged to.
-      started_at=CASE WHEN ${action==='start'||action==='reopen'} THEN clock_timestamp()
-        WHEN ${action==='assign'||action==='unassign'} THEN NULL ELSE q.started_at END,
+      started_at=CASE WHEN ${action==='start'||action==='reopen'&&status==='in_progress'} THEN clock_timestamp()
+        WHEN ${action==='assign'||action==='unassign'||action==='reopen'} THEN NULL ELSE q.started_at END,
       -- A reopened item is open: its previous close lives only in queue_events.
       completed_at=CASE WHEN ${action==='complete'} THEN clock_timestamp() WHEN ${action==='reopen'} THEN NULL ELSE q.completed_at END,
       completed_by=CASE WHEN ${action==='complete'} THEN ${actor.id}::uuid WHEN ${action==='reopen'} THEN NULL ELSE q.completed_by END,
-      resolution=CASE WHEN ${action==='complete'} THEN ${input.resolution??null} WHEN ${action==='reopen'} THEN NULL ELSE q.resolution END,
+      resolution=CASE WHEN ${action==='complete'} THEN ${review?.resolution??null} WHEN ${action==='reopen'} THEN NULL ELSE q.resolution END,
       reopen_count=q.reopen_count+${action==='reopen'?1:0},
       last_reopened_at=CASE WHEN ${action==='reopen'} THEN clock_timestamp() ELSE q.last_reopened_at END,
       last_escalated_at=CASE WHEN ${action==='escalate'} THEN clock_timestamp() ELSE q.last_escalated_at END,
@@ -103,7 +116,20 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     }
     const [ev]=await tx<{id:string}[]>`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,resolution,version,metadata)
       VALUES (${id},${event},${actor.id},${old.status},${status},${old.assignee_id},${assignee},${input.reason??null},
-        ${action==='complete'?input.resolution!:null},${item.version},${JSON.stringify(noteId?{noteId}:{})}::jsonb) RETURNING id`;
+        ${review?.resolution??null},${item.version},${JSON.stringify(noteId?{noteId}:review?{outcome:review.outcome}:{})}::jsonb) RETURNING id`;
+    if(review) {
+      // One immutable review per closed cycle; the AI rows are not touched.
+      const a=review.approved;
+      await tx`INSERT INTO queue_reviews(queue_item_id,queue_event_id,cycle,reviewer_id,outcome,ai,program_id,intent,sentiment,relevant,
+          topic_id,subtopic_id,links_confirmed,corrected_fields,reason,entered_at,assigned_at,started_at,completed_at)
+        VALUES (${id},${ev.id},${old.reopen_count+1},${actor.id},${review.outcome},${JSON.stringify(review.ai)}::jsonb,${a.program_id}::uuid,
+          ${a.intent},${a.sentiment},${a.relevant},${a.topic_id}::uuid,${a.subtopic_id}::uuid,${a.links_confirmed},${review.corrected},
+          ${review.reason},${old.entered_at},${old.assigned_at},${old.started_at},${item.completed_at})`;
+    }
+    // Ownership changes are also administrative actions: audit them with the request's identity and IP.
+    if(req && ['assigned','reassigned','deescalated','unassigned','reopened'].includes(event))
+      await administrativeAudit(tx,req,`queue.${event}`,'queue_item',id,{fromAssignee:old.assignee_id,toAssignee:assignee,
+        fromStatus:old.status,toStatus:status,reason:input.reason??null,version:item.version});
     // Handing an influencer/story item to someone tells them, in the same transaction.
     await alertForEvents(tx,[ev.id]);
     return item;
@@ -190,6 +216,33 @@ export async function transferItem(req:FastifyRequest, id:string, input:{expecte
         ${JSON.stringify(meta)}::jsonb) RETURNING id`;
     await administrativeAudit(tx,req,'queue.transfer','queue_item',id,{...meta,fromAssignee:old.assignee_id,toAssignee:input.assigneeId,reason:input.reason});
     await alertForEvents(tx,[ev.id]);
+    return item;
+  });
+}
+
+/**
+ * Self-claim: an agent takes an unassigned item of their own team (only when
+ * queue.self_claim_enabled is on). An ordinary audited assignment to oneself;
+ * 404 for anything they may not claim, 409 on a stale version.
+ */
+export async function claimItem(actor:QueueActor, id:string, input:{expectedVersion:number}) {
+  if(!has(actor,P.QUEUE_WORK))throw forbidden();
+  return sql.begin(async tx=>{
+    const [old]=await tx<Item[]>`SELECT q.* FROM queue_items q WHERE q.id=${id}::uuid AND q.status='new'
+      AND q.merged_into_id IS NULL AND ${claimableByAgent(actor.id)} FOR UPDATE`;
+    if(!old)throw notFound();
+    if(old.version!==input.expectedVersion)throw conflict('تغير العنصر. حدّث القائمة وحاول مجدداً.');
+    const [member]=await tx`SELECT 1 FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
+      WHERE tm.team_id=${old.team_id}::uuid AND tm.user_id=${actor.id}::uuid AND tm.left_at IS NULL AND tm.kind='agent'
+        AND r.key='agent' AND u.is_active AND u.deleted_at IS NULL FOR SHARE OF tm,u`;
+    if(!member)throw notFound();
+    const [item]=await tx<Item[]>`UPDATE queue_items q SET status='assigned',assignee_id=${actor.id}::uuid,
+        first_assigned_at=coalesce(q.first_assigned_at,clock_timestamp()),assigned_at=clock_timestamp(),started_at=NULL,
+        version=q.version+1,updated_at=clock_timestamp()
+      WHERE q.id=${id}::uuid AND q.version=${input.expectedVersion} AND q.status='new' RETURNING q.*`;
+    if(!item)throw conflict('استلم غيرك هذا العنصر. حدّث القائمة.');
+    await tx`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,to_assignee,version,metadata)
+      VALUES (${id},'assigned',${actor.id},'new','assigned',${actor.id},${item.version},${JSON.stringify({claimed:true})}::jsonb)`;
     return item;
   });
 }

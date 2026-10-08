@@ -206,7 +206,8 @@ export async function reconcileSections(tx: Tx, limit = 200) {
  *    unit being opened. Once per item and kind, whatever moves follow — so
  *    a post that later joins a story never re-alerts, and a story alerts once
  *    no matter how many posts it gathers.
- *  - assigned: an influencer/story item handed to someone else.
+ *  - assigned / reopened: an influencer/story item handed to someone else,
+ *    or reopened back to its assignee — only that person is told.
  * General items never alert.
  *
  * Recipients are resolved now, from each user's queue scope: queue:view_all
@@ -223,6 +224,9 @@ export async function alertForEvents(tx: Tx, eventIds: string[]) {
           WHEN e.event_type IN ('created','section_changed') AND q.interaction_type='post' AND q.section='influencer' THEN 'influencer'
           WHEN e.event_type IN ('assigned','reassigned','deescalated','transferred') AND q.section IN ('influencer','story')
             AND e.to_assignee IS NOT NULL AND e.to_assignee IS DISTINCT FROM e.actor_id THEN 'assigned'
+          -- Reopened work handed back to its assignee: a work alert, never a second arrival.
+          WHEN e.event_type='reopened' AND q.section IN ('influencer','story')
+            AND e.to_assignee IS NOT NULL AND e.to_assignee IS DISTINCT FROM e.actor_id THEN 'reopened'
         END AS kind
       FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id
       WHERE e.id=ANY(${eventIds}::uuid[]) AND q.merged_into_id IS NULL
@@ -233,7 +237,7 @@ export async function alertForEvents(tx: Tx, eventIds: string[]) {
     RETURNING id,kind,(SELECT to_assignee FROM queue_events WHERE id=queue_event_id) AS to_assignee,
       (SELECT team_id FROM queue_items WHERE id=queue_item_id) AS team_id`;
   for (const a of alerts) {
-    if (a.kind === 'assigned') {
+    if (a.kind === 'assigned' || a.kind === 'reopened') {
       await tx`INSERT INTO queue_alert_recipients(alert_id,user_id)
         SELECT ${a.id},u.id FROM users u WHERE u.id=${a.to_assignee}::uuid AND u.is_active AND u.deleted_at IS NULL
           AND (${holds(P.QUEUE_WORK)} OR ${holds(P.QUEUE_SUPERVISE)}) ON CONFLICT DO NOTHING`;
