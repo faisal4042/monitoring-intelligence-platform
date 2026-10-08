@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مراجعة هوية MIP</title>
+<style>
+  :root {
+    --navy: #0e2a47; --teal: #1fb5b5; --cyan: #18a8d8; --depth: #1a3c66; --soft: #d9e1ea; --neutral: #f4f7fa; --gray: #6b7c93;
+    --bg: #f4f7fa; --card: #ffffff; --line: #d9e1ea; --ink: #0e2a47; --muted: #52637a; --accent-ink: #1a3c66; --accent-soft: rgb(31 181 181 / 12%);
+    --sel-bg: #0e2a47; --sel-fg: #ffffff; --ok: #047857; --warn: #9a5a06; --bad: #b42318; --ok-soft: rgb(5 150 105 / 12%); --warn-soft: rgb(217 119 6 / 14%); --bad-soft: rgb(220 38 38 / 11%);
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #0e2a47; --card: #12304f; --line: #23466f; --ink: #ffffff; --muted: #c5d1de; --accent-ink: #1fb5b5; --accent-soft: rgb(31 181 181 / 16%);
+    --sel-bg: #1fb5b5; --sel-fg: #0e2a47; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --ok-soft: rgb(34 197 94 / 16%); --warn-soft: rgb(245 158 11 / 18%); --bad-soft: rgb(239 68 68 / 18%);
+  } }
+  :root[data-theme="dark"] {
+    --bg: #0e2a47; --card: #12304f; --line: #23466f; --ink: #ffffff; --muted: #c5d1de; --accent-ink: #1fb5b5; --accent-soft: rgb(31 181 181 / 16%);
+    --sel-bg: #1fb5b5; --sel-fg: #0e2a47; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; --ok-soft: rgb(34 197 94 / 16%); --warn-soft: rgb(245 158 11 / 18%); --bad-soft: rgb(239 68 68 / 18%);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 400 15px/1.65 'Cocon Next Arabic', 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, sans-serif; }
+  a { color: var(--accent-ink); }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 0 16px 64px; }
+  header.top { background: var(--navy); color: #fff; }
+  header.top .wrap { display: flex; align-items: center; gap: 28px; padding-block: 28px; flex-wrap: wrap; }
+  header.top img { width: 220px; height: auto; display: block; }
+  header.top h1 { margin: 0; font-size: 26px; font-weight: 600; line-height: 1.4; }
+  header.top p { margin: 4px 0 0; color: var(--soft); font-size: 14px; }
+  header.top .meta { margin-inline-start: auto; font-size: 12.5px; color: var(--soft); text-align: end; }
+  header.top .meta code { color: var(--teal); }
+  .theme-btn { border: 1px solid rgb(255 255 255 / 25%); background: transparent; color: #fff; border-radius: 10px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  nav.toc { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  nav.toc .wrap { display: flex; gap: 6px; overflow-x: auto; padding-block: 10px; padding-bottom: 10px; }
+  nav.toc a { flex: none; text-decoration: none; color: var(--muted); font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); }
+  nav.toc a:hover { color: var(--ink); }
+  section { margin-top: 36px; }
+  h2 { font-size: 21px; font-weight: 600; margin: 0 0 4px; }
+  h3 { font-size: 16px; font-weight: 600; margin: 0; }
+  .lead { color: var(--muted); margin: 0 0 16px; max-width: 900px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .grid { display: grid; gap: 14px; }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat strong { font-size: 24px; font-weight: 600; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .ok { background: var(--ok-soft); color: var(--ok); } .warn { background: var(--warn-soft); color: var(--warn); } .bad { background: var(--bad-soft); color: var(--bad); } .info { background: var(--accent-soft); color: var(--accent-ink); }
+  .cmp-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); }
+  .seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--sel-bg); color: var(--sel-fg); }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .pair.mobile { grid-template-columns: repeat(2, minmax(0, 360px)); justify-content: start; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  figure img { display: block; width: 100%; height: auto; cursor: zoom-in; }
+  figcaption { display: flex; justify-content: space-between; gap: 8px; padding: 9px 12px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  .tag-before { background: #eaf0f5; color: #52637a; } .tag-after { background: var(--teal); color: var(--navy); }
+  .slider { position: relative; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); user-select: none; touch-action: none; }
+  .slider img { display: block; width: 100%; height: auto; }
+  .slider .after { position: absolute; inset: 0; clip-path: inset(0 0 0 var(--cut, 50%)); }
+  .slider .handle { position: absolute; top: 0; bottom: 0; left: var(--cut, 50%); width: 3px; margin-left: -1.5px; background: var(--teal); pointer-events: none; }
+  .slider .handle::after { content: '⇆'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--teal); color: var(--navy); font-size: 16px; }
+  .slider .lbl { position: absolute; top: 10px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+  .slider .lbl.l { left: 10px; } .slider .lbl.r { right: 10px; }
+  .slider input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+  .notes { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .notes li { position: relative; padding-inline-start: 18px; color: var(--ink); font-size: 14px; }
+  .notes li::before { content: ''; position: absolute; inset-inline-start: 2px; top: .7em; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: start; font-size: 12.5px; color: var(--muted); font-weight: 600; padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .tbl { overflow-x: auto; }
+  .sw { display: inline-block; width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--line); vertical-align: middle; margin-inline-end: 8px; }
+  .num { direction: ltr; unicode-bidi: embed; font-variant-numeric: tabular-nums; }
+  .approve li { margin-bottom: 10px; }
+  .lightbox { position: fixed; inset: 0; z-index: 50; background: rgb(14 42 71 / 88%); display: none; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+  .muted { color: var(--muted); }
+  :focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+  @media (max-width: 860px) { .pair, .pair.mobile { grid-template-columns: 1fr; } .g2 { grid-template-columns: 1fr; } header.top .meta { margin-inline-start: 0; text-align: start; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <img src="../../apps/web/src/assets/brand/ithra-horizontal-negative.png" alt="إثراء المتحدة لخدمات الأعمال">
+    <div>
+      <h1>مراجعة تطبيق الهوية على منصة الرصد MIP</h1>
+      <p>قبل وبعد · لقطات فعلية من التطبيق · للمراجعة والاعتماد قبل الدمج</p>
+    </div>
+    <div class="meta">
+      قبل: <code>b0ac8ab</code> (آخر نسخة قبل الهوية) · بعد: <code>ff6e023</code> (feature/ithra-corporate-identity)<br>
+      قاعدة الاختبار المعزولة mip_test · بيانات اصطناعية · 9 أكتوبر 2026<br>
+      <button class="theme-btn" id="themeBtn" type="button">تبديل وضع الصفحة</button>
+    </div>
+  </div>
+</header>
+
+<nav class="toc" aria-label="أقسام المراجعة"><div class="wrap">
+  <a href="#summary">الخلاصة</a><a href="#cmp-login">الدخول</a><a href="#cmp-dashboard">لوحة التحكم</a><a href="#cmp-queue">طابور الرصد</a>
+  <a href="#cmp-live">الرصد المباشر</a><a href="#cmp-shell">القائمة والرأس</a><a href="#cmp-settings">الإعدادات</a><a href="#cmp-mobile">الجوال</a>
+  <a href="#logo">الشعار</a><a href="#colors">الألوان الإضافية</a><a href="#residual">بقايا قديمة</a><a href="#findings">الاختلافات والتوصيات</a><a href="#approve">بانتظار موافقتك</a>
+</div></nav>
+
+<main class="wrap">
+
+<section id="summary">
+  <h2>الخلاصة</h2>
+  <p class="lead">لقطتا «قبل» و«بعد» التُقطتا بالأداة نفسها، على البيانات نفسها، وبالمقاسات والانتظار نفسها. «قبل» يعمل من نسخة منفصلة عند الالتزام <span class="num">b0ac8ab</span>، و«بعد» من فرع الهوية، والاثنان متصلان بواجهة الاختبار المعزولة نفسها.</p>
+  <div class="grid g3">
+    <div class="card stat"><strong>7 أقسام · 20 زوجًا</strong><span>الدخول، لوحة التحكم، الطابور، الرصد المباشر، القائمة والرأس، الإعدادات، الجوال — فاتح وداكن</span></div>
+    <div class="card stat"><strong>0 تمرير أفقي · 0 أخطاء صفحة</strong><span>16 صفحة × وضعان × 4 مقاسات (390 / 768 / 1280 / 1440)</span></div>
+    <div class="card stat"><strong>3 ملفات شعار رسمية</strong><span>مطابقة للأصل بايتًا ببايت (SHA-256)، دون أي تعديل أو قص</span></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>هل هو أكثر من تغيير ألوان؟ — تقييم صريح</h3>
+    <div class="grid g2" style="margin-top:12px">
+      <div>
+        <span class="pill ok">ما تغيّر فعلًا</span>
+        <ul class="notes">
+          <li>هوية مؤسسية: الشعار الرسمي في القائمة وصفحة الدخول بمساحة الحماية، مع فصل واضح بين الشركة (إثراء المتحدة) والمنتج (منصة الرصد MIP).</li>
+          <li>رأس الصفحة أصبح يعرض موقع المستخدم «منصة الرصد / الصفحة»، وحالة النظام صارت شارات حالة موحدة.</li>
+          <li>القائمة الجانبية: مؤشر تركوازي للعنصر النشط، وأيقونات بسماكة موحدة، وقائمة فرعية بخط إرشادي، ووضع مطوي على سطح المكتب.</li>
+          <li>صفحة الدخول أُعيد بناؤها: لوحة كحلية بالشعار المكدّس واسم المنتج بدل الأيقونة العامة.</li>
+          <li>الوضع الداكن صار هوية حقيقية: Deep Navy كأساس، وأزرار تركوازية بنص كحلي كما في الدليل، بدل الرمادي المخضر السابق.</li>
+          <li>نظام رموز مركزي (Tokens) للألوان والحالات والتركيز والخطوط، ومقياس خطوط تشغيلي، وحد أقصى للأوزان تمهيدًا لخط Cocon.</li>
+          <li>ألوان الرسوم البيانية أعيد اختيارها من الهوية وفُحصت لعمى الألوان.</li>
+        </ul>
+      </div>
+      <div>
+        <span class="pill warn">ما بقي كما هو عن قصد</span>
+        <ul class="notes">
+          <li>تخطيط الصفحات الداخلية ومسافاتها وتسلسلها البصري لم يُعَد بناؤه: كانت أصلًا منظمة، وإعادة بنائها خارج نطاق «تطبيق الهوية» وتؤثر على إنتاجية الفريق.</li>
+          <li>لهذا يبدو الفرق في صفحات المحتوى الفاتحة هادئًا: التركوازي القديم (#139B87) كان قريبًا من تركوازي إثراء. الفرق الأوضح في القائمة والرأس والدخول والوضع الداكن.</li>
+          <li>إن أردت طابعًا أكثر تميزًا في صفحات المحتوى، فالتوصيات في قسم «الاختلافات والتوصيات» (البند 7) قابلة للتنفيذ دون المساس بالوظائف.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div id="comparisons"></div>
+
+<section id="logo">
+  <h2>مراجعة الشعار مقابل الدليل</h2>
+  <p class="lead">تكبير ×3 لمنطقة الشعار كما تظهر فعليًا على الشاشة (بدقة 1x)، دون تنعيم.</p>
+  <div class="grid g2">
+    <figure><img src="img/after-logozoom-light.jpg" alt="الشعار في القائمة — الوضع الفاتح، تكبير ثلاثي"><figcaption><b>الوضع الفاتح · 184px</b><span>النسخة الأفقية الكاملة الألوان</span></figcaption></figure>
+    <figure><img src="img/after-logozoom-dark.jpg" alt="الشعار في القائمة — الوضع الداكن، تكبير ثلاثي"><figcaption><b>الوضع الداكن · 184px</b><span>النسخة الأفقية العكسية</span></figcaption></figure>
+  </div>
+  <div class="card tbl" style="margin-top:14px">
+    <table>
+      <thead><tr><th>القاعدة في الدليل</th><th>التطبيق</th><th>الحالة</th></tr></thead>
+      <tbody>
+        <tr><td>استخدام الملفات الرسمية فقط</td><td>3 ملفات منسوخة كما هي؛ تحقق SHA-256 مطابق للأصل</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>كامل الألوان على الأبيض / Light Neutral</td><td>القائمة الفاتحة وصفحة الدخول على الجوال</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>العكسي على Deep Navy</td><td>القائمة الداكنة، ولوحة الدخول الكحلية (المكدّس)</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>الحد الأدنى: أفقي 160px، مكدّس 110px</td><td>أفقي 184px (القائمة) و176px (الجوال)، مكدّس 232px؛ يُخفى في القائمة المطوية بدل التصغير</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>مساحة الحماية X = ارتفاع حرف h</td><td>X ≈ 17px عند 184px؛ أقرب عنصر (الخط الفاصل / زر الإغلاق على الجوال) على بعد 18–32px</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>لا تدوير، تشويه، تلوين، شفافية، ظلال</td><td>صورة بنسبتها الأصلية، دون مرشحات أو ظلال</td><td><span class="pill ok">مطابق</span></td></tr>
+        <tr><td>وضوح السطر التعريفي (Tagline)</td><td>في النسخة العكسية الأفقية يظهر السطر بارتفاع ≈ 3px عند 184px — غير مقروء على الشاشة رغم تجاوز الحد الأدنى</td><td><span class="pill warn">ملاحظة</span></td></tr>
+        <tr><td>تطابق النسختين بين الوضعين</td><td>الملف الكامل الألوان المورَّد بلا سطر تعريفي، والعكسي به سطر → يختلف شكل الشعار قليلًا بين الوضعين</td><td><span class="pill warn">ملاحظة</span></td></tr>
+        <tr><td>الرمز المنفرد (Favicon)</td><td>لم يُورَّد ملف الرمز؛ لم يُقص من الشعار الأفقي، فلا توجد أيقونة للمتصفح</td><td><span class="pill info">ينتظر ملفًا</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="colors">
+  <h2>الألوان الثلاثة الإضافية</h2>
+  <p class="lead">ليست ألوانًا جديدة في الهوية، بل درجات من الأزرق الكحلي والرمادي الرسميين (الصبغة نفسها 210–214°)، أُضيفت لأسباب وظيفية.</p>
+  <div class="card tbl">
+    <table>
+      <thead><tr><th>اللون</th><th>اشتقاقه</th><th>الاستخدام</th><th>التباين</th><th>الحكم</th></tr></thead>
+      <tbody>
+        <tr><td><span class="sw" style="background:#52637a"></span><span class="num">#52637A</span></td><td>Text Gray <span class="num">#6B7C93</span> أغمق بدرجة (HSL 214° / 20% / 40%)</td><td>النص الثانوي الصغير في الوضع الفاتح</td><td><span class="num">6.1:1</span> على الأبيض · <span class="num">5.7:1</span> على Light Neutral</td><td><span class="pill ok">متوافق وضروري</span> الدليل يقصر Text Gray (4.3:1) على 24px فأكبر</td></tr>
+        <tr><td><span class="sw" style="background:#12304f"></span><span class="num">#12304F</span></td><td>بين Deep Navy و Royal Blue Depth (HSL 210° / 63% / 19%)</td><td>البطاقات والحقول في الوضع الداكن</td><td>أبيض <span class="num">13.4:1</span> · تركوازي <span class="num">5.3:1</span> · <span class="num">#C5D1DE</span> <span class="num">8.7:1</span></td><td><span class="pill ok">متوافق</span> يفصل البطاقة عن خلفية Deep Navy دون ظلال ثقيلة</td></tr>
+        <tr><td><span class="sw" style="background:#0b2239"></span><span class="num">#0B2239</span></td><td>Deep Navy أغمق بدرجة (HSL 210° / 68% / 13%)</td><td>خلفية القائمة الجانبية في الوضع الداكن</td><td>تركوازي <span class="num">6.4:1</span> · <span class="num">#C5D1DE</span> <span class="num">10.4:1</span></td><td><span class="pill warn">اختياري</span> يمكن استبداله بـ Deep Navy الرسمي تمامًا مع الإبقاء على الحد الفاصل</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" style="font-size:13px">ألوان الرسوم البيانية (تركوازي، برتقالي، أزرق، وردي) ألوان بيانات وليست ألوان واجهة؛ اجتازت فحص التمييز لعمى الألوان في الوضعين، ولا تستخدم البنفسجي <span class="num">#4A54AE</span>.</p>
+</section>
+
+<section id="residual">
+  <h2>بقايا ألوان أو خطوط غير موحدة</h2>
+  <p class="lead">فحص آلي لكود الواجهة على فرع الهوية. لم يُعدَّل شيء منها في هذه المراجعة.</p>
+  <div class="card tbl">
+    <table>
+      <thead><tr><th>العنصر</th><th>المواضع</th><th>الأثر</th><th>التوصية</th></tr></thead>
+      <tbody>
+        <tr><td>نصوص الحالات بألوان Tailwind الافتراضية (red / amber / emerald)</td><td>149 استخدامًا؛ 110 منها بلا بديل للوضع الداكن (أكثرها: تصنيف التفاعلات 19، إدارة المواضيع 13، الإشعارات 11)</td><td>على البطاقة الداكنة: <span class="num">red-600</span> = <span class="num">2.8:1</span>، <span class="num">emerald-600</span> = <span class="num">3.6:1</span>؛ وعلى الأبيض: <span class="num">amber-600</span> = <span class="num">3.2:1</span> — دون AA</td><td>ربطها برموز الحالة <span class="num">--status-*</span> (تعمل في الوضعين)</td></tr>
+        <tr><td><span class="num">orange-500/600</span></td><td>7 (بطاقة المنشور، مختبر الاستعلام)</td><td>لون خارج الهوية؛ <span class="num">3.6:1</span> على الأبيض</td><td>استبداله بـ <span class="num">--status-warning</span></td></tr>
+        <tr><td><span class="num">teal-500/600</span> (ليس تركوازي إثراء)</td><td>3 (شارة نوع في قاموس الكلمات)</td><td>درجة تركوازية أخرى؛ <span class="num">3.7:1</span> على الأبيض</td><td>استبدالها بـ <span class="num">--accent-soft / --accent-ink</span></td></tr>
+        <tr><td>نص بحجم 10px</td><td>15 موضعًا (الإشارات، بطاقات صغيرة)</td><td>أصغر من حجم التسمية التشغيلي (12px)</td><td>رفعها إلى 11–12px</td></tr>
+        <tr><td><span class="num">font-mono</span></td><td>2 (إدخال حسابات المؤثرين، قواعد التنبيه)</td><td>خط ثانٍ في حقلين تقنيين</td><td>مقبول للحقول التقنية، أو توحيده بالخط الرئيسي</td></tr>
+        <tr><td>Arial في زر X</td><td>1</td><td>رمز علامة X التجارية</td><td>يبقى كما هو (علامة طرف ثالث)</td></tr>
+        <tr><td>لون شريط الحصة عند 70%</td><td>1 (<span class="num">#d97706</span> مباشرة في القائمة)</td><td>قيمة خارج نظام الرموز</td><td>استخدام رمز تحذير صلب</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="findings">
+  <h2>الاختلافات الفعلية عن الدليل والتوصيات</h2>
+  <div class="card tbl">
+    <table>
+      <thead><tr><th>#</th><th>الاختلاف</th><th>السبب</th><th>التوصية</th><th>الأولوية</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>الخط ليس Cocon Next Arabic (احتياطي: IBM Plex Sans Arabic)</td><td>ملفات الخط المرخصة غير متوفرة</td><td>توفير ملفات الويب (300 و400) وتأكيد الترخيص؛ الدمج سطر <span class="num">@font-face</span> وصنف واحد</td><td><span class="pill bad">عالية</span></td></tr>
+        <tr><td>2</td><td>السطر التعريفي في الشعار العكسي غير مقروء في القائمة، والنسختان غير متطابقتين</td><td>الملفات المتاحة</td><td>طلب نسخة أفقية عكسية بلا سطر تعريفي (مطابقة للملف الكامل الألوان) لاستخدامات الواجهة</td><td><span class="pill warn">متوسطة</span></td></tr>
+        <tr><td>3</td><td>لا توجد أيقونة متصفح (Favicon)</td><td>ملف الرمز غير متوفر</td><td>طلب ملف الرمز الرسمي (PNG/SVG) من التسويق</td><td><span class="pill warn">متوسطة</span></td></tr>
+        <tr><td>4</td><td>النص الأساسي بوزن 400 لا 300</td><td>وضوح البيانات الكثيفة على الشاشة</td><td>الإبقاء على 400 للنص والجداول، و300 للأوصاف فقط (المطبّق حاليًا)</td><td><span class="pill info">للاعتماد</span></td></tr>
+        <tr><td>5</td><td>عناوين بوزن 600 (لا 400)</td><td>الخط الاحتياطي أخف من Cocon</td><td>تتحول تلقائيًا إلى 400 عند توفر Cocon</td><td><span class="pill info">مؤقت</span></td></tr>
+        <tr><td>6</td><td>ثلاث درجات مساعدة (<span class="num">#52637A</span>، <span class="num">#12304F</span>، <span class="num">#0B2239</span>)</td><td>التباين وفصل الطبقات</td><td>اعتمادها، أو استبدال خلفية القائمة الداكنة بـ Deep Navy الرسمي</td><td><span class="pill info">للاعتماد</span></td></tr>
+        <tr><td>7</td><td>صفحات المحتوى تحتفظ بتخطيطها السابق</td><td>الحفاظ على الإنتاجية ونطاق المهمة</td><td>تحسينات اختيارية: عنوان قسم بخط تركوازي قصير، توحيد زوايا البطاقات 16px، رفع الأحجام الصغيرة، استخدام التدرج التركوازي لزر الإجراء الرئيسي في كل صفحة فقط</td><td><span class="pill info">اختياري</span></td></tr>
+        <tr><td>8</td><td>ألوان الحالات الافتراضية في 110 موضعًا دون بديل داكن</td><td>سابق للهوية</td><td>ترحيلها إلى رموز الحالة (لا يغيّر أي منطق)</td><td><span class="pill warn">متوسطة</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="approve">
+  <h2>بانتظار موافقتك</h2>
+  <div class="card">
+    <ol class="approve">
+      <li><b>التصميم العام</b> للقائمة والرأس والدخول والوضعين الفاتح والداكن.</li>
+      <li><b>الخط</b>: توفير ملفات Cocon Next Arabic المرخصة، أو اعتماد IBM Plex Sans Arabic مؤقتًا.</li>
+      <li><b>ملفات إضافية من التسويق</b>: الرمز المنفرد، ونسخة أفقية عكسية بلا سطر تعريفي.</li>
+      <li><b>الدرجات الثلاث المساعدة</b> (أو استبدال خلفية القائمة الداكنة بـ Deep Navy).</li>
+      <li><b>وزن النص 400</b> للنصوص والجداول بدل 300.</li>
+      <li><b>تنفيذ التصحيحات</b> في البندين 8 و«بقايا قديمة» (ألوان الحالات، البرتقالي، تركوازي Tailwind، نص 10px) على فرع الهوية قبل الدمج.</li>
+      <li><b>التحسينات الاختيارية</b> لصفحات المحتوى (البند 7)، أو الاكتفاء بالمستوى الحالي.</li>
+    </ol>
+  </div>
+</section>
+</main>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-label="عرض الصورة بالحجم الكامل"><img alt=""></div>
+
+<script>
+  // Comparisons: [section id, title, note, viewport, theme-specific file stems, mobile?]
+  const C = [
+    ['login', 'صفحة الدخول', ['شعار إثراء المكدّس العكسي على لوحة Deep Navy بدل الأيقونة العامة', 'اسم المنتج «منصة الرصد MIP» تحت هوية الشركة', 'زر الدخول: كحلي بنص أبيض (فاتح) — تركوازي بنص كحلي (داكن)'], '1440 × 900', t => `1440-${t}-login`],
+    ['dashboard', 'لوحة التحكم', ['الشعار في القائمة واسم الصفحة في الرأس', 'أزرار الفترة المختارة كحلية (فاتح) / تركوازية بنص كحلي (داكن)', 'بطاقات المؤشرات والرسوم بألوان الهوية المفحوصة'], '1440 × 900', t => `1440-${t}-dashboard`],
+    ['queue', 'طابور الرصد', ['شارات الحالة بألوان وظيفية متمايزة (بلا بنفسجي)', 'العنصر المحدد بإطار تركوازي ومؤشر جانبي', 'تبويب القسم النشط بخط تركوازي ونص كحلي'], '1440 × 900', t => `1440-${t}-queue`],
+    ['live', 'الرصد المباشر', ['روابط ونصوص التمييز بلون الحبر الكحلي (فاتح) والتركوازي (داكن)', 'الصور الرمزية بدرجات الهوية فقط'], '1440 × 900', t => `1440-${t}-live`],
+    ['shell-sidebar', 'القائمة الجانبية', ['شعار رسمي 184px بمساحة حماية، ثم اسم المنتج', 'مؤشر تركوازي للعنصر النشط وأيقونات موحدة', 'القائمة الفرعية بخط إرشادي؛ ووضع مطوي على سطح المكتب'], 'شريط 264 × 900', t => `sidebar-${t}`, 'shell', true],
+    ['shell-header', 'الرأس', ['«منصة الرصد / اسم الصفحة»', 'شارات الحالة موحدة الألوان، وزر طي القائمة'], 'شريط 1176 × 68', t => `header-${t}`, 'shell'],
+    ['settings', 'لوحة النظام (الإعدادات)', ['الحالات والإعدادات بشارات حالة موحدة', 'الجداول بحدود ونصوص من رموز الهوية'], '1440 × 900', t => `1440-${t}-admin`, 'settings'],
+    ['notifications', 'الإشعارات والتنبيهات (إعدادات التنبيه)', ['النماذج والحقول وحالات التحديد برموز الهوية'], '1440 × 900', t => `1440-${t}-notifications`, 'settings'],
+    ['mobile-login', 'الجوال — الدخول', ['الشعار الأفقي 176px مع اسم المنتج تحته'], '390 × 844', t => `390-${t}-login`, 'mobile', true],
+    ['mobile-dashboard', 'الجوال — لوحة التحكم', ['بطاقتان في الصف، ولا تمرير أفقي'], '390 × 844', t => `390-${t}-dashboard`, 'mobile', true],
+    ['mobile-queue', 'الجوال — الطابور', ['التبويبات والبطاقات بعرض الشاشة'], '390 × 844', t => `390-${t}-queue`, 'mobile', true],
+    ['mobile-menu', 'الجوال — القائمة المفتوحة', ['القائمة الكاملة بالشعار، تُغلق بالزر أو بالنقر خارجها'], '390 × 844', t => `390-${t}-menu`, 'mobile', true],
+  ];
+  const GROUP_TITLES = { shell: ['cmp-shell', 'القائمة الجانبية والرأس'], settings: ['cmp-settings', 'صفحات الإعدادات'], mobile: ['cmp-mobile', 'نسخة الجوال'] };
+  const host = document.getElementById('comparisons');
+  const groups = {};
+  for (const [id, title, notes, size, stem, group, narrow] of C) {
+    let parent = host;
+    if (group) {
+      if (!groups[group]) {
+        const [gid, gtitle] = GROUP_TITLES[group];
+        const s = document.createElement('section'); s.id = gid; s.innerHTML = `<h2>${gtitle}</h2>`; host.appendChild(s); groups[group] = s;
+      }
+      parent = groups[group];
+    }
+    const sec = document.createElement(group ? 'div' : 'section');
+    if (!group) sec.id = `cmp-${id}`; else sec.style.marginTop = '22px';
+    sec.dataset.stem = id;
+    sec.innerHTML = `
+      <div class="cmp-head">
+        <div>${group ? `<h3>${title}</h3>` : `<h2>${title}</h2>`}<p class="lead" style="margin:2px 0 0">${size} · <span class="theme-label"></span></p></div>
+        <div class="controls">
+          <div class="seg" role="group" aria-label="وضع اللقطة"><button type="button" data-theme="light" aria-pressed="true">فاتح</button><button type="button" data-theme="dark" aria-pressed="false">داكن</button></div>
+          <div class="seg" role="group" aria-label="طريقة المقارنة"><button type="button" data-view="pair" aria-pressed="true">جنبًا إلى جنب</button><button type="button" data-view="slider" aria-pressed="false">سحب</button></div>
+        </div>
+      </div>
+      <div class="view"></div>
+      <ul class="notes">${notes.map(n => `<li>${n}</li>`).join('')}</ul>`;
+    parent.appendChild(sec);
+    const state = { theme: 'light', view: 'pair' };
+    const render = () => {
+      const b = `img/before-${stem(state.theme)}.jpg`, a = `img/after-${stem(state.theme)}.jpg`;
+      const mode = state.theme === 'light' ? 'الوضع الفاتح' : 'الوضع الداكن';
+      sec.querySelector('.theme-label').textContent = mode;
+      const v = sec.querySelector('.view');
+      const cap = (which, tagCls, label) => `<figcaption><b>${title}</b><span>${size} · ${mode} · <span class="pill ${tagCls}">${label}</span></span></figcaption>`;
+      if (state.view === 'pair') {
+        v.innerHTML = `<div class="pair ${narrow ? 'mobile' : ''}">
+          <figure><img loading="lazy" src="${b}" alt="${title} — قبل — ${mode}">${cap('b', 'tag-before', 'قبل')}</figure>
+          <figure><img loading="lazy" src="${a}" alt="${title} — بعد — ${mode}">${cap('a', 'tag-after', 'بعد')}</figure></div>`;
+      } else {
+        v.innerHTML = `<div class="slider" style="${narrow ? 'max-width:390px' : ''}">
+          <img src="${b}" alt="${title} — قبل — ${mode}"><img class="after" src="${a}" alt="${title} — بعد — ${mode}">
+          <span class="handle"></span><span class="lbl l pill tag-before">قبل</span><span class="lbl r pill tag-after">بعد</span>
+          <input type="range" min="0" max="100" value="50" aria-label="اسحب للمقارنة بين قبل وبعد"></div>`;
+        const sl = v.querySelector('.slider');
+        v.querySelector('input').addEventListener('input', e => sl.style.setProperty('--cut', e.target.value + '%'));
+      }
+    };
+    sec.querySelectorAll('[data-theme]').forEach(btn => btn.addEventListener('click', () => {
+      state.theme = btn.dataset.theme; sec.querySelectorAll('[data-theme]').forEach(x => x.setAttribute('aria-pressed', String(x === btn))); render();
+    }));
+    sec.querySelectorAll('[data-view]').forEach(btn => btn.addEventListener('click', () => {
+      state.view = btn.dataset.view; sec.querySelectorAll('[data-view]').forEach(x => x.setAttribute('aria-pressed', String(x === btn))); render();
+    }));
+    render();
+  }
+  // Reorder: keep the document flow of the TOC (login, dashboard, queue, live, shell, settings, mobile).
+  const order = ['cmp-login', 'cmp-dashboard', 'cmp-queue', 'cmp-live', 'cmp-shell', 'cmp-settings', 'cmp-mobile'];
+  for (const id of order) { const el = document.getElementById(id); if (el) host.appendChild(el); }
+  // Click a screenshot to view it full size.
+  const lb = document.getElementById('lightbox');
+  document.addEventListener('click', e => {
+    const img = e.target.closest('figure img');
+    if (img) { lb.querySelector('img').src = img.src; lb.querySelector('img').alt = img.alt; lb.classList.add('open'); }
+    else if (e.target.closest('#lightbox')) lb.classList.remove('open');
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('open'); });
+  // Page theme toggle (the screenshots keep their own modes).
+  document.getElementById('themeBtn').addEventListener('click', () => {
+    const r = document.documentElement; const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  });
+</script>
+</body>
+</html>
