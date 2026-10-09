@@ -46,6 +46,16 @@ export interface Filters {
   key: string;
 }
 
+/**
+ * "All periods" has open bounds (-infinity/infinity). The driver serializes a
+ * parameter it has seen typed as timestamptz through Date, which cannot hold
+ * them, so the dashboard uses the widest instants a Date can: same rows,
+ * no 500. granularityFor() treats them as open and sizes buckets from the data.
+ */
+export const OPEN_FROM = '0001-01-01T00:00:00.000Z';
+export const OPEN_TO = '9999-12-31T00:00:00.000Z';
+const openBound = (v: string, fallback: string) => (v === '-infinity' || v === 'infinity' ? fallback : v);
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Parses and resolves the shared filters; extra keys are rejected with 400. */
@@ -66,7 +76,7 @@ export async function parseFilters(query: unknown, extra?: z.ZodRawShape): Promi
   // capping at this server's clock could drop a row stamped by a slightly
   // faster database clock). "Now" only sizes the comparison: today until
   // 14:00 is compared with yesterday until 14:00.
-  const current = { from: dates.from, to: dates.to };
+  const current = { from: openBound(dates.from, OPEN_FROM), to: openBound(dates.to, OPEN_TO) };
   const previous = windows ? { from: windows.previous.from.toISOString(), to: windows.previous.to.toISOString() } : null;
   const { fresh: _f, ...rest } = q;
   const key = JSON.stringify({ ...rest, program: program?.id ?? null, current, previous });

@@ -10,7 +10,7 @@ import { APP_TIME_ZONE } from '@mip/shared';
 import { redactSensitiveText } from '../../lib/privacy.js';
 import { badRequest } from '../../lib/errors.js';
 import { byInfluencer, excluded, hashtagRows, interactions, where, type Fragment } from './base.js';
-import type { Filters, Window } from './filters.js';
+import { OPEN_FROM, OPEN_TO, type Filters, type Window } from './filters.js';
 
 export interface Kpi { key: string; value: number | null; previous: number | null; available: boolean; reason?: string }
 const DAY = 86_400_000;
@@ -64,7 +64,8 @@ export async function overview(f: Filters, can: { influencers: boolean; stories:
 
 /** Bucket size: hourly up to 2 days, daily up to 120 days, otherwise Sunday-based weeks. */
 async function granularityFor(w: Window) {
-  let from = Date.parse(w.from), to = Date.parse(w.to);
+  // Open bounds ("all periods") are sized from the data, never from year 1 to 9999.
+  let from = w.from === OPEN_FROM ? NaN : Date.parse(w.from), to = w.to === OPEN_TO ? NaN : Date.parse(w.to);
   if (!Number.isFinite(from) || !Number.isFinite(to)) {
     const [r] = await sql<{ lo: string | null; hi: string | null }[]>`SELECT min(posted_at)::text AS lo,max(posted_at)::text AS hi FROM posts
       WHERE posted_at>=${w.from}::timestamptz AND posted_at<${w.to}::timestamptz`;
