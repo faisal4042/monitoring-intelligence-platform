@@ -15,6 +15,7 @@ const PERMISSION_DESCRIPTIONS: Record<string, [string, string]> = {
   'queue:work': ['queue', 'العمل على التفاعلات المسندة'],
   'queue:supervise': ['queue', 'الإشراف على طابور الفريق'],
   'queue:view_all': ['queue', 'عرض طوابير جميع الفرق'],
+  'workforce:correct': ['queue', 'تصحيح سجلات حالات وساعات موظفي الرصد'],
   'programs:read': ['programs', 'عرض البرامج والخدمات'],
   'programs:write': ['programs', 'إضافة وتعديل البرامج'],
   'keywords:read': ['keywords', 'عرض القواميس'],

@@ -6,6 +6,8 @@ export const PERMISSIONS = {
   QUEUE_WORK: 'queue:work',
   QUEUE_SUPERVISE: 'queue:supervise',
   QUEUE_VIEW_ALL: 'queue:view_all',
+  /** Correct agent status/time records. Admin by default; a per-user grant for anyone else. */
+  WORKFORCE_CORRECT: 'workforce:correct',
   PROGRAMS_READ: 'programs:read',
   PROGRAMS_WRITE: 'programs:write',
   KEYWORDS_READ: 'keywords:read',
