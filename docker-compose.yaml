@@ -24,6 +24,8 @@ services:
     environment:
       NODE_ENV: production
       RUN_DB_MIGRATIONS_ON_START: ${RUN_DB_MIGRATIONS_ON_START:-false}
+      QUEUE_WORKER_ENABLED: ${QUEUE_WORKER_ENABLED:-false}
+      WORKFORCE_WORKER_ENABLED: ${WORKFORCE_WORKER_ENABLED:-false}
       TZ: Asia/Riyadh
       API_PORT: "3001"
       APP_URL: https://monitoring.interactivedashboardpages.com

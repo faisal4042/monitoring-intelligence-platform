@@ -29,6 +29,9 @@ const schema = z.object({
   X_API_SECRET: z.string().optional(),
   X_BEARER_TOKEN: z.string().optional(),
   AUTO_COLLECTION_ENABLED: bool.default('false'),
+  // New queue/workforce background jobs require explicit production opt-in.
+  QUEUE_WORKER_ENABLED: bool.default('false'),
+  WORKFORCE_WORKER_ENABLED: bool.default('false'),
   AUTO_COLLECTION_TICK_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
   // Two-minute production fallback is safe with the current eight queries
   // (60 requests / 15 min) while Filtered Stream remains the primary path.

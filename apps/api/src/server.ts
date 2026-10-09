@@ -8,6 +8,7 @@ import { startClassificationWorker } from './workers/classification.worker.js';
 import { startPartitionMaintenanceWorker } from './workers/partition-maintenance.worker.js';
 import { startQueueIntakeWorker } from './workers/queue-intake.worker.js';
 import { startWorkforceWorker } from './workers/workforce.worker.js';
+import { startQueueWorkers } from './workers/start-queue-workers.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
 import { startAlertsWorker } from './workers/alerts.worker.js';
 import { startXStreamWorker } from './workers/x-stream.worker.js';
@@ -28,8 +29,13 @@ async function main() {
 
   // Before any worker can insert: monthly partitions must cover now and ahead.
   stopPartitionWorker = await startPartitionMaintenanceWorker();
-  stopQueueIntake = startQueueIntakeWorker();
-  stopWorkforce = startWorkforceWorker();
+  const queueWorkers = startQueueWorkers(config, {
+    queue: startQueueIntakeWorker,
+    workforce: startWorkforceWorker,
+  });
+  stopQueueIntake = queueWorkers.queue;
+  stopWorkforce = queueWorkers.workforce;
+  logger.info({ queue: config.QUEUE_WORKER_ENABLED, workforce: config.WORKFORCE_WORKER_ENABLED }, 'queue background worker gates');
 
   const automaticQueries = await ensureAutomaticQueries();
   stopCollectionWorker = startCollectionWorker();
