@@ -19,4 +19,7 @@ COPY packages packages
 
 USER node
 EXPOSE 3001
-CMD ["sh", "-c", "pnpm db:push && pnpm db:seed && exec pnpm --filter @mip/api start"]
+# Schema changes and seeding are a deliberate release step, never a side effect
+# of a deploy or container restart. Set RUN_DB_SETUP_ON_START=true only for a
+# release that has been approved to migrate the production database.
+CMD ["sh", "-c", "if [ \"$RUN_DB_SETUP_ON_START\" = \"true\" ]; then pnpm db:push && pnpm db:seed || exit 1; else echo \"db:push/db:seed skipped (RUN_DB_SETUP_ON_START is not true)\"; fi; exec pnpm --filter @mip/api start"]
