@@ -33,8 +33,9 @@ export async function queueStats(actor: QueueActor, q: StatsQuery) {
   const [totals] = await sql`SELECT count(*)::int AS review_cycles, count(DISTINCT r.queue_item_id)::int AS closed_items,
       count(*) FILTER (WHERE r.outcome='corrected')::int AS corrected, count(*) FILTER (WHERE r.outcome='irrelevant')::int AS irrelevant,
       count(*) FILTER (WHERE r.outcome='confirmed')::int AS confirmed, count(*) FILTER (WHERE r.outcome='no_action')::int AS no_action,
-      ${minutes(sql`r.started_at-r.assigned_at`)} AS avg_assignment_wait_min,
-      ${minutes(sql`r.completed_at-r.started_at`)} AS avg_review_handling_min,
+      -- Assignment-to-Close: from the closer's own assignment to the close. It is not
+      -- handling time (AHT): an item may sit in the box before anyone opens it.
+      ${minutes(sql`r.completed_at-r.assigned_at`)} AS avg_assignment_to_close_min,
       ${minutes(sql`r.completed_at-r.entered_at`)} AS avg_close_tat_min
     ${reviews}`;
   const [flow] = await sql`SELECT
@@ -49,8 +50,7 @@ export async function queueStats(actor: QueueActor, q: StatsQuery) {
       count(*) FILTER (WHERE q.status='new')::int AS unassigned,
       count(*) FILTER (WHERE q.status='escalated')::int AS escalated,
       -- Waiting longer than the configured visual threshold (not an SLA).
-      count(*) FILTER (WHERE (q.status='assigned' AND q.assigned_at<now()-make_interval(mins=>${warn}))
-        OR (q.status='in_progress' AND q.started_at<now()-make_interval(mins=>${warn})))::int AS overdue
+      count(*) FILTER (WHERE q.status IN ('assigned','in_progress') AND q.assigned_at<now()-make_interval(mins=>${warn}))::int AS overdue
     FROM queue_items q WHERE ${items} AND (q.story_item_id IS NULL OR q.status<>'new')
       AND (${who}::uuid IS NULL OR q.assignee_id=${who}::uuid OR q.status='new' AND ${!own && !q.employeeId})`;
   // Per field: over interaction reviews where the AI had a value.
@@ -62,7 +62,7 @@ export async function queueStats(actor: QueueActor, q: StatsQuery) {
   }));
   const employees = own ? [] : await sql`SELECT r.reviewer_id AS id,u.full_name,count(DISTINCT r.queue_item_id)::int AS closed_items,
       count(*)::int AS review_cycles,count(*) FILTER (WHERE r.outcome='corrected')::int AS corrected,
-      count(*) FILTER (WHERE r.outcome='irrelevant')::int AS irrelevant,${minutes(sql`r.completed_at-r.started_at`)} AS avg_review_handling_min
+      count(*) FILTER (WHERE r.outcome='irrelevant')::int AS irrelevant,${minutes(sql`r.completed_at-r.assigned_at`)} AS avg_assignment_to_close_min
     ${reviews} GROUP BY r.reviewer_id,u.full_name ORDER BY closed_items DESC,u.full_name`;
   return { range: { from: dates.from, to: dates.to }, warnMinutes: warn, totals: { ...totals, ...flow }, backlog, accuracy, employees };
 }

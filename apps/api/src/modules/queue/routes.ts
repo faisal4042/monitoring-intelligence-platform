@@ -6,7 +6,7 @@ import { QUEUE, queueScope, queueTeamScope, requireScope, resolveScope, type Que
 import { badRequest, notFound } from '../../lib/errors.js';
 import { dateBoundsFromQuery } from '../../lib/date-range.js';
 import { redactRows, redactSensitiveText } from '../../lib/privacy.js';
-import { administrativeAudit, claimItem, manualAdd, mutateItem, transferItem } from './service.js';
+import { administrativeAudit, claimItem, manualAdd, mutateItem, setPriority, transferItem } from './service.js';
 import { INTENT_LABELS, REVIEW_OUTCOMES, SENTIMENT_LABELS } from './reviews.js';
 import { queueStats } from './stats.js';
 import { expectedVersion, idParams, parse } from './validation.js';
@@ -109,9 +109,9 @@ export default async function queueRoutes(app:FastifyInstance) {
     const upper=cursor?.through??through;
     const rows=await sql`SELECT q.*,q.entered_at::text AS cursor_at,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,
       a.username,a.display_name,a.profile_image_url,a.followers_count,c.intent,c.relevance,s.label AS sentiment,
-      u.full_name AS assignee_name,t.name AS team_name,${storyColumns},
+      u.full_name AS assignee_name,t.name AS team_name,${storyColumns},tpc.name_ar AS topic_name,
       (SELECT count(*)::int FROM queue_items m WHERE m.story_item_id=q.id AND m.status NOT IN ('new','completed')) AS story_active_items
-      FROM queue_items q ${joins} ${storyJoins} LEFT JOIN authors a ON a.id=p.author_id
+      FROM queue_items q ${joins} ${storyJoins} LEFT JOIN authors a ON a.id=p.author_id LEFT JOIN topics tpc ON tpc.id=c.topic_id
       LEFT JOIN users u ON u.id=q.assignee_id JOIN teams t ON t.id=q.team_id
       WHERE ${filter(req.user,q)} AND q.entered_at<=${upper}::timestamptz
         AND (${cursor?.at??null}::timestamptz IS NULL OR (q.entered_at,q.id)>(${cursor?.at??null}::timestamptz,${cursor?.id??null}::uuid))
@@ -176,8 +176,9 @@ export default async function queueRoutes(app:FastifyInstance) {
     const today=dateBoundsFromQuery({range:'today'});
     const workload=resolveScope(req.user.permissions,QUEUE)==='own'?[]:await sql`
       SELECT u.id,u.full_name,t.id AS team_id,t.name AS team_name,
-        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status IN ('assigned','escalated') AND (${queueScope(req.user)})) AS open,
-        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status='in_progress' AND (${queueScope(req.user)})) AS in_progress,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status IN ('assigned','in_progress') AND (${queueScope(req.user)})) AS open,
+        (SELECT count(*)::int FROM queue_items q WHERE q.team_id=t.id AND q.assignee_id=u.id AND q.merged_into_id IS NULL AND q.status='escalated' AND (${queueScope(req.user)})) AS escalated,
+        coalesce((SELECT sp.status FROM agent_status_periods sp WHERE sp.user_id=u.id AND sp.ended_at IS NULL),'offline') AS agent_status,
         (SELECT count(DISTINCT e.queue_item_id)::int FROM queue_events e JOIN queue_items q ON q.id=e.queue_item_id
           WHERE e.actor_id=u.id AND e.event_type='completed' AND e.created_at>=${today.from}::timestamptz
           AND e.created_at<${today.to}::timestamptz AND q.team_id=t.id AND (${queueScope(req.user)})) AS completed_today
@@ -201,8 +202,12 @@ export default async function queueRoutes(app:FastifyInstance) {
   });
   app.get('/options',manage,async req=>{
     const teams=await sql`SELECT t.id,t.name FROM teams t WHERE t.is_active AND (${queueTeamScope(req.user)}) ORDER BY t.name`;
-    const members=await sql`SELECT u.id,u.full_name,tm.team_id FROM team_members tm JOIN teams t ON t.id=tm.team_id
-      JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id WHERE t.is_active AND tm.left_at IS NULL
+    // Availability and box load next to each name, so a manual assignment is an informed choice.
+    const members=await sql`SELECT u.id,u.full_name,tm.team_id,tm.kind,coalesce(sp.status,'offline') AS status,
+        (SELECT count(*)::int FROM queue_items o WHERE o.assignee_id=u.id AND o.status IN ('assigned','in_progress') AND o.merged_into_id IS NULL) AS open
+      FROM team_members tm JOIN teams t ON t.id=tm.team_id
+      JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
+      LEFT JOIN agent_status_periods sp ON sp.user_id=u.id AND sp.ended_at IS NULL WHERE t.is_active AND tm.left_at IS NULL
       AND u.is_active AND u.deleted_at IS NULL AND r.key=tm.kind AND (${queueTeamScope(req.user)}) ORDER BY u.full_name`;
     const programs=await sql`SELECT p.id,p.name_ar,tp.team_id FROM team_programs tp JOIN teams t ON t.id=tp.team_id
       JOIN programs p ON p.id=tp.program_id WHERE t.is_active AND (${queueTeamScope(req.user)}) ORDER BY p.name_ar`;
@@ -217,6 +222,11 @@ export default async function queueRoutes(app:FastifyInstance) {
     const input=parse(z.object({expectedVersion,teamId:uuid,assigneeId:uuid,reason:z.string().trim().min(1).max(2000)}).strict(),req.body);
     return transferItem(req,id,input);
   });
+  app.post('/items/:id/priority',manage,async req=>{
+    const {id}=parse(idParams,req.params);
+    const input=parse(z.object({expectedVersion,priority:z.enum(['normal','high']),reason:z.string().trim().min(1).max(2000)}).strict(),req.body);
+    return setPriority(req,id,input);
+  });
   for(const action of QUEUE_ACTIONS) {
     app.post(`/items/:id/${action}`,{
       preHandler:[app.requirePermission(...(['assign','unassign','reopen'].includes(action)?[P.QUEUE_SUPERVISE]:[P.QUEUE_WORK,P.QUEUE_SUPERVISE])),requireScope(QUEUE)],
@@ -227,6 +237,7 @@ export default async function queueRoutes(app:FastifyInstance) {
         action==='escalate'?z.object({...fields,reason:z.string().trim().min(1).max(2000)}):
         action==='complete'?z.object({...fields,review:reviewSchema}):
         action==='reopen'?z.object({...fields,reason:z.string().trim().min(1).max(2000)}):
+        action==='unassign'?z.object({...fields,reason:z.string().trim().min(1).max(2000).optional()}):
         action==='notes'?z.object({...fields,body:z.string().trim().min(1).max(5000)}):z.object(fields);
       return mutateItem(req.user,id,action,parse(schema.strict(),req.body),req);
     });

@@ -4,6 +4,7 @@ import { claimableByAgent, queueScope, queueTeamScope, type QueueActor } from '.
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { alertForEvents, authoredByInfluencer, storyUnitOf } from './sections.js';
 import { prepareReview, type ReviewInput } from './reviews.js';
+import { assignAfter } from './workforce.js';
 import type { FastifyRequest } from 'fastify';
 
 export type QueueTx = Transaction;
@@ -25,8 +26,22 @@ export async function administrativeAudit(tx:QueueTx, req:FastifyRequest, action
     VALUES (${req.user.id},${req.user.email},${action},${entityType},${entityId},${JSON.stringify(value)}::jsonb,${req.ip}::inet)`;
 }
 
-/** Every state change and note uses a scoped compare-and-swap plus one event. */
+/**
+ * Every state change and note uses a scoped compare-and-swap plus one event.
+ *
+ * There is no "start" step: an item's time in the agent's box runs from the
+ * server-recorded assignment (assigned_at). Items left 'in_progress' by the
+ * old flow are open work like 'assigned' ones; their history is untouched.
+ */
 export async function mutateItem(actor:QueueActor, id:string, action:QueueAction, input:Mutation, req?:FastifyRequest) {
+  const item = await mutateItemTx(actor,id,action,input,req);
+  // Freed box space or work back in the pool: try to hand out the next item.
+  if (['complete','escalate','unassign'].includes(action) || action==='reopen' && item.status==='new' || action==='assign')
+    await assignAfter(`item_${action}`);
+  return item;
+}
+
+async function mutateItemTx(actor:QueueActor, id:string, action:QueueAction, input:Mutation, req?:FastifyRequest) {
   const supervisory = ['assign','unassign','reopen'].includes(action);
   if (supervisory ? !supervises(actor) : !has(actor,P.QUEUE_WORK) && !supervises(actor)) throw forbidden();
   return sql.begin(async tx=>{
@@ -35,9 +50,8 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     if (old.merged_into_id) throw conflict('دُمجت هذه القصة في قصة أخرى؛ تابع العمل من القصة الأساسية.');
     if (old.version!==input.expectedVersion) throw conflict('تغير العنصر. حدّث القائمة وحاول مجدداً.');
     const isAssignee = old.assignee_id===actor.id;
-    if (action==='start' && !isAssignee) throw forbidden('بدء العمل متاح للمسند إليه فقط');
     if (!supervises(actor) && !isAssignee) throw forbidden();
-    let status=old.status, assignee=old.assignee_id, event:string=action, noteId:string|null=null;
+    let status=old.status, assignee=old.assignee_id, event:string=action, noteId:string|null=null, override:string[]=[];
     let review:Awaited<ReturnType<typeof prepareReview>>|null=null;
     switch(action) {
       case 'assign':
@@ -54,14 +68,21 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
           FOR SHARE OF tm,u,t`;
         if(!member) throw badRequest('الموظف ليس عضواً نشطاً في فريق العنصر');
         if(['assigned','in_progress'].includes(old.status) && input.assigneeId===old.assignee_id) throw conflict('العنصر مسند لهذا الموظف بالفعل');
+        // A supervisor may hand work to someone who is not available or whose
+        // box is full (automatic assignment never does); the event says so.
+        const [fit]=await tx<{status:string;open:number;max_open:number}[]>`SELECT coalesce(sp.status,'offline') AS status,
+            (SELECT count(*)::int FROM queue_items o WHERE o.assignee_id=${input.assigneeId}::uuid AND o.status IN ('assigned','in_progress') AND o.merged_into_id IS NULL) AS open,
+            coalesce(a.max_open,d.max_open,(SELECT value::text::int FROM settings WHERE key='queue.default_max_open'),5) AS max_open
+          FROM users u LEFT JOIN agent_status_periods sp ON sp.user_id=u.id AND sp.ended_at IS NULL
+          LEFT JOIN agent_queue_settings a ON a.user_id=u.id LEFT JOIN team_queue_defaults d ON d.team_id=${old.team_id}::uuid
+          WHERE u.id=${input.assigneeId}::uuid`;
+        override=[...(fit.status!=='available'?['not_available']:[]),...(fit.open>=fit.max_open?['box_full']:[])];
         status='assigned';assignee=input.assigneeId;
         event=old.status==='new'?'assigned':old.status==='escalated'?'deescalated':'reassigned';break;
       case 'unassign':
-        if(old.status!=='assigned')throw conflict('إلغاء الإسناد متاح للحالة مسند فقط');
+        if(!['assigned','in_progress'].includes(old.status))throw conflict('إلغاء الإسناد متاح للعنصر المسند غير المصعّد فقط');
+        if(old.status==='in_progress'&&!input.reason?.trim())throw badRequest('سبب إلغاء الإسناد مطلوب');
         status='new';assignee=null;event='unassigned';break;
-      case 'start':
-        if(old.status!=='assigned')throw conflict('يجب أن يكون العنصر مسنداً لبدء العمل');
-        status='in_progress';event='started';break;
       case 'escalate':
         if(!['assigned','in_progress'].includes(old.status))throw conflict('لا يمكن التصعيد من هذه الحالة');
         if(!input.reason?.trim())throw badRequest('سبب التصعيد مطلوب');
@@ -69,8 +90,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
       case 'complete':
         // Closing = monitoring review completed. Only the assignee (or a
         // supervisor for escalated work) closes, and only with a full review.
-        if(old.status!=='in_progress' && !(old.status==='escalated' && supervises(actor)))throw conflict('ابدأ المراجعة أولاً؛ الإغلاق متاح للعنصر قيد المراجعة');
-        review=await prepareReview(tx,old,input.review);
+        if(!['assigned','in_progress'].includes(old.status) && !(old.status==='escalated' && supervises(actor)))throw conflict('الإغلاق متاح للعنصر المسند فقط');        review=await prepareReview(tx,old,input.review);
         status='completed';event='completed';break;
       case 'reopen': {
         if(old.status!=='completed')throw conflict('إعادة الفتح متاحة للمغلق فقط');
@@ -79,7 +99,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
         const [still]=old.assignee_id?await tx`SELECT 1 FROM team_members tm JOIN users u ON u.id=tm.user_id JOIN roles r ON r.id=u.role_id
           JOIN teams t ON t.id=tm.team_id WHERE tm.team_id=${old.team_id}::uuid AND tm.user_id=${old.assignee_id}::uuid AND tm.left_at IS NULL
             AND t.is_active AND u.is_active AND u.deleted_at IS NULL AND r.key=tm.kind FOR SHARE OF tm,u`:[];
-        status=still?'in_progress':'new';assignee=still?old.assignee_id:null;event='reopened';break;
+        status=still?'assigned':'new';assignee=still?old.assignee_id:null;event='reopened';break;
       }
       case 'notes':
         if(!input.body?.trim())throw badRequest('الملاحظة مطلوبة');
@@ -88,12 +108,11 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     const [item]=await tx<Item[]>`UPDATE queue_items q SET status=${status}, assignee_id=${assignee}::uuid,
       version=q.version+1,updated_at=clock_timestamp(),
       first_assigned_at=CASE WHEN ${action==='assign'} THEN coalesce(q.first_assigned_at,clock_timestamp()) ELSE q.first_assigned_at END,
-      assigned_at=CASE WHEN ${action==='assign'||action==='reopen'&&status==='in_progress'} THEN clock_timestamp()
-        WHEN ${action==='reopen'&&status==='new'} THEN NULL ELSE q.assigned_at END,
-      first_started_at=CASE WHEN ${action==='start'||action==='reopen'&&status==='in_progress'} THEN coalesce(q.first_started_at,clock_timestamp()) ELSE q.first_started_at END,
-      -- Current work cycle: begins at start/reopen, ends with the assignment it belonged to.
-      started_at=CASE WHEN ${action==='start'||action==='reopen'&&status==='in_progress'} THEN clock_timestamp()
-        WHEN ${action==='assign'||action==='unassign'||action==='reopen'} THEN NULL ELSE q.started_at END,
+      -- The current cycle runs from the server-recorded assignment (or the reopen back to the assignee).
+      assigned_at=CASE WHEN ${action==='assign'||action==='reopen'&&status==='assigned'} THEN clock_timestamp()
+        WHEN ${action==='unassign'||action==='reopen'&&status==='new'} THEN NULL ELSE q.assigned_at END,
+      -- started_at/first_started_at belong to the retired "start" step: kept for history, cleared when a cycle ends.
+      started_at=CASE WHEN ${action==='assign'||action==='unassign'||action==='reopen'} THEN NULL ELSE q.started_at END,
       -- A reopened item is open: its previous close lives only in queue_events.
       completed_at=CASE WHEN ${action==='complete'} THEN clock_timestamp() WHEN ${action==='reopen'} THEN NULL ELSE q.completed_at END,
       completed_by=CASE WHEN ${action==='complete'} THEN ${actor.id}::uuid WHEN ${action==='reopen'} THEN NULL ELSE q.completed_by END,
@@ -116,7 +135,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
     }
     const [ev]=await tx<{id:string}[]>`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,resolution,version,metadata)
       VALUES (${id},${event},${actor.id},${old.status},${status},${old.assignee_id},${assignee},${input.reason??null},
-        ${review?.resolution??null},${item.version},${JSON.stringify(noteId?{noteId}:review?{outcome:review.outcome}:{})}::jsonb) RETURNING id`;
+        ${review?.resolution??null},${item.version},${JSON.stringify(noteId?{noteId}:review?{outcome:review.outcome}:override.length?{override}:{})}::jsonb) RETURNING id`;
     if(review) {
       // One immutable review per closed cycle; the AI rows are not touched.
       const a=review.approved;
@@ -138,7 +157,7 @@ export async function mutateItem(actor:QueueActor, id:string, action:QueueAction
 
 export async function manualAdd(req:FastifyRequest, input:{postId:string;postedAt:string;teamId?:string}) {
   if(!supervises(req.user))throw forbidden();
-  return sql.begin(async tx=>{
+  const item=await sql.begin(async tx=>{
     // Program is derived from source classification, never supplied by the client.
     const [source]=await tx`SELECT p.id,p.posted_at,c.program_id,pr.name_ar,pr.key,pr.color,t.id AS team_id,
         ${storyUnitOf} AS unit_id,${authoredByInfluencer} AS influencer
@@ -162,6 +181,8 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
     await administrativeAudit(tx,req,'queue.manual_add','queue_item',item.id,{postId:source.id,teamId:source.team_id});
     return item;
   });
+  await assignAfter('item_created');
+  return item;
 }
 
 /**
@@ -175,7 +196,7 @@ export async function manualAdd(req:FastifyRequest, input:{postId:string;postedA
 export async function transferItem(req:FastifyRequest, id:string, input:{expectedVersion:number;teamId:string;assigneeId:string;reason:string}) {
   const actor=req.user;
   if(!supervises(actor))throw forbidden();
-  return sql.begin(async tx=>{
+  const moved=await sql.begin(async tx=>{
     const [old]=await tx<(Item&{interaction_type:string;post_id:string;post_posted_at:string;story_item_id:string|null})[]>`
       SELECT q.* FROM queue_items q WHERE q.id=${id}::uuid AND (${queueScope(actor,true)}) FOR UPDATE`;
     if(!old)throw notFound();
@@ -218,6 +239,9 @@ export async function transferItem(req:FastifyRequest, id:string, input:{expecte
     await alertForEvents(tx,[ev.id]);
     return item;
   });
+  // The previous holder's box has room again.
+  await assignAfter('item_transferred');
+  return moved;
 }
 
 /**
@@ -245,4 +269,30 @@ export async function claimItem(actor:QueueActor, id:string, input:{expectedVers
       VALUES (${id},'assigned',${actor.id},'new','assigned',${actor.id},${item.version},${JSON.stringify({claimed:true})}::jsonb)`;
     return item;
   });
+}
+
+/**
+ * High priority is a supervisor's call, never inferred: one CAS update plus a
+ * 'priority_changed' event with the reason. Open items only.
+ */
+export async function setPriority(req:FastifyRequest, id:string, input:{expectedVersion:number;priority:'normal'|'high';reason:string}) {
+  const actor=req.user;
+  if(!supervises(actor))throw forbidden();
+  const item=await sql.begin(async tx=>{
+    const [old]=await tx<(Item&{priority:string})[]>`SELECT q.* FROM queue_items q WHERE q.id=${id}::uuid AND (${queueScope(actor,true)}) FOR UPDATE`;
+    if(!old)throw notFound();
+    if(old.version!==input.expectedVersion)throw conflict('تغير العنصر. حدّث القائمة وحاول مجدداً.');
+    if(old.status==='completed'||old.merged_into_id)throw conflict('تغيير الأولوية متاح للعناصر المفتوحة فقط');
+    if(old.priority===input.priority)throw conflict('الأولوية مضبوطة على هذه القيمة بالفعل');
+    const [row]=await tx<Item[]>`UPDATE queue_items q SET priority=${input.priority},version=q.version+1,updated_at=clock_timestamp()
+      WHERE q.id=${id}::uuid AND q.version=${input.expectedVersion} RETURNING q.*`;
+    if(!row)throw conflict('تغير العنصر أثناء العملية. حدّث القائمة.');
+    await tx`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,reason,version,metadata)
+      VALUES (${id},'priority_changed',${actor.id},${old.status},${old.status},${old.assignee_id},${old.assignee_id},${input.reason},${row.version},
+        ${JSON.stringify({from:old.priority,to:input.priority})}::jsonb)`;
+    await administrativeAudit(tx,req,'queue.priority_change','queue_item',id,{from:old.priority,to:input.priority,reason:input.reason});
+    return row;
+  });
+  if(item.status==='new')await assignAfter('priority_changed');
+  return item;
 }

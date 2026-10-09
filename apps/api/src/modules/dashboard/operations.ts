@@ -20,10 +20,10 @@ export async function operations(actor: QueueActor, f: Filters) {
     AND (${program}::uuid IS NULL OR q.program_id=${program}::uuid)`;
   const [{ warn }] = await sql<{ warn: number }[]>`SELECT coalesce((SELECT value::text::int FROM settings WHERE key='queue.wait_warning_minutes'),60) AS warn`;
   const [snapshot] = await sql<Record<string, number>[]>`SELECT
-      count(*) FILTER (WHERE q.status='new')::int AS unassigned,count(*) FILTER (WHERE q.status='assigned')::int AS assigned,
-      count(*) FILTER (WHERE q.status='in_progress')::int AS in_progress,count(*) FILTER (WHERE q.status='escalated')::int AS escalated,
-      count(*) FILTER (WHERE (q.status='assigned' AND q.assigned_at<now()-make_interval(mins=>${warn}))
-        OR (q.status='in_progress' AND q.started_at<now()-make_interval(mins=>${warn})))::int AS overdue
+      count(*) FILTER (WHERE q.status='new')::int AS unassigned,
+      -- Legacy in_progress items are open work in a box, like assigned ones.
+      count(*) FILTER (WHERE q.status IN ('assigned','in_progress'))::int AS assigned,count(*) FILTER (WHERE q.status='escalated')::int AS escalated,
+      count(*) FILTER (WHERE q.status IN ('assigned','in_progress') AND q.assigned_at<now()-make_interval(mins=>${warn}))::int AS overdue
     FROM queue_items q WHERE ${scoped} AND (${!own} OR q.assignee_id=${actor.id}::uuid OR q.status='new')`;
   const stats = await queueStats(actor, { ...statsWindow(f), programId: program ?? undefined });
   // Waiting for assignment, per closed review cycle (entered → assigned).
@@ -42,7 +42,7 @@ export async function operations(actor: QueueActor, f: Filters) {
     const s = stats.employees.find((e) => e.id === u.id);
     return { id: u.id, full_name: u.full_name, open: open.find((o) => o.id === u.id)?.open ?? 0,
       closed_items: s?.closed_items ?? 0, review_cycles: s?.review_cycles ?? 0, corrected: s?.corrected ?? 0,
-      avg_review_handling_min: s?.avg_review_handling_min ?? null };
+      avg_assignment_to_close_min: s?.avg_assignment_to_close_min ?? null };
   }).sort((a, b) => b.closed_items - a.closed_items || b.open - a.open || a.full_name.localeCompare(b.full_name));
   return { scope: own ? 'own' : resolveScope(actor.permissions, QUEUE), warnMinutes: warn, snapshot,
     period: { ...stats.totals, avg_wait_assign_min: extra.avg_wait_assign_min }, employees };
