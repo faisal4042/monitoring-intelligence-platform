@@ -7,10 +7,11 @@ import { useTheme } from '../lib/theme';
 import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import AlertCenter from './AlertCenter';
+import AgentStatusControl from './AgentStatusControl';
 import BrandLogo from './BrandLogo';
 import {
   Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
-  CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, Moon, Newspaper, PanelRightClose, PanelRightOpen,
+  CircleStop, Gauge, KeyRound, LayoutGrid, LogOut, Menu, MonitorDot, Moon, Newspaper, PanelRightClose, PanelRightOpen,
   Radio, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags,
   UserCog, UsersRound, X,
 } from 'lucide-react';
@@ -24,6 +25,7 @@ interface CostOverview {
 
 const NAV = [
   { to: '/queue', label: 'طابور الرصد / مهامي', icon: LayoutGrid, perm: PERMISSIONS.QUEUE_WORK },
+  { to: '/queue/board', label: 'لوحة فرق الرصد', icon: MonitorDot, perm: PERMISSIONS.QUEUE_SUPERVISE },
   { to: '/dashboard', label: 'لوحة التحكم', icon: Gauge, perm: PERMISSIONS.POSTS_READ },
   { to: '/live', label: 'الرصد المباشر', icon: Radio, perm: PERMISSIONS.POSTS_READ },
   { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles, perm: PERMISSIONS.TOPICS_READ },
@@ -39,6 +41,7 @@ const NAV = [
 /** Grouped under one collapsible "الإدارة" entry instead of each sitting flat in the sidebar. */
 const ADMIN_NAV = [
   { to: '/teams', label: 'فرق الرصد', icon: UsersRound, perm: PERMISSIONS.USERS_READ },
+  { to: '/queue/settings', label: 'إعدادات موظفي الطابور', icon: Settings2, perm: PERMISSIONS.QUEUE_SUPERVISE },
   { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell, perm: PERMISSIONS.ALERTS_WRITE },
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign, perm: PERMISSIONS.COST_READ },
   { to: '/users', label: 'إدارة المستخدمين', icon: UserCog, perm: PERMISSIONS.USERS_READ },
@@ -129,7 +132,7 @@ export default function AppShell() {
             <NavLink
               key={n.to}
               to={n.to}
-              end={n.to === '/'}
+              end={n.to === '/' || n.to === '/queue'}
               onClick={() => setMobileNavOpen(false)}
               className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
               title={collapsed ? n.label : undefined}
@@ -265,6 +268,8 @@ export default function AppShell() {
           <div className="flex-1" />
 
           {/* Influencer/story alerts: only for users who work the queue. */}
+          {/* Availability: only people who receive queue work have a status. */}
+          {can(PERMISSIONS.QUEUE_WORK) && <AgentStatusControl />}
           {can(PERMISSIONS.QUEUE_WORK, PERMISSIONS.QUEUE_SUPERVISE, PERMISSIONS.QUEUE_VIEW_ALL) && <AlertCenter />}
 
           {/* The emergency stop stays reachable at all times, by design. */}

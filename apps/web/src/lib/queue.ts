@@ -15,7 +15,7 @@ export interface QueueReview {
   relevant:boolean;links_confirmed:boolean|null;corrected_fields:string[];ai:Record<string,unknown>;
 }
 export interface QueueItem {
-  id:string;interaction_type:'post'|'story';section:QueueSection;section_hold:QueueSection|null;
+  id:string;interaction_type:'post'|'story';section:QueueSection;section_hold:QueueSection|null;priority?:'normal'|'high';
   post_id:string|null;post_posted_at:string|null;program_id:string;team_id:string;status:QueueStatus;version:number;
   program_snapshot:{id:string;key:string;name:string;color:string};
   text:string|null;x_author_id:string|null;url:string|null;username:string|null;display_name:string|null;
@@ -39,7 +39,8 @@ export interface QueueItem {
   notes?:Array<{id:string;body:string;author_name:string;created_at:string}>;
   events?:Array<{id:string;event_type:string;actor_name:string|null;from_status:QueueStatus|null;to_status:QueueStatus;
     reason:string|null;resolution:string|null;created_at:string;from_assignee:string|null;to_assignee:string|null;
-    metadata?:{outcome?:QueueReviewOutcome;from?:QueueSection;to?:QueueSection;hold?:QueueSection|null;intoItem?:string;fromTeamName?:string|null;toTeamName?:string}}>;
+    metadata?:{outcome?:QueueReviewOutcome;from?:string;to?:string;hold?:QueueSection|null;intoItem?:string;fromTeamName?:string|null;toTeamName?:string;
+      auto?:boolean;trigger?:string;override?:string[];redistribution?:boolean}}>;
   members?:Array<{post_id:string;text:string|null;url:string|null;posted_at:string;username:string|null;display_name:string|null;
     profile_image_url:string|null;source_role:string;sentiment:string|null;item_id:string|null;item_status:QueueStatus|null;item_assignee_name:string|null}>;
   merged?:Array<{id:string;title:string|null;status:QueueStatus}>;
@@ -47,12 +48,12 @@ export interface QueueItem {
 export interface QueueOptions {
   teams:Array<{id:string;name:string}>;
   programs:Array<{id:string;name_ar:string;team_id:string}>;
-  members:Array<{id:string;full_name:string;team_id:string}>;
+  members:Array<{id:string;full_name:string;team_id:string;kind?:string;status?:string;open?:number}>;
 }
 export interface QueueSummary {
   counts:Record<QueueStatus,number>;
   sections:Record<QueueSection,Record<QueueStatus,number>>;
-  workload:Array<{id:string;full_name:string;team_id:string;team_name:string;open:number;in_progress:number;completed_today:number}>;
+  workload:Array<{id:string;full_name:string;team_id:string;team_name:string;open:number;escalated:number;agent_status:string;completed_today:number}>;
   held:number;updatedAt:string;
   views:Record<QueueSection,{mine:number;unassigned:number;closed:number}>;serverNow:string;
 }
@@ -90,14 +91,15 @@ export function useServerClock(serverNow:string|undefined,tickMs=1000) {
 }
 
 /**
- * The live timer a card shows for open work. Waiting for assignment, waiting
- * to start, and review time; assigned/in-progress turn amber past the
- * configured minutes (a visual cue, not an SLA — same rule as the stats' overdue).
+ * The live timer a card shows for open work: waiting for assignment, or time
+ * in the assignee's box since the server-recorded assignment (there is no
+ * "start" step; legacy in_progress items count the same way). Box time turns
+ * amber past the configured minutes — a visual cue, not an SLA.
  */
 export function workTimer(item:Pick<QueueItem,'status'|'entered_at'|'assigned_at'|'started_at'|'last_reopened_at'>,now:string|undefined,warnMinutes:number) {
-  const since=item.status==='new'?item.last_reopened_at??item.entered_at:item.status==='assigned'?item.assigned_at:item.status==='in_progress'?item.started_at??null:null;
+  const since=item.status==='new'?item.last_reopened_at??item.entered_at:['assigned','in_progress'].includes(item.status)?item.assigned_at:null;
   if(!since||!now)return null;
-  const label=item.status==='new'?'بانتظار الإسناد':item.status==='assigned'?'بانتظار بدء المراجعة':'قيد المراجعة منذ';
+  const label=item.status==='new'?'بانتظار الإسناد':'في الصندوق منذ';
   const warn=item.status!=='new'&&Date.parse(now)-Date.parse(since)>=warnMinutes*60000;
   return {label,text:duration(since,now),warn};
 }

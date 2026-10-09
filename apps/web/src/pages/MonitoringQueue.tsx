@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {useInfiniteQuery,useQuery} from '@tanstack/react-query';
 import {useSearchParams,Link} from 'react-router-dom';
-import {Inbox,RefreshCw,UsersRound,SlidersHorizontal,Rows3,Rows2,Sparkles,UserRound,MessagesSquare,TriangleAlert} from 'lucide-react';
+import {Inbox,RefreshCw,UsersRound,SlidersHorizontal,Rows3,Rows2,Sparkles,UserRound,MessagesSquare,TriangleAlert,MonitorDot,Settings2,Flame} from 'lucide-react';
 import {PERMISSIONS as P,QUEUE_SECTIONS,QUEUE_SECTION_LABELS,QUEUE_STATUSES,QUEUE_STATUS_LABELS,type QueueSection,type QueueStatus} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
@@ -12,6 +12,8 @@ import DateRangeFilter from '../components/DateRangeFilter';
 import QueueDrawer from '../components/QueueDrawer';
 import Avatar from '../components/Avatar';
 import {ALERTS_UNREAD_KEY} from '../components/AlertCenter';
+import AgentWorkspace from './AgentWorkspace';
+import {statusLabel} from '../lib/workforce';
 
 const SECTION_ICON={general:MessagesSquare,influencer:UserRound,story:Sparkles} as const;
 const FILTER_KEYS=['basis','programId','status','employeeId','teamId','classification','sentiment','source','search'] as const;
@@ -19,7 +21,13 @@ const pref=(key:string,fallback:string)=>{try{return localStorage.getItem(key)??
 const savePref=(key:string,value:string)=>{try{localStorage.setItem(key,value);}catch{/* private mode */}};
 
 export default function MonitoringQueue() {
-  const {can}=useAuth();const supervise=can(P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL);
+  const {can}=useAuth();
+  // Agents get their own workspace (box, closed, performance); supervisors the team queue.
+  return can(P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL)?<SupervisorQueue/>:<AgentWorkspace/>;
+}
+
+function SupervisorQueue() {
+  const {can}=useAuth();const supervise=true;
   const [params,setParams]=useSearchParams();const date=useDateRange('all');
   const [search,setSearch]=useState(params.get('search')??'');
   // Open by default on wide screens; on phones the list comes first.
@@ -82,6 +90,8 @@ export default function MonitoringQueue() {
         onClick={()=>{setCompact(c=>{savePref('mip.queue.density',c?'comfortable':'compact');return !c;});}}>{compact?<Rows2 size={17}/>:<Rows3 size={17}/>}</button>
       <button className={showFilters?'btn-primary':'btn-ghost'} aria-expanded={showFilters} aria-controls="queue-filters"
         onClick={()=>setShowFilters(v=>{savePref('mip.queue.filters',v?'closed':'open');return !v;})}><SlidersHorizontal size={16}/>الفلاتر</button>
+      <Link className="btn-ghost" to="/queue/board"><MonitorDot size={16}/>لوحة الفرق</Link>
+      <Link className="btn-ghost" to="/queue/settings"><Settings2 size={16}/>إعدادات الموظفين</Link>
       {can(P.USERS_READ)&&<Link className="btn-ghost" to="/teams"><UsersRound size={16}/>الفرق</Link>}
     </header>
 
@@ -133,12 +143,12 @@ export default function MonitoringQueue() {
         {/* Short and always relevant to a supervisor, so it sits above the longer filter list. */}
         {supervise&&<div className="card p-4 order-first">
           <h2 className="font-bold text-sm mb-1">عبء الموظفين</h2>
-          <p className="text-xs muted mb-2">بانتظار أو مصعّد · قيد المراجعة · مغلق اليوم دون تكرار</p>
+          <p className="text-xs muted mb-2">في الصندوق · مصعّد · مغلق اليوم دون تكرار</p>
           {!summary.data?.workload.length?<p className="text-xs muted">لا يوجد أعضاء في فرقك بعد.</p>:
           <ul className="queue-workload space-y-0.5">{summary.data.workload.map(w=><li key={w.id+w.team_id}>
             <button aria-pressed={params.get('employeeId')===w.id} onClick={()=>set('employeeId',params.get('employeeId')===w.id?'':w.id)}>
-              <span className="min-w-0"><strong className="block text-sm truncate">{w.full_name}</strong><span className="block text-xs muted truncate">{w.team_name}</span></span>
-              <span className="queue-workload-nums self-center"><span title="مفتوح">{w.open}</span><span className="text-(--status-info)" title="قيد العمل">{w.in_progress}</span><span className="text-emerald-600" title="مكتمل اليوم">{w.completed_today}</span></span>
+              <span className="min-w-0"><strong className="block text-sm truncate">{w.full_name}</strong><span className="block text-xs muted truncate"><span className={`agent-status-dot agent-status--${w.agent_status}`} aria-hidden="true"/> {statusLabel(w.agent_status)} · {w.team_name}</span></span>
+              <span className="queue-workload-nums self-center"><span title="في الصندوق">{w.open}</span><span className="text-(--status-danger)" title="مصعّد">{w.escalated}</span><span className="text-emerald-600" title="مكتمل اليوم">{w.completed_today}</span></span>
             </button></li>)}</ul>}
         </div>}
       </aside>}
@@ -163,6 +173,7 @@ function QueueCard({item,supervise,now,warnMinutes,selected,onOpen}:{item:QueueI
         {story&&item.story_state&&<span className={`queue-tag ${item.story_state==='rising'?'queue-tag--hold':'queue-tag--story'}`}>{STORY_STATE_LABELS[item.story_state]??item.story_state}</span>}
         {!story&&item.parent_story_title&&<span className="queue-tag queue-tag--story" title="هذا التفاعل ضمن قصة"><Sparkles size={11}/>ضمن قصة: {item.parent_story_title}</span>}
         {item.section_hold&&<span className="queue-tag queue-tag--hold"><TriangleAlert size={11}/>نقل بانتظار المراجعة</span>}
+        {item.priority==='high'&&<span className="queue-tag queue-tag--hold"><Flame size={11}/>أولوية عالية</span>}
         <span className="flex-1"/>
         <span className={`queue-status-badge queue-status-badge--${item.status}`}>{QUEUE_STATUS_LABELS[item.status as QueueStatus]}</span>
       </span>

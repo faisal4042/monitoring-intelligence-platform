@@ -105,9 +105,9 @@ export function NewsSection({ q, allowed, sectionProps }: { q: Q<NewsData>; allo
 }
 
 // ── Team performance ───────────────────────────────────────────────────────
-export type Ops = { scope: string; warnMinutes: number; snapshot: Record<'unassigned' | 'assigned' | 'in_progress' | 'escalated' | 'overdue', number>;
-  period: { closed_items: number; review_cycles: number; reopened: number; avg_wait_assign_min: number | null; avg_assignment_wait_min: number | null; avg_review_handling_min: number | null; avg_close_tat_min: number | null };
-  employees: Array<{ id: string; full_name: string; open: number; closed_items: number; review_cycles: number; corrected: number; avg_review_handling_min: number | null }> };
+export type Ops = { scope: string; warnMinutes: number; snapshot: Record<'unassigned' | 'assigned' | 'escalated' | 'overdue', number>;
+  period: { closed_items: number; review_cycles: number; reopened: number; avg_wait_assign_min: number | null; avg_assignment_to_close_min: number | null; avg_close_tat_min: number | null };
+  employees: Array<{ id: string; full_name: string; open: number; closed_items: number; review_cycles: number; corrected: number; avg_assignment_to_close_min: number | null }> };
 export function OperationsSection({ q, allowed, sectionProps }: { q: Q<Ops>; allowed: boolean; sectionProps: object }) {
   const d = q.data;
   return <Section id="operations" title="أداء فريق الرصد" eyebrow={d?.scope === 'own' ? 'عملي فقط' : d?.scope === 'team' ? 'فرقي' : 'كل الفرق'} basis="«الآن» = حالة الطابور الحالية · «خلال الفترة» = إغلاقات ومراجعات حدثت ضمن الفترة · العنصر المعاد فتحه يُحسب عنصرًا مغلقًا واحدًا" {...sectionProps}>
@@ -116,20 +116,20 @@ export function OperationsSection({ q, allowed, sectionProps }: { q: Q<Ops>; all
       {d && <>
         <h3 className="dash-subtitle">الآن</h3>
         <div className="dash-stats">
-          <Stat label="غير مسند" value={fmtNum(d.snapshot.unassigned)} /><Stat label="مسند" value={fmtNum(d.snapshot.assigned)} />
-          <Stat label="قيد المراجعة" value={fmtNum(d.snapshot.in_progress)} /><Stat label="مصعّد" value={fmtNum(d.snapshot.escalated)} />
+          <Stat label="غير مسند" value={fmtNum(d.snapshot.unassigned)} /><Stat label="في صناديق الموظفين" value={fmtNum(d.snapshot.assigned)} />
+          <Stat label="مصعّد" value={fmtNum(d.snapshot.escalated)} />
           <Stat label="متأخر" value={<span className={d.snapshot.overdue ? 'dash-watch' : ''}>{fmtNum(d.snapshot.overdue)}</span>} sub={`أكثر من ${d.warnMinutes} دقيقة`} />
         </div>
         <h3 className="dash-subtitle mt-3">خلال الفترة</h3>
         <div className="dash-stats">
           <Stat label="عناصر مغلقة" value={fmtNum(d.period.closed_items)} sub="دون تكرار" /><Stat label="مراجعات مكتملة" value={fmtNum(d.period.review_cycles)} sub={`${fmtNum(d.period.reopened)} إعادة فتح`} />
-          <Stat label="انتظار الإسناد" value={minutesText(d.period.avg_wait_assign_min)} sub="متوسط" /><Stat label="حتى بدء المراجعة" value={minutesText(d.period.avg_assignment_wait_min)} sub="متوسط" />
-          <Stat label="زمن المعالجة" value={minutesText(d.period.avg_review_handling_min)} sub="متوسط" /><Stat label="حتى الإغلاق" value={minutesText(d.period.avg_close_tat_min)} sub="متوسط منذ الدخول" />
+          <Stat label="انتظار الإسناد" value={minutesText(d.period.avg_wait_assign_min)} sub="متوسط" />
+          <Stat label="من الإسناد حتى الإغلاق" value={minutesText(d.period.avg_assignment_to_close_min)} sub="متوسط — ليس وقت معالجة فعلي" /><Stat label="حتى الإغلاق" value={minutesText(d.period.avg_close_tat_min)} sub="متوسط منذ الدخول" />
         </div>
         {d.employees.length > 0 && <div className="dash-table-wrap mt-3"><table className="dash-table">
-          <thead><tr><th>الموظف</th><th>مفتوح الآن</th><th>مغلق في الفترة</th><th>مراجعات</th><th>تصحيحات</th><th>متوسط المراجعة</th></tr></thead>
+          <thead><tr><th>الموظف</th><th>مفتوح الآن</th><th>مغلق في الفترة</th><th>مراجعات</th><th>تصحيحات</th><th>من الإسناد حتى الإغلاق</th></tr></thead>
           <tbody>{d.employees.map((e) => <tr key={e.id}><td>{e.full_name}</td><td className="num">{fmtNum(e.open)}</td><td className="num">{fmtNum(e.closed_items)}</td>
-            <td className="num">{fmtNum(e.review_cycles)}</td><td className="num">{fmtNum(e.corrected)}</td><td>{minutesText(e.avg_review_handling_min)}</td></tr>)}</tbody></table></div>}
+            <td className="num">{fmtNum(e.review_cycles)}</td><td className="num">{fmtNum(e.corrected)}</td><td>{minutesText(e.avg_assignment_to_close_min)}</td></tr>)}</tbody></table></div>}
       </>}
     </State>}
   </Section>;

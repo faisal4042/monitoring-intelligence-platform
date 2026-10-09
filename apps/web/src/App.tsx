@@ -21,6 +21,8 @@ import NewsSources from './pages/NewsSources';
 import NewsArticles from './pages/NewsArticles';
 import ChangePassword from './pages/ChangePassword';
 import MonitoringQueue from './pages/MonitoringQueue';
+import QueueBoard from './pages/QueueBoard';
+import QueueWorkforceSettings from './pages/QueueWorkforceSettings';
 import Teams from './pages/Teams';
 import RequirePermission from './components/RequirePermission';
 import { PERMISSIONS as P } from '@mip/shared';
@@ -64,6 +66,8 @@ export default function App() {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route element={<AppShell />}>
         <Route path="/queue" element={guard([P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL], <MonitoringQueue />)} />
+        <Route path="/queue/board" element={guard([P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL], <QueueBoard />)} />
+        <Route path="/queue/settings" element={guard([P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL], <QueueWorkforceSettings />)} />
         <Route path="/teams" element={guard(P.USERS_READ, <Teams />)} />
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={guard(P.POSTS_READ, <Dashboard />)} />

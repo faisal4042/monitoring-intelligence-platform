@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 import {useSearchParams} from 'react-router-dom';
-import {X,Play,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight} from 'lucide-react';
-import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_REVIEW_OUTCOME_LABELS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
+import {X,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight,Flame} from 'lucide-react';
+import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_REVIEW_OUTCOME_LABELS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction,type QueueSection} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
 import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,duration,sourceOf,useServerClock,type QueueItem,type QueueOptions,type ReviewCatalog,type QueueSummary} from '../lib/queue';
@@ -10,11 +10,13 @@ import {fmtCompact,fmtDateTime,fmtRelative} from '../lib/format';
 import AuthorHistoryModal from './AuthorHistoryModal';
 import Avatar from './Avatar';
 import QueueReview,{QueueReviewHistory} from './QueueReview';
+import {statusLabel} from '../lib/workforce';
 
 export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
   const {user,can}=useAuth();const qc=useQueryClient();const supervise=can(P.QUEUE_SUPERVISE);
   const [,setParams]=useSearchParams();
   const [assignee,setAssignee]=useState(''),[reason,setReason]=useState(''),[assignReason,setAssignReason]=useState(''),[note,setNote]=useState(''),[reopenReason,setReopenReason]=useState('');
+  const [priorityReason,setPriorityReason]=useState('');
   const [history,setHistory]=useState(false);
   const [transferOpen,setTransferOpen]=useState(false),[toTeam,setToTeam]=useState(''),[toMember,setToMember]=useState(''),[transferReason,setTransferReason]=useState('');
   const closeRef=useRef<HTMLButtonElement>(null);
@@ -25,6 +27,10 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
     api.post(`/queue/items/${id}/${action}`,{expectedVersion:item!.version,...extra}),
     onSuccess:async(_,variables)=>{if(variables.action==='notes')setNote('');setReason('');setAssignReason('');setAssignee('');setReopenReason('');await Promise.all([qc.invalidateQueries({queryKey:['queue']}),qc.invalidateQueries({queryKey:['queue-item',id]})]);if(variables.action==='complete')onClose();},
     onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});qc.invalidateQueries({queryKey:['queue']});}});
+  // High priority is a supervisor decision with a reason (one event, audited).
+  const priority=useMutation({mutationFn:(to:'normal'|'high')=>api.post(`/queue/items/${id}/priority`,{expectedVersion:item!.version,priority:to,reason:priorityReason}),
+    onSuccess:()=>{setPriorityReason('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
+    onError:()=>{qc.invalidateQueries({queryKey:['queue-item',id]});}});
   // Cross-team transfer: one audited server transaction (team, assignee, reason, version).
   const transfer=useMutation({mutationFn:()=>api.post(`/queue/items/${id}/transfer`,{expectedVersion:item!.version,teamId:toTeam,assigneeId:toMember,reason:transferReason}),
     onSuccess:()=>{setTransferOpen(false);setToTeam('');setToMember('');setTransferReason('');qc.invalidateQueries({queryKey:['queue']});qc.invalidateQueries({queryKey:['queue-item',id]});},
@@ -51,6 +57,7 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
           <span className={`queue-tag ${item.section==='general'?'':`queue-tag--${item.section}`}`}>{QUEUE_SECTION_LABELS[item.section].ar}</span>
           <span className="queue-tag"><span className="queue-dot" style={{background:item.program_snapshot.color||'var(--color-brand-500)'}}/>{item.program_snapshot.name}</span>
           <span className="queue-tag">{item.team_name}</span>
+          {item.priority==='high'&&<span className="queue-tag queue-tag--hold"><Flame size={11}/>أولوية عالية</span>}
           {item.section_hold&&<span className="queue-tag queue-tag--hold"><TriangleAlert size={11}/>ينتمي لقصة في فريق آخر — بانتظار مراجعة المشرف</span>}
         </div>
         {item.section_hold&&supervise&&!transferOpen&&<p className="rounded-lg p-3 bg-red-500/5 text-sm flex flex-wrap items-center gap-2">
@@ -89,26 +96,34 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>المسؤول: <strong>{item.assignee_name??'غير مسند'}</strong></div><div>انتظار الإسناد: {duration(item.entered_at,item.first_assigned_at??serverNow)}</div>
-          <div>حتى البدء: {duration(item.assigned_at,item.started_at??serverNow)}</div><div>وقت المعالجة: {duration(item.started_at??null,item.status==='completed'?item.completed_at:serverNow)}</div>
+          <div>{item.status==='completed'?'من الإسناد حتى الإغلاق':'في الصندوق منذ'}: {duration(item.assigned_at,item.status==='completed'?item.completed_at:serverNow)}</div><div>الإسناد الحالي: {item.assigned_at?fmtDateTime(item.assigned_at):'—'}</div>
           <div>وقت الإكمال: {duration(item.entered_at,item.status==='completed'?item.completed_at:null)}</div>{!story&&<div>تأخر الاكتشاف (معلوماتي): {duration(item.post_posted_at,item.entered_at)}</div>}
           <div>إعادة الإسناد: {item.reassignment_count}</div><div>التصعيد: {item.escalation_count}</div>
-          <div>إعادة الفتح: {item.reopen_count??0}</div><div>الدورة الحالية بدأت: {item.started_at?fmtDateTime(item.started_at):'لم تبدأ بعد'}</div>
+          <div>إعادة الفتح: {item.reopen_count??0}</div><div>الأولوية: {item.priority==='high'?'عالية':'عادية'}</div>
         </div>
         {change.error&&<p role="alert" className="rounded-lg p-3 bg-red-500/10 text-red-600">{change.error.message}</p>}
         <fieldset disabled={change.isPending||!!item.merged_into_id} className="space-y-3">
           {supervise&&['new','assigned','escalated','in_progress'].includes(item.status)&&<div className="space-y-2">
-            <div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id&&m.id!==item.assignee_id).map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select><button className="btn-primary" disabled={!assignee||(item.status==='in_progress'&&!assignReason.trim())} onClick={()=>change.mutate({action:'assign',extra:{assigneeId:assignee,...(assignReason.trim()?{reason:assignReason}:{})}})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='new'?'إسناد':'إعادة الإسناد'}</button></div>
+            <div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id&&m.id!==item.assignee_id).map(m=><option key={m.id} value={m.id}>{m.full_name}{m.status?` — ${statusLabel(m.status)} · ${m.open??0} في الصندوق`:''}</option>)}</select><button className="btn-primary" disabled={!assignee||(item.status==='in_progress'&&!assignReason.trim())} onClick={()=>change.mutate({action:'assign',extra:{assigneeId:assignee,...(assignReason.trim()?{reason:assignReason}:{})}})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='new'?'إسناد':'إعادة الإسناد'}</button></div>
             {/* Taking work from someone mid-task needs a reason; the new assignee starts their own cycle. */}
+            {assignee&&options?.members.find(m=>m.id===assignee&&m.team_id===item.team_id&&m.status&&m.status!=='available')&&<p className="text-xs text-amber-600">الموظف المختار ليس «متاحاً» الآن؛ الإسناد اليدوي مسموح ويُسجَّل في السجل.</p>}
             {item.status==='in_progress'&&<input aria-label="سبب إعادة الإسناد" placeholder="سبب إعادة الإسناد أثناء المعالجة (إلزامي)" className="input w-full" value={assignReason} maxLength={2000} onChange={e=>setAssignReason(e.target.value)}/>}
           </div>}
           <div className="flex gap-2">
-            {item.status==='assigned'&&mine&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'start'})}><Play size={16}/>بدء المراجعة</button>}
             {item.status==='assigned'&&supervise&&<button className="btn-ghost" onClick={()=>change.mutate({action:'unassign'})}>إلغاء الإسناد</button>}
+            {item.status==='in_progress'&&supervise&&<button className="btn-ghost" disabled={!assignReason.trim()} title="اكتب السبب في حقل سبب إعادة الإسناد" onClick={()=>change.mutate({action:'unassign',extra:{reason:assignReason}})}>إلغاء الإسناد</button>}
             {item.status==='completed'&&supervise&&<div className="flex gap-2 w-full"><input aria-label="سبب إعادة الفتح" className="input flex-1" placeholder="سبب إعادة الفتح (إلزامي)" maxLength={2000} value={reopenReason} onChange={e=>setReopenReason(e.target.value)}/><button className="btn-primary" disabled={!reopenReason.trim()} onClick={()=>change.mutate({action:'reopen',extra:{reason:reopenReason}})}>إعادة الفتح</button></div>}
             {item.status==='new'&&!supervise&&catalog?.selfClaim&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'claim'})}>استلام التفاعل</button>}
           </div>
           {work&&['assigned','in_progress'].includes(item.status)&&<div className="flex gap-2"><input aria-label="سبب التصعيد" placeholder="سبب التصعيد (إلزامي)" className="input flex-1" value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/><button className="btn-ghost" disabled={!reason.trim()} onClick={()=>change.mutate({action:'escalate',extra:{reason}})}><ArrowUpRight size={16}/>تصعيد</button></div>}
-          {work&&(item.status==='in_progress'||item.status==='escalated'&&supervise)&&<><QueueReview item={item} catalog={catalog} disabled={change.isPending||!!note.trim()} onComplete={review=>change.mutate({action:'complete',extra:{review}})}/>{note.trim()&&<p className="text-sm muted">احفظ الملاحظة المكتوبة قبل إغلاق التفاعل.</p>}</>}
+          {/* Review and close straight from the box: there is no start step. */}
+          {work&&(['assigned','in_progress'].includes(item.status)||item.status==='escalated'&&supervise)&&<><QueueReview item={item} catalog={catalog} disabled={change.isPending||!!note.trim()} onComplete={review=>change.mutate({action:'complete',extra:{review}})}/>{note.trim()&&<p className="text-sm muted">احفظ الملاحظة المكتوبة قبل إغلاق التفاعل.</p>}</>}
+          {supervise&&item.status!=='completed'&&<div className="flex gap-2 flex-wrap items-center">
+            <input aria-label="سبب تغيير الأولوية" className="input flex-1 min-w-[12rem]" placeholder="سبب تغيير الأولوية (إلزامي)" maxLength={2000} value={priorityReason} onChange={e=>setPriorityReason(e.target.value)}/>
+            <button className="btn-ghost" disabled={!priorityReason.trim()||priority.isPending} onClick={()=>priority.mutate(item.priority==='high'?'normal':'high')}>
+              <Flame size={15}/>{item.priority==='high'?'إرجاع لأولوية عادية':'أولوية عالية'}</button>
+            {priority.error&&<p role="alert" className="text-sm text-red-600 w-full">{priority.error.message}</p>}
+          </div>}
           {supervise&&!story&&item.status!=='completed'&&<div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
             <button className="flex items-center gap-2 text-sm font-bold" aria-expanded={transferOpen} onClick={()=>{setTransferOpen(o=>!o);if(!toTeam&&item.hold_team_id)setToTeam(item.hold_team_id);}}>
               <ArrowLeftRight size={15}/>نقل إلى فريق آخر</button>
@@ -150,8 +165,12 @@ export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
         <section><h3 className="font-bold mb-3">الملاحظات الداخلية</h3>{!item.notes?.length&&<p className="muted text-sm">لا توجد ملاحظات</p>}{item.notes?.map(n=><div key={n.id} className="border-s-2 border-brand-500 ps-3 py-2 mb-3"><p className="whitespace-pre-wrap">{n.body}</p><p className="muted text-xs mt-1">{n.author_name} · {fmtDateTime(n.created_at)}</p></div>)}</section>
         <section><h3 className="font-bold mb-3">سجل العمل ودورات المعالجة</h3><ol className="space-y-3">{item.events?.map(e=><li key={e.id} className="border-s-2 border-slate-300 ps-3 text-sm"><strong>{QUEUE_EVENT_LABELS[e.event_type]??e.event_type}</strong> · {e.actor_name??'النظام'}
           <p className="muted text-xs">{fmtDateTime(e.created_at)} · {e.from_status&&e.from_status!==e.to_status?QUEUE_STATUS_LABELS[e.from_status]+' ← ':''}{QUEUE_STATUS_LABELS[e.to_status]}</p>
-          {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from].ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to].ar}`}</p>}
+          {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from as QueueSection]?.ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to as QueueSection]?.ar}`}</p>}
           {e.event_type==='transferred'&&<p>{e.metadata?.fromTeamName??'—'} ← {e.metadata?.toTeamName??'—'}</p>}
+          {e.event_type==='assigned'&&e.metadata?.auto&&<p className="muted">إسناد تلقائي</p>}
+          {e.metadata?.override?.includes('not_available')&&<p className="text-amber-600">أُسند يدوياً لموظف غير متاح</p>}
+          {e.metadata?.override?.includes('box_full')&&<p className="text-amber-600">أُسند يدوياً رغم امتلاء الصندوق</p>}
+          {e.event_type==='priority_changed'&&<p>{e.metadata?.to==='high'?'رُفعت إلى أولوية عالية':'أُعيدت إلى أولوية عادية'}</p>}
           {e.event_type==='section_review'&&<p>{e.metadata?.hold?'التفاعل ضمن قصة يملكها فريق آخر؛ لم يُنقل تلقائياً.':'انتهت حالة المراجعة.'}</p>}
           {e.reason&&<p>{e.reason}</p>}{e.metadata?.outcome?<p>{QUEUE_REVIEW_OUTCOME_LABELS[e.metadata.outcome]}</p>:e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]} (سجل سابق)</p>}</li>)}</ol></section>
       </>}
