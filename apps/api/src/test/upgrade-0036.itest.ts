@@ -94,7 +94,7 @@ test('the real runner upgrades 0035 → 0039 without losing or altering a row',a
   assert.match(r.stdout,/apply 0040_queue_workforce\.sql \.\.\. ok/);
   assert.deepEqual(await fingerprint(),before);
   const applied=(await db<{name:string}[]>`SELECT name FROM _migrations WHERE name>='0035' ORDER BY applied_at,name`).map(m=>m.name);
-  assert.deepEqual(applied,['0035_queue_work_cycles.sql','0036_unified_queue_sections.sql','0037_queue_team_transfer.sql','0038_queue_reviews.sql','0039_dashboard_preferences.sql','0040_queue_workforce.sql']);
+  assert.deepEqual(applied,['0035_queue_work_cycles.sql','0036_unified_queue_sections.sql','0037_queue_team_transfer.sql','0038_queue_reviews.sql','0039_dashboard_preferences.sql','0040_queue_workforce.sql','0041_role_permission_sync.sql']);
   // Existing items get the defaults and nothing else.
   const rows=await db`SELECT section,section_hold,story_id,story_snapshot,story_item_id,merged_into_id FROM queue_items`;
   for(const row of rows)assert.deepEqual({...row},{section:'general',section_hold:null,story_id:null,story_snapshot:null,story_item_id:null,merged_into_id:null});

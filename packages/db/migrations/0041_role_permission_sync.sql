@@ -17,7 +17,14 @@ INSERT INTO permissions(key,domain,description_ar) VALUES
  ('workforce:correct','queue','تصحيح سجلات حالات وساعات موظفي الرصد'),
  ('customers:read','customers','عرض سجل تفاعلات العميل'),
  ('users:read','admin','عرض المستخدمين'),
- ('users:assign_roles','admin','تعيين أدوار وصلاحيات المستخدمين — صلاحية حرجة')
+ ('users:assign_roles','admin','تعيين أدوار وصلاحيات المستخدمين — صلاحية حرجة'),
+ -- Granted to the agent role below. Production has them (the seed created them);
+ -- a database built from migrations alone does not.
+ ('posts:read','posts','عرض المنشورات'),
+ ('topics:read','topics','عرض المواضيع'),
+ ('news:read','news','عرض رصد الأخبار والمواقع'),
+ ('programs:read','programs','عرض البرامج والخدمات'),
+ ('feedback:write','feedback','تصحيح تصنيف المنشورات')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO roles(key,name_ar,name_en,is_system)
@@ -35,4 +42,5 @@ FROM (VALUES
   ('supervisor','customers:read'),('supervisor','queue:supervise'),('supervisor','queue:work'),('supervisor','users:read')
 ) AS v(role_key,permission_key)
 JOIN roles r ON r.key=v.role_key
+JOIN permissions p ON p.key=v.permission_key
 ON CONFLICT DO NOTHING;
