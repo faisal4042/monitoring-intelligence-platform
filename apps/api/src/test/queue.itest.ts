@@ -21,6 +21,14 @@ const post=async(intent='inquiry',extra:{program?:string;redacted?:boolean;statu
 const add=async(postId:string,token=admin)=>call(app,token,'POST',base+'/items',{postId,postedAt:stamp});
 const mutate=async(token:string,item:{id:string;version:number},action:string,extra:object={})=>call(app,token,'POST',`${base}/items/${item.id}/${action}`,{expectedVersion:item.version,...extra});
 const ok=(res:Awaited<ReturnType<typeof call>>,code=200)=>{assert.equal(res.statusCode,code,res.body);return res.json();};
+/** Old-flow data: the retired "start" step left items 'in_progress' with a 'started' event. Built in SQL, as it exists in databases today. */
+const legacyStart=async(item:{id:string})=>{
+  const [row]=await sql`UPDATE queue_items SET status='in_progress',started_at=clock_timestamp(),first_started_at=coalesce(first_started_at,clock_timestamp()),
+      version=version+1,updated_at=clock_timestamp() WHERE id=${item.id}::uuid AND status='assigned' RETURNING *`;
+  await sql`INSERT INTO queue_events(queue_item_id,event_type,actor_id,from_status,to_status,from_assignee,to_assignee,version)
+    VALUES (${item.id},'started',${row.assignee_id},'assigned','in_progress',${row.assignee_id},${row.assignee_id},${row.version})`;
+  return JSON.parse(JSON.stringify(row));
+};
 
 test('review closure preserves AI, enforces reasons and taxonomy, updates views and workload, and retains immutable cycles',async()=>{
   const id=await post();
@@ -31,7 +39,6 @@ test('review closure preserves AI, enforces reasons and taxonomy, updates views 
   const original=(await sql`SELECT row_to_json(c) AS value FROM post_classifications c WHERE post_id=${id}`)[0].value;
   let item=ok(await add(id),201);
   item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
-  item=ok(await mutate(agent,item,'start'));
   const detail=ok(await call(app,agent,'GET',`${base}/items/${item.id}`));
   assert.equal(detail.ai_topic_id,topic.id);assert.equal(detail.ai_subtopic_id,sub.id);assert.equal(detail.intent_confidence,0.91);
   const summary=()=>call(app,agent,'GET',base+'/summary?range=all').then(ok);
@@ -73,7 +80,7 @@ test('review closure preserves AI, enforces reasons and taxonomy, updates views 
   const stats=ok(await call(app,agent,'GET',`${base}/stats?range=all`));
   assert.equal(stats.totals.closed_items,1);assert.equal(stats.totals.review_cycles,2);
   const work=ok(await call(app,sup,'GET',`${base}/summary?range=all`)).workload.find((w:{id:string})=>w.id===agentId);
-  assert.equal(work.completed_today,1);assert.equal(work.open,0);assert.equal(work.in_progress,0);
+  assert.equal(work.completed_today,1);assert.equal(work.open,0);assert.equal(work.escalated,0);
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${item.id}`)[0].n,0,'general reviews never alert');
 });
 
@@ -159,16 +166,16 @@ test('optimistic concurrent assignment succeeds once; stale version and invalid 
   assert.deepEqual(res.map(r=>r.statusCode).sort(),[200,409]);
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_events WHERE queue_item_id=${item.id} AND event_type='assigned'`)[0].n,1);
   const assigned=ok(res.find(r=>r.statusCode===200)!);
-  assert.equal((await mutate(agent,assigned,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
-  assert.equal((await mutate(sup,assigned,'start')).statusCode,403);
-  assert.equal((await mutate(agent,assigned,'start',{unexpected:true})).statusCode,400);
-  assert.equal((await mutate(agent,item,'start')).statusCode,409);
+  // The retired start step is no longer an action.
+  assert.equal((await mutate(agent,assigned,'start')).statusCode,404);
+  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409,'stale version');
+  assert.equal((await mutate(agent,assigned,'escalate',{reason:'x',unexpected:true})).statusCode,400);
 });
-test('explicit start, append-only notes, escalation, deescalation, completion, reopen and historical cycles',async()=>{
+test('no start step: append-only notes, escalation, deescalation, completion, reopen and historical cycles',async()=>{
   let item=ok(await add(await post()),201);
   item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
   const detail=ok(await call(app,agent,'GET',`${base}/items/${item.id}`));assert.equal(detail.status,'assigned');assert.equal(detail.first_started_at,null);
-  item=ok(await mutate(agent,item,'start'));const started=item.first_started_at;
+  const started=item.first_started_at;
   item=ok(await mutate(agent,item,'notes',{body:'Internal note only'}));
   const [note]=await sql`SELECT id FROM queue_notes WHERE queue_item_id=${item.id}`;
   const [event]=await sql`SELECT * FROM queue_events WHERE queue_item_id=${item.id} AND event_type='note_added'`;
@@ -181,7 +188,6 @@ test('explicit start, append-only notes, escalation, deescalation, completion, r
   item=ok(await mutate(agent,item,'escalate',{reason:'Needs supervisor'}));
   assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
   item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
-  item=ok(await mutate(agent,item,'start'));
   assert.equal((await mutate(agent,item,'complete')).statusCode,400);
   item=ok(await mutate(agent,item,'complete',{review:{outcome:'confirmed'}}));const completed=item.completed_at;
   assert.equal((await mutate(agent,item,'reopen',{reason:'Review requested'})).statusCode,403);
@@ -189,7 +195,7 @@ test('explicit start, append-only notes, escalation, deescalation, completion, r
   assert.equal((await call(app,other,'GET',`${base}/items/${item.id}`)).statusCode,404);
   assert.ok(!ok(await call(app,agent,'GET',base+'/items?range=all')).items.some((i:{id:string})=>i.id===item.id));
   // Reopen clears the current close (0035); the earlier close stays in queue_events below.
-  item=ok(await mutate(sup,item,'reopen',{reason:'Review requested'}));assert.equal(item.status,'in_progress');assert.ok(completed);
+  item=ok(await mutate(sup,item,'reopen',{reason:'Review requested'}));assert.equal(item.status,'assigned');assert.ok(completed);
   assert.deepEqual([item.completed_at,item.completed_by,item.resolution],[null,null,null]);assert.equal(item.first_started_at,started);
   item=ok(await mutate(agent,item,'complete',{review:{outcome:'no_action'}}));
   const events=await sql`SELECT event_type,resolution FROM queue_events WHERE queue_item_id=${item.id} ORDER BY version`;
@@ -275,7 +281,7 @@ async function cycleFixture() {
   const inProgress=async()=>{
     let item=ok(await add(await post('inquiry',{program:p.id}),users.sup.token),201);
     item=ok(await mutate(users.sup.token,item,'assign',{assigneeId:users.a.id}));
-    return ok(await mutate(users.a.token,item,'start'));
+    return legacyStart(item);
   };
   return {users,inProgress};
 }
@@ -299,14 +305,14 @@ test('in-progress reassignment: supervisor moves the work with a reason; history
   assert.ok(ev.created_at);
   // The previous assignee lost it; the new one must start their own cycle.
   assert.equal((await mutate(u.a.token,moved,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
-  const started=ok(await mutate(u.b.token,moved,'start'));
-  assert.equal(started.status,'in_progress');assert.ok(new Date(started.started_at)>new Date(item.started_at));
   // Same assignee again is not a reassignment.
-  assert.equal((await mutate(u.sup.token,started,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,409);
+  assert.equal((await mutate(u.sup.token,moved,'assign',{assigneeId:u.b.id,reason:'x'})).statusCode,409);
+  // The new assignee closes straight from the box: no start step.
+  ok(await mutate(u.b.token,moved,'complete',{review:{outcome:'confirmed'}}));
   // The earlier cycle of agent a remains reconstructible from events.
   const events=(await sql`SELECT event_type,actor_id FROM queue_events WHERE queue_item_id=${item.id} ORDER BY version`)
     .map(e=>`${e.event_type}:${e.actor_id===u.a.id?'a':e.actor_id===u.b.id?'b':'sup'}`);
-  assert.deepEqual(events,['created:sup','assigned:sup','started:a','reassigned:sup','started:b']);
+  assert.deepEqual(events,['created:sup','assigned:sup','started:a','reassigned:sup','completed:b']);
 });
 
 test('in-progress reassignment: admin may, agent may not, outside supervisor 404, invalid assignee 400, stale version 409',async()=>{
@@ -340,9 +346,9 @@ test('reopen lifecycle: complete, reopen clears the current close, complete agai
   const done1=ok(await mutate(u.a.token,started,'complete',{review:{outcome:'no_action'}}));
   assert.equal(done1.status,'completed');assert.equal(done1.completed_by,u.a.id);assert.equal(done1.resolution,'no_action_needed');
   const reopened=ok(await mutate(u.sup.token,done1,'reopen',{reason:'Review requested'}));
-  assert.equal(reopened.status,'in_progress');
+  assert.equal(reopened.status,'assigned');
   assert.deepEqual([reopened.completed_at,reopened.completed_by,reopened.resolution],[null,null,null],'a reopened item is not closed');
-  assert.equal(reopened.reopen_count,1);assert.ok(reopened.last_reopened_at);assert.ok(reopened.started_at);
+  assert.equal(reopened.reopen_count,1);assert.ok(reopened.last_reopened_at);assert.equal(reopened.started_at,null);assert.ok(reopened.assigned_at);
   assert.equal(new Date(reopened.first_started_at).getTime(),new Date(started.first_started_at).getTime());
   const done2=ok(await mutate(u.a.token,reopened,'complete',{review:{outcome:'confirmed'}}));
   assert.equal(done2.resolution,'handled');assert.equal(done2.completed_by,u.a.id);
@@ -406,12 +412,10 @@ test('review workflow RBAC: close, reopen, claim, catalogue, history and stats f
   item=ok(await mutate(sup,item,'assign',{assigneeId:agentId}));
   // No queue permission at all: every work action and the review endpoints are denied.
   for(const token of [viewer,analyst]){
-    for(const action of ['start','complete','reopen','claim','notes'])assert.equal((await mutate(token,item,action)).statusCode,403,`${action} must be denied`);
+    for(const action of ['complete','reopen','claim','notes','escalate'])assert.equal((await mutate(token,item,action)).statusCode,403,`${action} must be denied`);
     for(const url of ['/review-catalog','/stats?range=all'])assert.equal((await call(app,token,'GET',base+url)).statusCode,403,url);
   }
-  // Closing needs a started review, by the assignee; another team's agent cannot even see it.
-  assert.equal((await mutate(agent,item,'complete',{review:{outcome:'confirmed'}})).statusCode,409);
-  item=ok(await mutate(agent,item,'start'));
+  // Another team's agent or supervisor cannot even see it.
   assert.equal((await mutate(other,item,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
   assert.equal((await mutate(supTeam2,item,'complete',{review:{outcome:'confirmed'}})).statusCode,404);
   item=ok(await mutate(agent,item,'complete',{review:{outcome:'confirmed'}}));

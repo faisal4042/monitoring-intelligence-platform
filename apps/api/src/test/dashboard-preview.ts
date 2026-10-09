@@ -106,8 +106,7 @@ try {
     let item = await run('POST', '/api/v1/queue/items', { postId: r.id, postedAt: r.at });
     item = await run('POST', `/api/v1/queue/items/${item.id}/assign`, { expectedVersion: item.version, assigneeId: accounts.agent.id }, tokens.supervisor);
     if (i === 5) continue; // left assigned: shows in "now" figures
-    item = await run('POST', `/api/v1/queue/items/${item.id}/start`, { expectedVersion: item.version }, tokens.agent);
-    if (i === 4) continue; // left in review
+    if (i === 4) continue; // also left in the box
     await run('POST', `/api/v1/queue/items/${item.id}/complete`, { expectedVersion: item.version,
       review: i % 2 ? { outcome: 'confirmed' } : { outcome: 'corrected', intent: 'complaint', reason: 'تصحيح تجريبي' } }, tokens.agent).catch(async () =>
       run('POST', `/api/v1/queue/items/${item.id}/complete`, { expectedVersion: item.version, review: { outcome: 'corrected', intent: 'inquiry', reason: 'تصحيح تجريبي' } }, tokens.agent));

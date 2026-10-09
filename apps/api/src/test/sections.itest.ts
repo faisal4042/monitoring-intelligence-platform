@@ -52,7 +52,6 @@ test('reopening influencer work alerts only its assignee once and never duplicat
   const p=await post({influencer:true});
   let item=ok(await call(app,tok.admin,'POST',base+'/items',{postId:p.id,postedAt:p.at}),201);
   item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/assign`,{expectedVersion:item.version,assigneeId:uid.agent}));
-  item=ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/start`,{expectedVersion:item.version}));
   item=ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/complete`,{expectedVersion:item.version,review:{outcome:'confirmed'}}));
   item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/reopen`,{expectedVersion:item.version,reason:'Additional monitoring review'}));
   const events=await sql`SELECT id FROM queue_events WHERE queue_item_id=${item.id} AND event_type='reopened'`;
@@ -153,15 +152,14 @@ test('a post moving into a story keeps its id, status, assignee and full history
   const p=await post();await intakeQueue();
   let item=await itemOf(p.id);assert.equal(item.section,'general');
   item=ok(await call(app,tok.supervisor,'POST',`${base}/items/${item.id}/assign`,{expectedVersion:item.version,assigneeId:uid.agent}));
-  item=ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/start`,{expectedVersion:item.version}));
   // The story it belongs to is approved later.
   const s=await story();await join(s,p,true);await intakeQueue();
   const moved=await itemOf(p.id);const unit=await unitOf(s);
   assert.equal(moved.id,item.id);assert.equal(moved.section,'story');assert.equal(moved.story_item_id,unit.id);
-  assert.equal(moved.status,'in_progress');assert.equal(moved.assignee_id,uid.agent);
+  assert.equal(moved.status,'assigned');assert.equal(moved.assignee_id,uid.agent);
   const events=(await sql`SELECT event_type,metadata FROM queue_events WHERE queue_item_id=${item.id}::uuid ORDER BY version`);
-  assert.deepEqual(events.map(e=>e.event_type),['created','assigned','started','section_changed']);
-  assert.equal(events[3].metadata.from,'general');assert.equal(events[3].metadata.to,'story');
+  assert.deepEqual(events.map(e=>e.event_type),['created','assigned','section_changed']);
+  assert.equal(events[2].metadata.from,'general');assert.equal(events[2].metadata.to,'story');
   // Still the agent's card (they hold it), shown once, in the story section, naming its story.
   const mine=ok(await get('agent',`${base}/items?range=all&section=story`)).items;
   assert.equal(mine.filter((i:{id:string})=>i.id===item.id).length,1);
@@ -169,7 +167,7 @@ test('a post moving into a story keeps its id, status, assignee and full history
   assert.equal((await list('admin','general')).filter(i=>i.id===item.id).length,0);
   // The unit's drawer lists it with its own status.
   const detail=ok(await get('admin',`${base}/items/${unit.id}`));
-  assert.equal(detail.members.find((m:{post_id:string})=>m.post_id===p.id).item_status,'in_progress');
+  assert.equal(detail.members.find((m:{post_id:string})=>m.post_id===p.id).item_status,'assigned');
   // The agent can still finish their work.
   ok(await call(app,tok.agent,'POST',`${base}/items/${item.id}/complete`,{expectedVersion:moved.version,review:{outcome:'confirmed'}}));
 });
@@ -336,7 +334,6 @@ test('story merge keeps each story history, notes, assignment and completion; wo
   await intakeQueue();
   let ua=await unitOf(a);const ub=await unitOf(b);
   ua=ok(await call(app,tok.supervisor,'POST',`${base}/items/${ua.id}/assign`,{expectedVersion:ua.version,assigneeId:uid.agent}));
-  ua=ok(await call(app,tok.agent,'POST',`${base}/items/${ua.id}/start`,{expectedVersion:ua.version}));
   ua=ok(await call(app,tok.agent,'POST',`${base}/items/${ua.id}/notes`,{expectedVersion:ua.version,body:'ملاحظة قبل الدمج'}));
   const eventsBefore=(await sql`SELECT id,event_type,version FROM queue_events WHERE queue_item_id=${ua.id}::uuid ORDER BY version`);
   const notesBefore=(await sql`SELECT id,body FROM queue_notes WHERE queue_item_id=${ua.id}::uuid`);
@@ -349,7 +346,7 @@ test('story merge keeps each story history, notes, assignment and completion; wo
   assert.deepEqual(eventsAfter.slice(0,eventsBefore.length).map(e=>e.id),eventsBefore.map(e=>e.id));
   assert.equal(eventsAfter.at(-1)!.event_type,'story_merged');
   assert.deepEqual((await sql`SELECT id,body FROM queue_notes WHERE queue_item_id=${ua.id}::uuid`).map(n=>n.id),notesBefore.map(n=>n.id));
-  assert.equal(merged.assignee_id,uid.agent);assert.equal(merged.status,'in_progress');assert.equal(merged.merged_into_id,ub.id);
+  assert.equal(merged.assignee_id,uid.agent);assert.equal(merged.status,'assigned');assert.equal(merged.merged_into_id,ub.id);
   // The surviving, unowned story is handed to the same agent by an audited assignment.
   const target=(await sql`SELECT * FROM queue_items WHERE id=${ub.id}::uuid`)[0];
   assert.equal(target.assignee_id,uid.agent);assert.equal(target.status,'assigned');
@@ -357,11 +354,11 @@ test('story merge keeps each story history, notes, assignment and completion; wo
   assert.equal(handoff.event_type,'assigned');assert.equal(handoff.metadata.fromItem,ua.id);
   // Workload counts the live unit once, never the frozen merged one.
   const workload=async()=>ok(await get('supervisor',`${base}/summary?range=all`)).workload.find((x:{id:string})=>x.id===uid.agent);
-  const open=(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status IN ('assigned','escalated') AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n;
+  const open=(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status IN ('assigned','in_progress') AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n;
   assert.equal((await workload()).open,open);
-  assert.equal((await workload()).in_progress,(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status='in_progress' AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n);
+  assert.equal((await workload()).escalated,(await sql`SELECT count(*)::int AS n FROM queue_items WHERE assignee_id=${uid.agent}::uuid AND status='escalated' AND merged_into_id IS NULL AND team_id=${team}::uuid`)[0].n);
   // Completing the surviving unit is one completion; the merged unit never completes on its own.
-  let t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/start`,{expectedVersion:target.version}));
+  let t2=target;
   const doneBefore=(await workload()).completed_today;
   t2=ok(await call(app,tok.agent,'POST',`${base}/items/${ub.id}/complete`,{expectedVersion:t2.version,review:{outcome:'confirmed'}}));
   await intakeQueue();
@@ -370,7 +367,7 @@ test('story merge keeps each story history, notes, assignment and completion; wo
   // The surviving story lists the merged one, whose drawer still has its own history.
   assert.equal(ok(await get('admin',`${base}/items/${ub.id}`)).merged[0].id,ua.id);
   const old=ok(await get('admin',`${base}/items/${ua.id}`));
-  assert.equal(old.notes.length,1);assert.ok(old.events.some((e:{event_type:string})=>e.event_type==='started'));
+  assert.equal(old.notes.length,1);assert.ok(old.events.some((e:{event_type:string})=>e.event_type==='note_added'));
 });
 
 test('transfer between teams: scope, validation, conflict, audit, placement and alerts',async()=>{
@@ -415,7 +412,6 @@ test('transfer between teams: scope, validation, conflict, audit, placement and 
   assert.equal(gm.section,'general');
   assert.equal((await sql`SELECT count(*)::int AS n FROM queue_alerts WHERE queue_item_id=${gi.id}::uuid`)[0].n,0);
   assert.equal((await call(app,tok.sup3,'POST',`${base}/items/${unit.id}/transfer`,{expectedVersion:unit.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
-  let done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/start`,{expectedVersion:gm.version}));
-  done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/complete`,{expectedVersion:done.version,review:{outcome:'confirmed'}}));
+  const done=ok(await call(app,tok.agent2,'POST',`${base}/items/${gi.id}/complete`,{expectedVersion:gm.version,review:{outcome:'confirmed'}}));
   assert.equal((await call(app,tok.admin,'POST',`${base}/items/${gi.id}/transfer`,{expectedVersion:done.version,teamId:team,assigneeId:uid.agent,reason:'x'})).statusCode,409);
 });

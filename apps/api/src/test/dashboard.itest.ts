@@ -118,7 +118,6 @@ before(async () => {
   // A human review: i2 is closed with its type corrected to complaint.
   let item = await ok(call(app, tok.admin, 'POST', '/api/v1/queue/items', { postId: ids.i2, postedAt: at(D) }), 201);
   item = await ok(call(app, tok.supervisor, 'POST', `/api/v1/queue/items/${item.id}/assign`, { expectedVersion: item.version, assigneeId: uid.agent }));
-  item = await ok(call(app, tok.agent, 'POST', `/api/v1/queue/items/${item.id}/start`, { expectedVersion: item.version }));
   item = await ok(call(app, tok.agent, 'POST', `/api/v1/queue/items/${item.id}/complete`,
     { expectedVersion: item.version, review: { outcome: 'corrected', intent: 'complaint', reason: 'النص شكوى' } }));
   ids.item = item.id; ids.itemVersion = String(item.version);
@@ -250,9 +249,9 @@ test('queue performance and AI agreement: scoped, reopen gives no double credit,
   assert.equal(ai.reviewed, 1); assert.equal(ai.cycles, 2); assert.deepEqual([field(ai, 'intent').sample, field(ai, 'intent').agreed], [1, 1]);
   const ops = await ok(get('supervisor', '/operations' + `?from=${day(-30)}&to=${day(0)}&program=${A.key}`));
   assert.equal(ops.period.closed_items, 1); assert.equal(ops.period.review_cycles, 2); assert.equal(ops.period.reopened, 1);
-  assert.equal(ops.snapshot.in_progress, 0);
+  assert.equal('in_progress' in ops.snapshot, false, 'no separate in-review state any more');
   const emp = ops.employees.find((e: { id: string }) => e.id === uid.agent);
-  assert.equal(emp.closed_items, 1); assert.equal(emp.review_cycles, 2); assert.ok(emp.avg_review_handling_min !== undefined);
+  assert.equal(emp.closed_items, 1); assert.equal(emp.review_cycles, 2); assert.ok(emp.avg_assignment_to_close_min !== undefined);
   // Agent: own figures only, no employee table. Other team's supervisor and agent: nothing of A.
   const mine = await ok(get('agent', '/operations' + `?from=${day(-30)}&to=${day(0)}`));
   assert.equal(mine.scope, 'own'); assert.deepEqual(mine.employees, []); assert.ok(mine.period.closed_items >= 1);
