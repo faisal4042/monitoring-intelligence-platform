@@ -1,5 +1,6 @@
 import { sql } from '@mip/db';
 import { logger } from '@mip/logger';
+import { assignAfter } from '../modules/queue/workforce.js';
 import { alertForEvents, authoredByInfluencer, followStoryMerges, openStoryUnits, reconcileSections, refreshStorySnapshots, storyUnitOf } from '../modules/queue/sections.js';
 
 /**
@@ -12,6 +13,13 @@ import { alertForEvents, authoredByInfluencer, followStoryMerges, openStoryUnits
  * so manually added items still land in the right section.
  */
 export async function intakeQueue() {
+  const result=await intakeTx();
+  // New eligible work: offer it to available agents right away (after commit).
+  if(result.created||result.units||result.moved)await assignAfter('item_created');
+  return result;
+}
+
+async function intakeTx() {
   return sql.begin(async tx=>{
     // Also serializes settings/routing changes. Independent/manual insert races
     // are resolved by the partial unique index, never by a check-then-insert.

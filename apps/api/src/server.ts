@@ -7,6 +7,7 @@ import { ensureAutomaticQueries, startCollectionWorker } from './workers/collect
 import { startClassificationWorker } from './workers/classification.worker.js';
 import { startPartitionMaintenanceWorker } from './workers/partition-maintenance.worker.js';
 import { startQueueIntakeWorker } from './workers/queue-intake.worker.js';
+import { startWorkforceWorker } from './workers/workforce.worker.js';
 import { startNewsFetchWorker } from './workers/news-fetch.worker.js';
 import { startAlertsWorker } from './workers/alerts.worker.js';
 import { startXStreamWorker } from './workers/x-stream.worker.js';
@@ -17,6 +18,7 @@ let stopNewsFetchWorker: (() => void) | null = null;
 let stopAlertsWorker: (() => void) | null = null;
 let stopPartitionWorker: (() => void) | null = null;
 let stopQueueIntake: (() => void) | null = null;
+let stopWorkforce: (() => void) | null = null;
 let stopXStreamWorker: (() => void) | null = null;
 
 const app = await buildApp({ loggerInstance: logger });
@@ -27,6 +29,7 @@ async function main() {
   // Before any worker can insert: monthly partitions must cover now and ahead.
   stopPartitionWorker = await startPartitionMaintenanceWorker();
   stopQueueIntake = startQueueIntakeWorker();
+  stopWorkforce = startWorkforceWorker();
 
   const automaticQueries = await ensureAutomaticQueries();
   stopCollectionWorker = startCollectionWorker();
@@ -62,6 +65,7 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const) {
     stopAlertsWorker?.();
     stopPartitionWorker?.();
     stopQueueIntake?.();
+    stopWorkforce?.();
     await app.close();
     await sql.end({ timeout: 5 }).catch(() => {});
     process.exit(0);

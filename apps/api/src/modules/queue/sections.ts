@@ -28,7 +28,7 @@ export const authoredByInfluencer = sql`EXISTS (SELECT 1 FROM authors a
   WHERE a.id=p.author_id)`;
 
 /** For alias u (users). Permissions are the union of role and per-user grants. */
-const holds = (perm: string) => sql`(EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id=u.role_id AND rp.permission_key=${perm})
+export const holds = (perm: string) => sql`(EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id=u.role_id AND rp.permission_key=${perm})
   OR EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id=u.id AND up.permission_key=${perm}))`;
 
 const storySnapshot = sql`jsonb_build_object('title',s.title_ar,'summary',s.summary_ar,'why',s.why_ar,

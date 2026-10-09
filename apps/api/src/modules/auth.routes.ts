@@ -1,3 +1,4 @@
+import { endOnLogout } from './queue/workforce.js';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mip/db';
@@ -120,6 +121,8 @@ export default async function authRoutes(app: FastifyInstance) {
           action: 'auth.logout', entityType: 'user', entityId: userId, entityLabel: u?.email ?? null,
           actor: { id: userId, email: u?.email ?? null },
         });
+        // Signing out ends the agent's availability (signing in never starts it).
+        await endOnLogout(userId);
       }
     }
     reply.clearCookie(COOKIE, { path: '/' });

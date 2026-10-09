@@ -22,6 +22,7 @@ import adminRoutes from './modules/admin.routes.js';
 import userRoutes from './modules/users.routes.js';
 import queueRoutes from './modules/queue/routes.js';
 import teamRoutes from './modules/queue/teams.routes.js';
+import workforceRoutes from './modules/queue/workforce.routes.js';
 import signalRoutes from './modules/signals/routes.js';
 import dashboardRoutes from './modules/dashboard/routes.js';
 import newsRoutes from './modules/news/routes.js';
@@ -118,6 +119,7 @@ export async function buildApp(opts: FastifyServerOptions & { rateLimit?: boolea
   await app.register(userRoutes, { prefix: '/api/v1/admin' });
   await app.register(queueRoutes, { prefix: '/api/v1/queue' });
   await app.register(teamRoutes, { prefix: '/api/v1/teams' });
+  await app.register(workforceRoutes, { prefix: '/api/v1/workforce' });
   await app.register(signalRoutes, { prefix: '/api/v1/signals' });
   await app.register(dashboardRoutes, { prefix: '/api/v1/dashboard' });
   await app.register(newsRoutes, { prefix: '/api/v1/news' });
