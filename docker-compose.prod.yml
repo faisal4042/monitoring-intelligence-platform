@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      RUN_DB_SETUP_ON_START: ${RUN_DB_SETUP_ON_START:-false}
       TZ: Asia/Riyadh
       API_PORT: "3001"
       APP_URL: https://monitoring.interactivedashboardpages.com
