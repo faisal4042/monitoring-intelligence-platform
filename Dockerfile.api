@@ -19,7 +19,7 @@ COPY packages packages
 
 USER node
 EXPOSE 3001
-# Schema changes and seeding are a deliberate release step, never a side effect
-# of a deploy or container restart. Set RUN_DB_SETUP_ON_START=true only for a
-# release that has been approved to migrate the production database.
-CMD ["sh", "-c", "if [ \"$RUN_DB_SETUP_ON_START\" = \"true\" ]; then pnpm db:push && pnpm db:seed || exit 1; else echo \"db:push/db:seed skipped (RUN_DB_SETUP_ON_START is not true)\"; fi; exec pnpm --filter @mip/api start"]
+# Production start never seeds. Schema migrations (additive SQL files, each
+# recorded in _migrations) run only when RUN_DB_MIGRATIONS_ON_START=true is set
+# for an approved release; a failed migration stops the container before the API starts.
+CMD ["sh", "-c", "if [ \"$RUN_DB_MIGRATIONS_ON_START\" = \"true\" ]; then pnpm db:push || exit 1; else echo \"db:push skipped (RUN_DB_MIGRATIONS_ON_START is not true); db:seed never runs on start\"; fi; exec pnpm --filter @mip/api start"]
