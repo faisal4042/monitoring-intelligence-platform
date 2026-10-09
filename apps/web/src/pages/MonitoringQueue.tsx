@@ -65,7 +65,10 @@ function SupervisorQueue() {
 
   const selected=params.get('item');const items=list.data?.pages.flatMap(p=>p.items)??[];
   const sections=summary.data?.sections;
-  const tabCount=(s:QueueSection)=>{const c=sections?.[s];if(!c)return null;return supervise?c.new:c.assigned+c.in_progress+c.escalated;};
+  // Each section tab counts the selected work view, so the tab and the list below never disagree.
+  const tabCount=(s:QueueSection)=>{const c=sections?.[s];const v=summary.data?.views[s];if(!c||!v)return null;
+    return view==='mine'?v.mine:view==='unassigned'?v.unassigned:view==='closed'?v.closed:c.new+c.assigned+c.in_progress+c.escalated;};
+  const VIEW_NOUN:Record<string,string>={mine:'من مهامي',unassigned:'غير مسند',open:'مفتوح',closed:'مغلق'};
   const needsAction=sections?QUEUE_SECTIONS.reduce((n,s)=>n+(supervise?sections[s].new+sections[s].escalated:sections[s].assigned+sections[s].in_progress+sections[s].escalated),0):null;
   const counts=sections?.[section];
   const members=options?.members.filter((m,i,all)=>all.findIndex(n=>n.id===m.id)===i)??[];
@@ -81,7 +84,7 @@ function SupervisorQueue() {
         <h1 className="flex items-center gap-2"><Inbox size={22}/>{supervise?'طابور الرصد':'مهامي'}</h1>
       </div>
       {needsAction!==null&&<span className={`queue-chip ${needsAction?'queue-chip--action':''}`} title={supervise?'غير مسند أو مصعّد':'مسند إليك ولم يكتمل'}>
-        {needsAction} {supervise?'بحاجة لإجراء':'بانتظارك'}</span>}
+        {needsAction} {supervise?'غير مسند أو مصعّد':'بانتظارك'}</span>}
       {!!summary.data?.held&&<span className="queue-chip queue-chip--action"><TriangleAlert size={14}/>{summary.data.held} نقل بانتظار المراجعة</span>}
       <div className="flex-1"/>
       {updatedAt&&<span className="text-xs muted" aria-live="polite">آخر تحديث {fmtRelative(updatedAt)}</span>}
@@ -100,7 +103,7 @@ function SupervisorQueue() {
         return <button key={s} role="tab" aria-selected={s===section} className="queue-tab"
           onClick={()=>setParams(old=>{const next=new URLSearchParams(old);next.set('section',s);next.delete('item');if(s==='story'||section==='story')next.delete('status');return next;})}>
           <Icon size={16}/>{QUEUE_SECTION_LABELS[s].ar}
-          {n!==null&&<span className="queue-tab-count" aria-label={`${n} ${supervise?'جديد':'مفتوح'}`}>{n}</span>}
+          {n!==null&&<span className="queue-tab-count" aria-label={`${n} ${VIEW_NOUN[view]??''}`}>{n}</span>}
           {unread>0&&<span className="queue-tab-unread" title={`${unread} تنبيه غير مقروء`} aria-label={`${unread} تنبيه غير مقروء`}/>}
         </button>;})}
     </nav>
