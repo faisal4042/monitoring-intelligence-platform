@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth';
 import { fmtNum, fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import { Plus, Rss, X } from 'lucide-react';
+import CollectionMonitor from '../components/news/CollectionMonitor';
 
 interface NewsSource {
   id: string; program_id: string | null; program_name: string | null;
@@ -17,6 +18,7 @@ interface NewsSource {
   health_state: 'healthy' | 'degraded' | 'failed';
   consecutive_failures: number; total_fetches: number; total_errors: number;
   last_checked_at: string | null;
+  extraction_mode: 'off' | 'shadow' | 'static' | 'dynamic';
 }
 
 interface DiscoveryResult {
@@ -37,6 +39,14 @@ const CONNECTOR_TYPES: Record<string, string> = {
   auto: 'اكتشاف تلقائي', rss: 'RSS', atom: 'Atom', api: 'API', sitemap: 'Sitemap', crawler: 'Crawler', manual: 'يدوي',
   unknown: 'غير معروف — أضف الرابط يدوياً',
 };
+// Article-text extraction per source (Scrapling engine). Takes effect only when the engine is enabled globally.
+const EXTRACTION_MODES: Record<NewsSource['extraction_mode'], { text: string; hint: string }> = {
+  off: { text: 'بدون استخراج', hint: 'الخلاصة وخريطة الموقع فقط، كما هو الحال اليوم' },
+  shadow: { text: 'ظل (قياس فقط)', hint: 'يُستخرج النص للمقارنة دون أي تغيير على الأخبار المحفوظة' },
+  static: { text: 'استخراج ثابت', hint: 'جلب صفحة المقال واستخراج النص دون متصفح' },
+  dynamic: { text: 'ثابت + متصفح عند الحاجة', hint: 'يُستخدم المتصفح فقط إذا خلت الصفحة من النص ويتطلب تفعيله عالميًا' },
+};
+
 const HEALTH: Record<string, { text: string; cls: string }> = {
   healthy: { text: 'سليم', cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
   degraded: { text: 'متدهور', cls: 'bg-amber-500/15 text-amber-600' },
@@ -134,6 +144,13 @@ export default function NewsSources() {
     },
   });
 
+  const [modeError, setModeError] = useState<Record<string, string>>({});
+  const setExtractionMode = useMutation({
+    mutationFn: ({ id, mode }: { id: string; mode: NewsSource['extraction_mode'] }) => api.patch(`/news/sources/${id}`, { extractionMode: mode }),
+    onSuccess: (_d, { id }) => { setModeError((p) => ({ ...p, [id]: '' })); qc.invalidateQueries({ queryKey: ['news-sources'] }); qc.invalidateQueries({ queryKey: ['news-extraction-metrics'] }); },
+    onError: (err: unknown, { id }) => setModeError((p) => ({ ...p, [id]: err instanceof ApiError ? err.message : 'تعذّر حفظ وضع الاستخراج' })),
+  });
+
   const toggleActive = useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       isActive ? api.patch(`/news/sources/${id}`, { isActive: true }) : api.del(`/news/sources/${id}`),
@@ -145,7 +162,7 @@ export default function NewsSources() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2.5 text-xl font-bold"><Rss size={22} className="text-brand-600" /> مصادر الأخبار</h1>
-          <p className="text-sm muted">تسجيل واختبار المصادر فقط في هذه المرحلة — لا جلب دوري بعد</p>
+          <p className="text-sm muted">جلب دوري من الخلاصات وخرائط المواقع، مع مراقبة صحة الجمع واستخراج نص المقالات للمصادر المفعّلة</p>
         </div>
         {canManage && (
           <button className="btn-primary" onClick={() => setShowForm((v) => !v)}>
@@ -239,6 +256,8 @@ export default function NewsSources() {
         </div>
       )}
 
+      <CollectionMonitor />
+
       {isLoading && <div className="card p-10 text-center muted">جارٍ التحميل…</div>}
       {!isLoading && !data?.items.length && (
         <div className="card p-10 text-center">
@@ -260,6 +279,8 @@ export default function NewsSources() {
                     <span className="badge bg-[var(--surface-3)]">{CONNECTOR_TYPES[s.connector_type] ?? s.connector_type}</span>
                     <span className={`badge ${health.cls}`}>{health.text}</span>
                     {!s.is_active && <span className="badge bg-slate-500/15 text-slate-500">معطّل</span>}
+                    {s.extraction_mode && s.extraction_mode !== 'off' && <span className="badge bg-sky-500/15 text-sky-600" title={EXTRACTION_MODES[s.extraction_mode]?.hint}>
+                      استخراج النص: {EXTRACTION_MODES[s.extraction_mode]?.text ?? s.extraction_mode}</span>}
                   </div>
                   <a href={s.base_url} target="_blank" rel="noreferrer" className="text-xs muted hover:text-brand-600" style={{ direction: 'ltr', unicodeBidi: 'plaintext' }}>
                     {s.base_url}
@@ -273,7 +294,13 @@ export default function NewsSources() {
                   </div>
                 </div>
                 {canManage && (
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                    <label className="flex items-center gap-1.5 text-xs muted" title={EXTRACTION_MODES[s.extraction_mode ?? 'off']?.hint}>استخراج النص
+                      <select className="input !w-auto !py-1 !text-xs" value={s.extraction_mode ?? 'off'} disabled={setExtractionMode.isPending}
+                              aria-label={`وضع استخراج النص لمصدر ${s.name_ar}`}
+                              onChange={(e) => setExtractionMode.mutate({ id: s.id, mode: e.target.value as NewsSource['extraction_mode'] })}>
+                        {(Object.keys(EXTRACTION_MODES) as Array<NewsSource['extraction_mode']>).map((k) => <option key={k} value={k}>{EXTRACTION_MODES[k].text}</option>)}
+                      </select></label>
                     <button className="btn-ghost !text-xs" disabled={testingSourceId === s.id}
                             onClick={() => testExistingSource.mutate({ id: s.id })}>
                       {testingSourceId === s.id ? 'جارٍ الاختبار…' : 'اختبار الاتصال'}
@@ -285,6 +312,9 @@ export default function NewsSources() {
                   </div>
                 )}
               </div>
+              {modeError[s.id] && (
+                <div className="mt-3 text-xs p-2.5 rounded-lg bg-red-500/10 text-red-600">{modeError[s.id]}</div>
+              )}
               {sourceErrors[s.id] && (
                 <div className="mt-3 text-xs p-2.5 rounded-lg bg-red-500/10 text-red-600">{sourceErrors[s.id]}</div>
               )}
