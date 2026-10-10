@@ -42,3 +42,6 @@ redis-data/
 .DS_Store
 Thumbs.db
 .claude/
+
+# News extractor benchmark output (summarised in docs/news-scrapling.md)
+apps/news-extractor/bench/*.json

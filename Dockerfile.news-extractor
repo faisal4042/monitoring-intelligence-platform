@@ -1,0 +1,25 @@
+# MIP news extractor (Scrapling). Stateless: no database, no API keys.
+# Static fetching only by default. Build with --build-arg WITH_BROWSER=true to
+# add Playwright Chromium for sources that genuinely need JavaScript rendering
+# (it still runs only when NEWS_SCRAPLING_DYNAMIC_ENABLED=true).
+FROM python:3.12-slim
+
+ARG WITH_BROWSER=false
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+WORKDIR /app
+
+RUN groupadd --system mip && useradd --system --gid mip --home-dir /app mip
+COPY apps/news-extractor/pyproject.toml ./pyproject.toml
+COPY apps/news-extractor/app ./app
+RUN pip install --no-cache-dir . \
+ && if [ "$WITH_BROWSER" = "true" ]; then python -m playwright install --with-deps chromium; fi \
+ && rm -rf /root/.cache
+
+USER mip
+EXPOSE 8010
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8010/health', timeout=4).status == 200 else 1)"
+# Graceful shutdown: uvicorn finishes in-flight extractions (bounded) on SIGTERM.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1", "--timeout-graceful-shutdown", "30"]

@@ -1,0 +1,43 @@
+# Local / opt-in only. NOT part of the production compose files.
+#
+#   docker compose -f infra/docker-compose.news-extractor.yml up -d --build
+#
+# The extractor is reachable only on 127.0.0.1:8010 for the local API, sits on
+# its own network (no route to Postgres or Redis by name), has no secrets
+# except the optional shared token, and runs read-only, unprivileged and
+# resource-capped.
+services:
+  news-extractor:
+    build:
+      context: ..
+      dockerfile: Dockerfile.news-extractor
+      args:
+        WITH_BROWSER: ${NEWS_EXTRACTOR_WITH_BROWSER:-false}
+    image: mip-news-extractor:local
+    container_name: mip-news-extractor
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8010:8010"
+    environment:
+      NEWS_EXTRACTOR_TOKEN: ${NEWS_EXTRACTOR_TOKEN:-}
+      NEWS_SCRAPLING_DYNAMIC_ENABLED: ${NEWS_SCRAPLING_DYNAMIC_ENABLED:-false}
+      NEWS_EXTRACTOR_CONCURRENCY: "4"
+      NEWS_EXTRACTOR_DOMAIN_INTERVAL_MS: "1500"
+      NEWS_EXTRACTOR_MAX_BYTES: "3000000"
+    networks: [extractor]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    pids_limit: 256
+    # 768m is ample for static extraction (~80 MiB measured); set 1536m or more for the browser image.
+    mem_limit: ${NEWS_EXTRACTOR_MEM_LIMIT:-768m}
+    cpus: 1.0
+    shm_size: 256m   # Chromium needs /dev/shm when the browser image is used
+    stop_grace_period: 35s
+
+networks:
+  extractor:
+    name: mip-news-extractor
