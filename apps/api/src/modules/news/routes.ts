@@ -5,11 +5,14 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { PERMISSIONS } from '@mip/shared';
-import { badRequest } from '../../lib/errors.js';
+import { badRequest, conflict, notFound } from '../../lib/errors.js';
 import { audit } from '../../lib/audit.js';
 import { dateBoundsFromQuery, hasDateRange } from '../../lib/date-range.js';
 import * as newsService from './service.js';
 import { queueNewsRefresh } from '../../workers/news-fetch.worker.js';
+import { engineConfigured, getExtraction, reextractArticle } from './extraction/service.js';
+import { extractionMetrics } from './extraction/metrics.js';
+import { ExtractorUnavailable } from './extraction/client.js';
 
 const SOURCE_TYPES = ['newspaper', 'news_site', 'government', 'real_estate', 'blog', 'magazine', 'other'] as const;
 const CONNECTOR_TYPES = ['auto', 'rss', 'atom', 'api', 'sitemap', 'crawler', 'manual'] as const;
@@ -31,7 +34,8 @@ const sourceSchema = z.object({
   checkIntervalMinutes: z.number().int().min(5).max(1440).optional(),
 });
 
-const sourcePatchSchema = sourceSchema.partial().extend({ isActive: z.boolean().optional() });
+const EXTRACTION_MODES = ['off', 'shadow', 'static', 'dynamic'] as const;
+const sourcePatchSchema = sourceSchema.partial().extend({ isActive: z.boolean().optional(), extractionMode: z.enum(EXTRACTION_MODES).optional() });
 
 const testConnectionSchema = z.object({ url: z.string().url() });
 
@@ -124,6 +128,38 @@ export default async function newsRoutes(app: FastifyInstance) {
     await audit(req, {
       action: 'news_articles.reclassify', entityType: 'news_article',
       entityLabel: 'إعادة تصنيف أرشيف الأخبار', newValue: result,
+    });
+    return result;
+  });
+
+  // ── Article extraction (Scrapling engine) ─────────────────────────────
+  app.get('/extraction/metrics', async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    const hours = Math.min(Math.max(Number(q.hours ?? 24) || 24, 1), 24 * 30);
+    return extractionMetrics(hours);
+  });
+
+  app.get('/articles/:id/extraction', async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    return { items: await getExtraction(id) };
+  });
+
+  app.post('/articles/:id/extract', {
+    preHandler: [app.requirePermission(PERMISSIONS.NEWS_MANAGE_SOURCES)],
+  }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    if (!engineConfigured()) throw conflict('محرك استخراج المقالات غير مفعّل (NEWS_SCRAPLING_ENABLED أو NEWS_SCRAPLING_SHADOW_MODE)');
+    let result;
+    try {
+      result = await reextractArticle(id);
+    } catch (error) {
+      if (error instanceof ExtractorUnavailable) throw conflict('خدمة استخراج المقالات غير متاحة حاليًا');
+      throw error;
+    }
+    if (!result) throw notFound('الخبر غير موجود');
+    await audit(req, {
+      action: 'news_articles.reextract', entityType: 'news_article', entityId: id,
+      entityLabel: 'إعادة استخراج نص الخبر', newValue: result,
     });
     return result;
   });

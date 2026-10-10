@@ -14,6 +14,7 @@ import { RSSConnector } from '../modules/news/connectors/rss.js';
 import { SitemapConnector } from '../modules/news/connectors/sitemap.js';
 import { CrawlerConnector } from '../modules/news/connectors/crawler.js';
 import type { NewsConnector } from '../modules/news/connectors/types.js';
+import { engineConfigured, processExtractionQueue } from '../modules/news/extraction/service.js';
 
 let ticking = false;
 
@@ -183,6 +184,14 @@ async function tick() {
         log.error({ sourceId: claimed.id, err: message }, 'news fetch failed');
       }
     }));
+
+    // Article extraction queue: retries with backoff, shadow measurements and
+    // articles beyond the per-run inline budget. Lease-based, so a restart
+    // resumes these rows instead of losing or duplicating them.
+    if (engineConfigured()) {
+      const { processed } = await processExtractionQueue();
+      if (processed > 0) log.info({ processed }, 'news extraction queue pass');
+    }
   } catch (error) {
     log.error({ err: error instanceof Error ? error.message : String(error) }, 'news fetch tick failed');
   } finally {

@@ -82,6 +82,26 @@ const schema = z.object({
   NEWS_FETCH_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
   NEWS_DOMAIN_MIN_DELAY_MS: z.coerce.number().int().min(0).max(60_000).default(1000), // per-domain pacing, not a global rate cap
 
+  // Article extraction (Scrapling engine, apps/news-extractor). Everything is
+  // off by default; a source must also be opted in (news_sources.extraction_mode).
+  //   ENABLED      — live extraction for sources set to 'static' / 'dynamic'
+  //   SHADOW_MODE  — every opted-in source is measured only; nothing written to news_articles
+  //   DYNAMIC      — allow browser rendering for sources set to 'dynamic'
+  NEWS_SCRAPLING_ENABLED: bool.default('false'),
+  NEWS_SCRAPLING_SHADOW_MODE: bool.default('false'),
+  NEWS_SCRAPLING_DYNAMIC_ENABLED: bool.default('false'),
+  NEWS_EXTRACTOR_URL: z.string().url().default('http://localhost:8010'),
+  NEWS_EXTRACTOR_TOKEN: z.string().default(''),
+  NEWS_EXTRACTION_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(180_000).default(60_000),
+  // Articles extracted inline per source run; the rest are queued, never dropped.
+  NEWS_EXTRACTION_MAX_PER_RUN: z.coerce.number().int().min(0).max(50).default(6),
+  NEWS_EXTRACTION_QUEUE_BATCH: z.coerce.number().int().min(0).max(50).default(6),
+  NEWS_EXTRACTION_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
+  NEWS_EXTRACTION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
+  // Circuit breaker: this many consecutive failures pauses a source's extraction for the cooldown.
+  NEWS_EXTRACTION_BREAKER_FAILURES: z.coerce.number().int().min(2).max(50).default(5),
+  NEWS_EXTRACTION_BREAKER_COOLDOWN_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+
   // Alerts — channel credentials live per-row in notification_channels
   // (encrypted), not here; this only gates the evaluation tick.
   ALERTS_ENABLED: bool.default('false'),

@@ -7,6 +7,8 @@ import { discoverSource, type DiscoveryResult } from './lib/discovery.js';
 import { canonicalizeUrl, hashUrl } from './lib/url-canonicalize.js';
 import { checkRelevance, clearRelevanceCache } from './lib/relevance-filter.js';
 import type { RawArticle } from './connectors/types.js';
+import { afterInsert, engineFor, extractInline, urlState, type InlineOutcome } from './extraction/service.js';
+import { config } from '@mip/config';
 
 export interface NewsSourceInput {
   programId?: string | null;
@@ -59,7 +61,7 @@ export async function createSource(input: NewsSourceInput, createdBy: string) {
   return row;
 }
 
-export async function updateSource(id: string, patch: Partial<NewsSourceInput> & { isActive?: boolean }) {
+export async function updateSource(id: string, patch: Partial<NewsSourceInput> & { isActive?: boolean; extractionMode?: 'off' | 'shadow' | 'static' | 'dynamic' }) {
   const [before] = await sql`SELECT * FROM news_sources WHERE id = ${id}::uuid`;
   if (!before) throw notFound('المصدر غير موجود');
 
@@ -80,6 +82,15 @@ export async function updateSource(id: string, patch: Partial<NewsSourceInput> &
       is_active = COALESCE(${patch.isActive ?? null}, is_active),
       updated_at = now()
     WHERE id = ${id}::uuid RETURNING *`;
+
+  // Separate statement, run only when asked: editing any other field never
+  // touches extraction_mode, so it keeps working whether or not 0042 is applied.
+  if (patch.extractionMode) {
+    const [withMode] = await sql`
+      UPDATE news_sources SET extraction_mode = ${patch.extractionMode}, updated_at = now()
+      WHERE id = ${id}::uuid RETURNING *`;
+    return { before, after: withMode };
+  }
 
   return { before, after };
 }
@@ -168,8 +179,16 @@ export async function recordHealthCheck(sourceId: string, ok: boolean, responseM
  */
 export async function ingestArticles(sourceId: string, items: RawArticle[]): Promise<number> {
   let inserted = 0;
-  const [source] = await sql<{ program_id: string | null; name_ar: string }[]>`
-    SELECT program_id, name_ar FROM news_sources WHERE id = ${sourceId}::uuid`;
+  const [source] = await sql<{ program_id: string | null; name_ar: string; extraction_mode: string; language: string | null }[]>`
+    SELECT program_id, name_ar, language,
+           -- Read through to_jsonb so this query also works before migration 0042 adds the column (→ null → engine off).
+           to_jsonb(news_sources) ->> 'extraction_mode' AS extraction_mode
+    FROM news_sources WHERE id = ${sourceId}::uuid`;
+  // Article extraction (off unless enabled globally and for this source). Live
+  // extraction runs inline for up to NEWS_EXTRACTION_MAX_PER_RUN new articles;
+  // anything beyond that is stored as today and queued, never dropped.
+  const engine = engineFor(source?.extraction_mode);
+  let inlineBudget = engine.mode === 'live' ? config.NEWS_EXTRACTION_MAX_PER_RUN : 0;
   for (const item of items) {
     if (source?.program_id) {
       const publisherName = item.publisherName ?? '';
@@ -196,6 +215,20 @@ export async function ingestArticles(sourceId: string, items: RawArticle[]): Pro
     // A program-targeted discovery feed is a precision layer, not a general
     // archive. Never store search-result noise or a hit for another program.
     if (source?.program_id && (!relevance.isRelevant || relevance.programId !== source.program_id)) continue;
+    let outcome: InlineOutcome | null = null;
+    const contentHtml = typeof item.raw?.['content:encoded'] === 'string' ? item.raw['content:encoded'] as string : null;
+    const extractionInput = { title: item.title, summary: item.description ?? null, publishedAt: publishedAtIso, language: item.language ?? source?.language ?? null };
+    const state = engine.mode === 'live' ? await urlState(hash) : null;
+    // Rediscovered link already identified as a copy of a stored article: never inserted.
+    if (state === 'duplicate') continue;
+    if (inlineBudget > 0 && state === null) {
+      inlineBudget--;
+      outcome = await extractInline(sourceId, engine, hash, { url: item.url, title: item.title, description: item.description ?? null,
+        publishedAt: publishedAtIso, language: extractionInput.language, contentHtml });
+      // The page's own canonical URL or body matches an article we already have.
+      if (outcome.duplicateOf) continue;
+    }
+    const page = outcome?.result && (outcome.result.status === 'complete' || outcome.result.status === 'partial') ? outcome.result : null;
     const [row] = await sql`
       INSERT INTO news_articles (
         source_id, url, canonical_url, url_hash, title, description,
@@ -203,15 +236,21 @@ export async function ingestArticles(sourceId: string, items: RawArticle[]): Pro
         is_relevant, matched_keyword, program_id, topic_id, relevance_score
       ) VALUES (
         ${sourceId}::uuid, ${item.url}, ${canonical}, ${hash}, ${item.title}, ${item.description ?? null},
-        ${item.author ?? null}, ${item.language ?? null}, ${item.imageUrl ?? null},
+        ${item.author ?? page?.authors[0] ?? null}, ${item.language ?? page?.language ?? null}, ${item.imageUrl ?? page?.image_url ?? null},
         ${item.publisherName ?? null}, ${item.publisherUrl ?? null},
-        ${publishedAtIso}::timestamptz, ${JSON.stringify(item.raw)}::jsonb,
+        -- The feed's date wins; the page's published date fills a gap (never the fetch time).
+        ${publishedAtIso ?? page?.published_at ?? null}::timestamptz, ${JSON.stringify(item.raw)}::jsonb,
         ${relevance.isRelevant}, ${relevance.matchedKeyword}, ${relevance.programId}::uuid,
         ${relevance.topicId}::uuid, ${relevance.score}
       )
       ON CONFLICT (url_hash) DO NOTHING
       RETURNING id`;
-    if (row) inserted++;
+    if (row) {
+      inserted++;
+      if (engine.mode !== 'off') {
+        await afterInsert(sourceId, row.id, item.url, hash, engine.mode === 'live' ? outcome : null, extractionInput, engine.mode);
+      }
+    }
   }
   return inserted;
 }
