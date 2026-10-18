@@ -1506,6 +1506,8 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .ic-card .ic-text.is-expanded { display: block; -webkit-line-clamp: unset; overflow: visible; }
 .ic-read-more { display: block; margin: -.2rem auto .2rem; color: var(--accent-ink); font-size: .75rem; font-weight: var(--fw-strong); letter-spacing: .06em; cursor: pointer; background: transparent; }
 .ic-queue-media { padding: 0 1.1rem .4rem; }
+.ic-history-dialog { max-width: 560px; }
+.ic-history-body { max-height: 65vh; overflow-y: auto; padding-inline-end: .25rem; }
 .history-media { margin-top: .6rem; }
 .ic-read-more:hover { color: var(--color-brand-600); text-decoration: underline; }
 .queue-compact .ic-text { -webkit-line-clamp: 2; } .queue-compact .ic-root { display: none; }

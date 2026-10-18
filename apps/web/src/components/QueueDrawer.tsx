@@ -5,7 +5,7 @@ import {useEffect,useState} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 
 import {X,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight,Flame} from 'lucide-react';
-import {PERMISSIONS as P,QUEUE_EVENT_LABELS,QUEUE_REVIEW_OUTCOME_LABELS,QUEUE_RESOLUTION_LABELS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction,type QueueSection} from '@mip/shared';
+import {PERMISSIONS as P,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
 import {INTENT_LABELS,SENTIMENT_LABELS,SOURCE_LABELS,STORY_STATE_LABELS,duration,sourceOf,useServerClock,type QueueItem,type QueueOptions,type ReviewCatalog,type QueueSummary} from '../lib/queue';
@@ -201,16 +201,6 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
         </section>}
 
         <section><h3 className="font-bold mb-3">الملاحظات الداخلية</h3>{!item.notes?.length&&<p className="muted text-sm">لا توجد ملاحظات</p>}{item.notes?.map(n=><div key={n.id} className="border-s-2 border-brand-500 ps-3 py-2 mb-3"><p className="whitespace-pre-wrap">{n.body}</p><p className="muted text-xs mt-1">{n.author_name} · {fmtDateTime(n.created_at)}</p></div>)}</section>
-        <section><h3 className="font-bold mb-3">سجل العمل ودورات المعالجة</h3><ol className="space-y-3">{item.events?.map(e=><li key={e.id} className="border-s-2 border-slate-300 ps-3 text-sm"><strong>{QUEUE_EVENT_LABELS[e.event_type]??e.event_type}</strong> · {e.actor_name??'النظام'}
-          <p className="muted text-xs">{fmtDateTime(e.created_at)} · {e.from_status&&e.from_status!==e.to_status?QUEUE_STATUS_LABELS[e.from_status]+' ← ':''}{QUEUE_STATUS_LABELS[e.to_status]}</p>
-          {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from as QueueSection]?.ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to as QueueSection]?.ar}`}</p>}
-          {e.event_type==='transferred'&&<p>{e.metadata?.fromTeamName??'—'} ← {e.metadata?.toTeamName??'—'}</p>}
-          {e.event_type==='assigned'&&e.metadata?.auto&&<p className="muted">إسناد تلقائي</p>}
-          {e.metadata?.override?.includes('not_available')&&<p className="text-amber-600">أُسند يدوياً لموظف غير متاح</p>}
-          {e.metadata?.override?.includes('box_full')&&<p className="text-amber-600">أُسند يدوياً رغم امتلاء الصندوق</p>}
-          {e.event_type==='priority_changed'&&<p>{e.metadata?.to==='high'?'رُفعت إلى أولوية عالية':'أُعيدت إلى أولوية عادية'}</p>}
-          {e.event_type==='section_review'&&<p>{e.metadata?.hold?'التفاعل ضمن قصة يملكها فريق آخر؛ لم يُنقل تلقائياً.':'انتهت حالة المراجعة.'}</p>}
-          {e.reason&&<p>{e.reason}</p>}{e.metadata?.outcome?<p>{QUEUE_REVIEW_OUTCOME_LABELS[e.metadata.outcome]}</p>:e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]} (سجل سابق)</p>}</li>)}</ol></section>
       </>}
       {history&&item?.x_author_id&&<AuthorHistoryModal xAuthorId={item.x_author_id} onClose={()=>setHistory(false)}/>}
     </ModalSurface>;

@@ -7,13 +7,14 @@
 import {lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
-  CheckCircle2, Clock, Copy, ExternalLink, Flame, Hand, History, IdCard, Maximize2, MessageSquareText, Sparkles,
+  CheckCircle2, Clock, Copy, ExternalLink, Flame, Hand, History, IdCard, Maximize2, ScrollText, MessageSquareText, Sparkles,
   StickyNote, TriangleAlert, UserRound, X as Close, Zap,
 } from 'lucide-react';
 import {canReadInfluencerCards, PERMISSIONS as P, QUEUE_REVIEW_OUTCOME_LABELS, QUEUE_SECTION_LABELS, QUEUE_STATUS_LABELS, type QueueReviewOutcome, type QueueStatus} from '@mip/shared';
 import ModalSurface, {ModalCloseButton} from '../ModalSurface';
 import {api} from '../../lib/api';
 import {InteractionMedia} from '../media/InteractionMedia';
+import TicketHistoryDialog from './TicketHistoryDialog';
 // The card renderer is heavy; load it only when an export is opened.
 const CardExportDialog = lazy(() => import('../influencers/CardExportDialog'));
 import {useAuth} from '../../lib/auth';
@@ -40,6 +41,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
   const [exportingCard, setExportingCard] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
   const story = item.interaction_type === 'story';
   const src = isSourceCard(item);
@@ -121,6 +123,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         {link ? <a className="ic-icon" href={link} target="_blank" rel="noopener noreferrer" title="فتح في المصدر" aria-label="فتح في المصدر"><ExternalLink size={17}/></a>
           : <IconAction label="فتح في المصدر" disabled onClick={() => {}}><ExternalLink size={17}/></IconAction>}
         {!story && !src && <IconAction label="سجل العميل والتفاصيل" onClick={onOpen}><History size={17}/></IconAction>}
+        <IconAction label="سجل التذكرة" active={historyOpen} onClick={() => setHistoryOpen(true)}><ScrollText size={17}/></IconAction>
         {item.section === 'influencer' && item.influencer_id && canReadInfluencerCards(user) &&
           <IconAction label="تصدير بطاقة المؤثر" onClick={() => setExportingCard(true)}><IdCard size={17}/></IconAction>}
         <IconAction label="كل التفاصيل والإجراءات" onClick={onOpen}><Maximize2 size={17}/></IconAction>
@@ -163,6 +166,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         <span className="ic-assignee">{item.assignee_name ?? 'غير مسند'}</span>
       </span>
     </footer>
+    {historyOpen && <TicketHistoryDialog id={item.id} ticket={ticket?.number} onClose={() => setHistoryOpen(false)}/>}
     {exportingCard && item.influencer_id && <Suspense fallback={null}>
       <CardExportDialog account={{id: item.influencer_id, username: item.username ?? ''}} onClose={() => setExportingCard(false)}/></Suspense>}
   </article>;
