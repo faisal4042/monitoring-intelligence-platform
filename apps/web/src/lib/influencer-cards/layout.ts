@@ -139,7 +139,7 @@ function nhcProfileBlock(c: Ctx, d: CardData): Block {
     first.push({ label: d.program.name_ar, ink: t.colors.indicator, fill: t.colors.surface, stroke: tint(t.colors.indicator, 0.6) });
   const values = { posts: d.figures.posts, relevant: d.figures.relevant, positive: s.positive, neutral: s.neutral, negative: s.negative, unclassified: s.unclassified };
   const names = { posts: 'تفاعل', relevant: 'ذو صلة', positive: 'إيجابي', neutral: 'محايد', negative: 'سلبي', unclassified: 'غير مصنف' };
-  const second: Chip[] = !t.show.figures ? [] : t.stats.filter((k) => k !== 'unclassified' || values.unclassified > 0).map((k) => {
+  const second: Chip[] = !t.show.figures ? [] : t.stats.filter((k) => k !== 'unclassified').map((k) => {
     const plain = k === 'posts' || k === 'relevant';
     const ink = plain ? t.colors.indicator : tone(k).ink;
     const fill = plain ? t.pillFill : tone(k).fill;
@@ -286,7 +286,8 @@ function figuresBlock(c: Ctx, d: CardData): Block | null {
   };
   const values = { posts: fig.posts, relevant: fig.relevant, positive: s.positive, neutral: s.neutral, negative: s.negative, unclassified: s.unclassified };
   const labels = t.design.statLabels;
-  const tiles = t.stats.map((key) => {
+  // «غير مصنف» is not shown on cards (owner request).
+  const tiles = t.stats.filter((key) => key !== 'unclassified').map((key) => {
     const tone = key === 'posts' ? { ink: t.colors.title, fill: t.pillFill } : key === 'relevant' ? t.relevance.relevant : t.sentiment[key];
     return { key, label: labels[key], value: values[key], ink: tone.ink, fill: tone.fill };
   });
@@ -346,7 +347,7 @@ function figuresBlock(c: Ctx, d: CardData): Block | null {
           const w = (s[k] / fig.posts) * innerW;
           if (w <= 0) continue;
           x -= w;
-          items.push({ kind: 'rect', x, y: ty, w, h: 10, r: 0, fill: k === 'unclassified' ? t.sentiment.unclassified.fill : t.sentiment[k].ink });
+          items.push({ kind: 'rect', x, y: ty, w, h: 10, r: 0, fill: k === 'unclassified' ? t.divider : t.sentiment[k].ink });
         }
         ty += 12;
       }
@@ -409,15 +410,16 @@ function emptyBlock(c: Ctx, d: CardData): Block | null {
 
 /** Badges for one post, right to left; every one states a stored value, none is inferred. */
 function postBadges(t: CardTheme, p: CardPost) {
-  const sentiment = p.sentiment_group ? t.sentiment[p.sentiment_group] : t.sentiment.unclassified;
-  const relevance = p.relevance === 'relevant' ? t.relevance.relevant : p.relevance ? t.relevance.other : t.relevance.none;
-  const out: Array<{ label: string; ink: string; fill: string }> = [
-    { label: sentiment.label, ink: sentiment.ink, fill: sentiment.fill },
-    { label: relevance.label, ink: relevance.ink, fill: relevance.fill },
-  ];
-  if (p.human_reviewed) out.push({ label: 'مراجَع بشرياً', ink: t.colors.title, fill: t.pillFill });
-  if (p.is_reply) out.push({ label: 'رد', ink: t.colors.muted, fill: '#f3f4f6' });
-  else if (p.is_quote) out.push({ label: 'اقتباس', ink: t.colors.muted, fill: '#f3f4f6' });
+  // Only classified values are shown: no «غير مصنف/لم يُصنف», no review or reply/quote tags (owner request).
+  const out: Array<{ label: string; ink: string; fill: string }> = [];
+  if (p.sentiment_group) {
+    const sentiment = t.sentiment[p.sentiment_group];
+    out.push({ label: sentiment.label, ink: sentiment.ink, fill: sentiment.fill });
+  }
+  if (p.relevance) {
+    const relevance = p.relevance === 'relevant' ? t.relevance.relevant : t.relevance.other;
+    out.push({ label: relevance.label, ink: relevance.ink, fill: relevance.fill });
+  }
   return out;
 }
 
@@ -521,12 +523,10 @@ function nhcPostBlock(c: Ctx, p: CardPost, index: number, total: number): Block 
   const url = t.show.postLinks ? safePostUrl(p.url) : null;
   const tag = t.show.postProgram && p.program_name ? p.program_name : null;
   const tagLh = Math.round(t.sizes.small * 1.7);
-  const sentiment = p.sentiment_group ? t.sentiment[p.sentiment_group] : t.sentiment.unclassified;
-  const grey = { ink: t.colors.muted, fill: '#f3f4f6', stroke: '#f3f4f6' };
-  const chips: Chip[] = !t.show.postBadges ? [] : [
+  // The sentiment only, and only when the post has one (owner request: no «غير مصنف», review or reply tags).
+  const sentiment = p.sentiment_group ? t.sentiment[p.sentiment_group] : null;
+  const chips: Chip[] = !t.show.postBadges || !sentiment ? [] : [
     { label: sentiment.label, ink: sentiment.ink, fill: t.colors.surface, stroke: sentiment.ink },
-    ...(p.human_reviewed ? [{ label: 'مراجَع بشرياً', ink: t.colors.indicator, fill: t.pillFill, stroke: t.pillFill }] : []),
-    ...(p.is_reply ? [{ label: 'رد', ...grey }] : p.is_quote ? [{ label: 'اقتباس', ...grey }] : []),
   ];
 
   const piece = (from: number, to: number): Block => {
