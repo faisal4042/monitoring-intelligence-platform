@@ -22,6 +22,12 @@ import {authoredByInfluencer, storyUnitOf} from '../queue/sections.js';
 
 export type SourceKind = 'x' | 'news' | 'youtube_video' | 'youtube_comment';
 const RELEVANT_VIDEO = sql`coalesce(vp.review_status, vp.suggested_status) IN ('matched','confirmed')`;
+/**
+ * A comment worth a monitor's time: at least three words and not only courtesy
+ * («الله يرزقك»، «آمين»، «شكرًا»، «ما شاء الله»…). For alias c (youtube_comments).
+ */
+export const SUBSTANTIVE_COMMENT = sql`array_length(regexp_split_to_array(btrim(coalesce(c.text_display,'')), '\s+'), 1) >= 3
+  AND btrim(coalesce(c.text_display,'')) !~* '^([[:space:][:punct:]]|الله|يرزق[[:alpha:]]*|يعطي[[:alpha:]]*|العافي[[:alpha:]]*|يوفق[[:alpha:]]*|يبارك|بارك|تبارك|امين|آمين|اللهم|شكر[[:alpha:]]*|مشكور[[:alpha:]]*|ما|شاء|ماشاء|جزاك|جزاكم|خير[[:alpha:]]*|يا|رب|و|فيك|فيكم|لك|لكم|ابدعت|مبدع|رائع|جميل|حلو|كفو|thanks?|thank|you|nice|good|great|amen)*$'`;
 /** Snapshot text is plain: feed descriptions can carry HTML (Google News wraps the headline in a link). */
 const plain = (v: unknown) => String(v ?? '').replace(/<[^>]*>/g, ' ').replace(/^(?:[a-z][a-z0-9]*(?:\s+[a-z-]+=[^<>]*)?)?>/i, ' ').replace(/<[^>]*$/, ' ').replace(/\S{60,}/g, ' ').replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e: string) =>
   ({amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' '} as Record<string, string>)[e]).replace(/\s+/g, ' ').trim();
@@ -52,7 +58,7 @@ export async function pendingSourceItems(limit: number) {
       UNION ALL
       SELECT 'youtube_comment', c.youtube_comment_id, NULL, c.published_at
       FROM youtube_comments c JOIN youtube_videos v ON v.id = c.video_id AND v.status = 'active'
-      WHERE c.status = 'active' AND EXISTS (SELECT 1 FROM youtube_video_programs vp WHERE vp.video_id = v.id AND ${RELEVANT_VIDEO})
+      WHERE c.status = 'active' AND ${SUBSTANTIVE_COMMENT} AND EXISTS (SELECT 1 FROM youtube_video_programs vp WHERE vp.video_id = v.id AND ${RELEVANT_VIDEO})
         AND NOT EXISTS (SELECT 1 FROM ticket_messages m WHERE m.provider = 'youtube' AND m.provider_message_id = c.youtube_comment_id)
     ) pending ORDER BY event_at, kind, ref LIMIT ${limit}`;
 }

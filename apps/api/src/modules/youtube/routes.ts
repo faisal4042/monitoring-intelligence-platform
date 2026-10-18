@@ -48,6 +48,9 @@ export default async function youtubeRoutes(app:FastifyInstance){
   if(c.scheduler_enabled&&!c.paused&&(!c.next_run_at||new Date(c.next_run_at)<=new Date()))await launchCycle();
  };
  let timer:ReturnType<typeof setInterval>|undefined;
+ // Re-apply the current relevance rules to everything already collected (also while collection is paused).
+ app.addHook('onReady',async()=>{void (async()=>{const [r]=await sql`SELECT to_regclass('public.youtube_video_programs') IS NOT NULL AS ready`;
+  if(r.ready)app.log.info({changed:await refreshRelevance(sql)},'YouTube relevance re-evaluated');})().catch(e=>app.log.error({err:e},'YouTube relevance re-evaluation failed'));});
  if(process.env.YOUTUBE_SCHEDULER_ENABLED==='true')app.addHook('onReady',async()=>{timer=setInterval(()=>void tick().catch(e=>app.log.error({err:e},'YouTube scheduler failed')),60_000);});
  app.addHook('onClose',async()=>{if(timer)clearInterval(timer);if(cycle)await cycle.catch(()=>{});});
  app.get('/status',read,async()=>({mode,keyConfigured:!!process.env.YOUTUBE_API_KEY,controls:await gateway.controls(),quota:await quota.status(mode),busy,

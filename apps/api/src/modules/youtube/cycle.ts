@@ -8,6 +8,7 @@ import type {YouTubeGateway} from './gateway.js';
 import type {Mode, QuotaManager} from './quota.js';
 import {runChannel,runComments,runDiscovery,runStats,type RunSummary} from './collector.js';
 import {retentionFromEnv,runRetention} from './retention.js';
+import {refreshRelevance} from './relevance.js';
 import {nextQuotaReset} from './endpoints.js';
 import {workerCheckpoint} from '../../startup/worker-ownership.js';
 
@@ -44,6 +45,8 @@ export function selectQueries(queries:PlannedQuery[],allowance:number){
 
 export async function runCycle(sql:YouTubeSql,gateway:YouTubeGateway,quota:QuotaManager,mode:Mode,now=new Date()){
  const results:Array<RunSummary&{purged?:unknown}>=[];
+ // Rules may have changed since a video was linked; comments are only fetched for videos that still qualify.
+ await refreshRelevance(sql);
  const stillRunning=async()=>{await workerCheckpoint();return !(await gateway.controls()).paused;};
  const [control]=await sql`SELECT interval_minutes FROM youtube_collector_controls WHERE singleton`;
  const search=(await quota.status(mode)).buckets.find((b:{bucket:string})=>b.bucket==='search');

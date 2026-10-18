@@ -6,14 +6,21 @@ const phrases:Record<string,string[]>={
  rega:['الهيئة العامة للعقار','هيئة العقار','رخصة فال','رخصة الوساطة العقارية','فال العقارية','فرز الوحدات العقارية','rega.gov.sa'],
  mostadam:['برنامج البناء المستدام','شهادة مستدام','تقييم مستدام','منصة مستدام','البناء المستدام السعودية','mostadam'],
 };
+const hitsIn=(program:string,value:string)=>{const text=' '+normalize(value)+' ';return (phrases[program]??[]).filter(p=>text.includes(' '+normalize(p)+' '));};
+/**
+ * Only the title (or a channel registered for the program) makes a video relevant on its own.
+ * Uploaders stuff descriptions with popular names (e.g. «الهيئة العامة للعقار» under a car or
+ * land listing) to be found, so a description-only match waits for a person and never feeds the queue.
+ */
 export function assessRelevance(program:string,title:string,description:string,fromTrackedChannel=false){
- const text=normalize(title+' '+description);
- const hits=(phrases[program]??[]).filter(p=>(' '+text+' ').includes(' '+normalize(p)+' '));
- if(hits.length)return {status:'matched',reason:'تطابق عبارات تخص البرنامج؛ يحتاج اعتمادًا بشريًا',terms:hits};
+ const titleHits=hitsIn(program,title);
+ if(titleHits.length)return {status:'matched',reason:'عبارة البرنامج في عنوان المقطع؛ يحتاج اعتمادًا بشريًا',terms:titleHits};
  // A channel the team registered for this program (e.g. the program's own channel) is relevant by source, not by wording.
  if(fromTrackedChannel)return {status:'matched',reason:'منشور في قناة متابعة لهذا البرنامج؛ يحتاج اعتمادًا بشريًا',terms:[]};
+ const descriptionHits=hitsIn(program,description);
+ if(descriptionHits.length)return {status:'needs_review',reason:'عبارة البرنامج في الوصف فقط (غالبًا حشو كلمات لجلب المشاهدات)؛ لا يدخل الطابور إلا باعتماد بشري',terms:descriptionHits};
  if(program==='mullak'&&/ملاك عسكر|نبض الخليج|hoa|homeowners association/i.test(title+' '+description))return {status:'excluded',reason:'اسم شخص أو جمعية خارج سياق البرنامج السعودي',terms:[]};
- if(!/[\u0600-\u06ff]/.test(title+' '+description)&&!text.includes('saudi'))return {status:'excluded',reason:'لا توجد إشارة عربية أو سياق سعودي واضح؛ يمكن تعديل القرار يدويًا',terms:[]};
+ if(!/[\u0600-\u06ff]/.test(title+' '+description)&&!normalize(title+' '+description).includes('saudi'))return {status:'excluded',reason:'لا توجد إشارة عربية أو سياق سعودي واضح؛ يمكن تعديل القرار يدويًا',terms:[]};
  return {status:'needs_review',reason:'لا يوجد تطابق صريح مع عبارات البرنامج',terms:[]};
 }
 export async function linkVideoProgram(db:YouTubeSql,videoId:string,queryId:string|null,title:string,description:string,programKey?:string){
@@ -26,9 +33,14 @@ export async function linkVideoProgram(db:YouTubeSql,videoId:string,queryId:stri
 }
 export async function refreshRelevance(db:YouTubeSql){
  const rows=await db`SELECT vp.video_id,vp.program_key,v.title,v.description,
+  vp.suggested_status,vp.reason,
   EXISTS(SELECT 1 FROM youtube_channels c WHERE c.youtube_channel_id=v.youtube_channel_id AND c.program_key=vp.program_key AND c.is_active) AS tracked
   FROM youtube_video_programs vp JOIN youtube_videos v ON v.id=vp.video_id`;
+ let changed=0;
  for(const r of rows){const a=assessRelevance(r.program_key,r.title??'',r.description??'',r.tracked);
+  // Runs every cycle: write only what the current rules change.
+  if(a.status===r.suggested_status&&a.reason===r.reason)continue;
+  changed++;
   await db`UPDATE youtube_video_programs SET suggested_status=${a.status},reason=${a.reason},matched_terms=${a.terms} WHERE video_id=${r.video_id} AND program_key=${r.program_key}`;}
- return rows.length;
+ return changed;
 }
