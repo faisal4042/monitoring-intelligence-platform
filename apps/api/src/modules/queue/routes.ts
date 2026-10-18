@@ -133,6 +133,9 @@ export default async function queueRoutes(app:FastifyInstance) {
       c.intent_confidence::float AS intent_confidence,c.relevance_confidence::float AS relevance_confidence,s.confidence::float AS sentiment_confidence,c.model AS ai_model,
       u.full_name AS assignee_name,t.name AS team_name,${storyColumns},${tickets},${rootColumns},tpc.name_ar AS topic_name,
       (SELECT count(*)::int FROM queue_items m WHERE m.story_item_id=q.id AND m.status NOT IN ('new','completed')) AS story_active_items,
+      -- The tracked account behind an influencer card, for «تصدير بطاقة المؤثر» on the card.
+      CASE WHEN q.section='influencer' THEN (SELECT ti.id FROM tracked_influencers ti
+        WHERE lower(ti.username)=lower(a.username) AND ti.is_active LIMIT 1) END AS influencer_id,
       -- Attached photos/videos, so the card shows them without opening the details.
       coalesce((SELECT jsonb_agg(jsonb_build_object('url',m.url,'type',m.type,'previewImageUrl',m.preview_image_url))
         FROM post_media m WHERE m.post_id=p.id AND m.posted_at=p.posted_at),'[]') AS media

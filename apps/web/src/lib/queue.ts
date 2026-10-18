@@ -36,6 +36,8 @@ export interface QueueItem {
   // Held move: the team that owns this post's story.
   hold_team_id?:string|null;
   media?:Array<{url:string|null;type:string;previewImageUrl:string|null}>;
+  /** Influencer section only: the tracked account, for exporting its card. */
+  influencer_id?:string|null;
   notes?:Array<{id:string;body:string;author_name:string;created_at:string}>;
   events?:Array<{id:string;event_type:string;actor_name:string|null;from_status:QueueStatus|null;to_status:QueueStatus;
     reason:string|null;resolution:string|null;created_at:string;from_assignee:string|null;to_assignee:string|null;
