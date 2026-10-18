@@ -4,7 +4,7 @@
  * ticket number and the clocks. Actions go to the same queue endpoints as the drawer (the server re-checks every rule);
  * anything that needs more (assigning to someone, a corrected review, transfers) opens the details.
  */
-import {useState, type ReactNode} from 'react';
+import {useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
   CheckCircle2, Clock, Copy, ExternalLink, Flame, Hand, History, Maximize2, MessageSquareText, Sparkles,
@@ -34,6 +34,9 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
   const [text, setText] = useState('');
   const [copied, setCopied] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
   const story = item.interaction_type === 'story';
   const src = isSourceCard(item);
   const key = sourceKeyOf(item);
@@ -66,6 +69,11 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
     : [item.followers_count != null ? `${fmtCompact(item.followers_count)} متابع` : null, item.following_count != null ? `${fmtCompact(item.following_count)} يتابع` : null,
        item.tweet_count != null ? `${fmtCompact(item.tweet_count)} منشور` : null];
   const body = story ? item.story_summary ?? '' : src ? sourceText(item) : item.text ?? 'المصدر غير متاح — السجل التشغيلي محفوظ';
+  // The clamp is CSS (width, font, wrapping), so measure real overflow rather than guess from length.
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (el && !expanded) setCanExpand(el.scrollHeight - el.clientHeight > 1);
+  }, [body, expanded]);
   const at = story ? item.story_last_seen_at : src ? item.source_snapshot?.publishedAt : item.post_posted_at;
   const channelTag = story ? 'قصة متداولة على X' : src ? SOURCE_BADGE_LABELS[key] : `X · ${item.root_text ? SOURCE_LABELS.reply : SOURCE_LABELS[sourceOf(item)]}`;
 
@@ -85,7 +93,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         </span>
         <span className="ic-when" title={at ? fmtDateTime(at) : undefined}><Zap size={15} aria-hidden="true"/>{at ? fmtRelative(at) : '—'}</span>
       </span>
-      {body && <span className="ic-text" dir={contentDirection(body)}>{body}</span>}
+      {body && <span ref={textRef} className={`ic-text ${expanded ? 'is-expanded' : ''}`} dir={contentDirection(body)}>{body}</span>}
       {!story && !src && item.root_text && <span className="ic-root">
         <span className="ic-root-head"><span className="ic-root-tag">بداية المحادثة</span>
           <span className="ic-root-who">{item.root_display_name ?? item.root_username ?? ''}{item.root_username && <span dir="ltr"> @{item.root_username}</span>}</span>
@@ -93,6 +101,8 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         <span className="ic-root-text" dir={contentDirection(item.root_text ?? '')}>{item.root_text}</span>
       </span>}
     </button>
+    {canExpand && <button type="button" className="ic-read-more" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
+      {expanded ? 'SHOW LESS' : 'READ MORE'}</button>}
 
     <div className="ic-actions" role="toolbar" aria-label="إجراءات سريعة">
       {canClaim && <button type="button" className="ic-primary" disabled={act.isPending} onClick={() => act.mutate({path: 'claim', body: {}})}><Hand size={16}/>استلام</button>}
