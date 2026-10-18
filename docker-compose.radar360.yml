@@ -65,8 +65,11 @@ services:
       YOUTUBE_LIVE_APPROVED: ${YOUTUBE_LIVE_APPROVED:-0}
       YOUTUBE_SCHEDULER_ENABLED: ${YOUTUBE_SCHEDULER_ENABLED:-false}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
-      YOUTUBE_DAILY_SEARCH_LIMIT: '80'
-      YOUTUBE_DAILY_UNITS_LIMIT: '1000'
+      # Google Cloud quotas of the MIP-YouTube-Monitoring project: Search Queries per day 100,
+      # Queries per day 10,000; search per minute (100) is enforced in quota.ts.
+      YOUTUBE_DAILY_SEARCH_LIMIT: '100'
+      YOUTUBE_DAILY_UNITS_LIMIT: '10000'
+      YOUTUBE_DAILY_BATCH_STATS_LIMIT: '10000'
       ALERTS_ENABLED: 'true'
       NEWS_SCRAPLING_ENABLED: 'true'
       NEWS_SCRAPLING_DYNAMIC_ENABLED: 'true'
@@ -74,7 +77,7 @@ services:
       X_POST_TICKETS_SINCE: '2026-10-18T16:47:38+00:00'
       NEWS_EXTRACTOR_URL: http://news-extractor:8010
       NEWS_EXTRACTOR_TOKEN: ${NEWS_EXTRACTOR_TOKEN:?set NEWS_EXTRACTOR_TOKEN}
-      YOUTUBE_INTERNAL_LIMITS_ENABLED: 'false'
+      YOUTUBE_INTERNAL_LIMITS_ENABLED: 'true'
     depends_on:
       postgres:
         condition: service_healthy
