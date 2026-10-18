@@ -1,0 +1,14 @@
+{
+  "_note": "Initial MVP discovery queries, built from MIP's active program dictionary (primary/service terms, read-only, 2026-10-16) without X handles. Inserted inactive-by-default into the isolated test DB only; edit before the live test. Exclusions = strongest dictionary negatives.",
+  "queries": [
+    {"program": "ejar", "name": "ejar-platform", "include": ["منصة إيجار", "منصة ايجار", "شبكة إيجار", "شبكة ايجار", "عقد إيجار إلكتروني"], "exclude": ["للبيع", "شقة للإيجار", "فيلا للإيجار", "تداول", "فوركس"]},
+    {"program": "ejar", "name": "ejar-contract-issues", "include": ["توثيق عقد الإيجار", "توثيق عقد ايجار", "العقد ما يتوثق", "التوثيق واقف", "استرداد التأمين إيجار"], "exclude": ["للبيع", "شقة للإيجار", "تداول"]},
+    {"program": "rega", "name": "rega-authority", "include": ["الهيئة العامة للعقار", "هيئة العقار", "المعهد العقاري السعودي"], "exclude": ["للبيع", "للإيجار", "تداول", "فوركس"]},
+    {"program": "rega", "name": "rega-services", "include": ["رخصة وساطة عقارية", "فرز الوحدات العقارية", "منصة فرز الوحدات"], "exclude": ["للبيع", "للإيجار", "تداول"]},
+    {"program": "mullak", "name": "mullak-platform", "include": ["منصة ملاك", "برنامج ملاك", "جمعيات ملاك", "جمعية الملاك"], "exclude": ["ملاك الأسهم", "للبيع", "تداول"]},
+    {"program": "mullak", "name": "mullak-fees", "include": ["رسوم اتحاد الملاك", "اشتراك ملاك", "اتحاد ملاك العقار"], "exclude": ["ملاك الأسهم", "للبيع"]},
+    {"program": "mostadam", "name": "mostadam-program", "include": ["برنامج البناء المستدام", "منصة البناء المستدام", "منصة مستدام"], "exclude": ["وظائف", "دورة تدريبية", "تداول"]},
+    {"program": "mostadam", "name": "mostadam-certification", "include": ["شهادة مستدام", "تقييم مستدام", "تصنيف المباني مستدام"], "exclude": ["وظائف", "دورة تدريبية"]}
+  ],
+  "channels": []
+}

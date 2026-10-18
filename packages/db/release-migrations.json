@@ -1,0 +1,11 @@
+{
+  "0032_user_management.sql": "63f1195395727ca3a154633942028e3486ae8775b4237217979776aed4cb1679",
+  "0034_monitoring_queue.sql": "9493e465aae1b3a5b764fd373eb3bdcdc37fd1c274bf7ba9f15c56c97eded5fe",
+  "0035_queue_work_cycles.sql": "dfc6851de8e2e4d94a0b9e8de2efac5488af484d512fabe3c92136ae0e9c4fe5",
+  "0036_unified_queue_sections.sql": "d324d95f0a56fba31466bd798a91c061eb8b8907d090d6652876065f1450f8df",
+  "0037_queue_team_transfer.sql": "42b822fa21dd653ad9036e148a98f90b907189ffb5e490cfe699f2390101b5b3",
+  "0038_queue_reviews.sql": "4ecce0a4698af92e09d4952e128f4f5f39dbbdf31d2903de360dbdce37ae1f87",
+  "0039_dashboard_preferences.sql": "6320834bbec9b952483ad8c40cbfd6b331c14918e2ccd0f389849e4f445eb918",
+  "0040_queue_workforce.sql": "04162984fcb7a18aa590d173ab4211cdcf2fe857cebd9e9dc8691a534d4a2d1c",
+  "0041_role_permission_sync.sql": "3365399e6cac740096af27b1f6e881b20ef7239deeb75e4571174197a9136c09"
+}

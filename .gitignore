@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+*.dump
+*.backup
+*.pem
+*.key
+*.log
+.venv/
+__pycache__/
+dist/
+.turbo/

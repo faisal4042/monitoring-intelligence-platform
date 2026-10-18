@@ -1,0 +1,166 @@
+import { config as loadEnv } from 'dotenv';
+import { z } from 'zod';
+import { resolve } from 'node:path';
+import { strongSecret, validDatabaseCredential } from './secret-policy.js';
+
+// Load .env from the repo root regardless of which app is starting.
+loadEnv({ path: resolve(process.cwd(), '../../.env') });
+loadEnv({ path: resolve(process.cwd(), '.env') });
+
+const bool = z
+  .enum(['true', 'false'])
+  .transform((v) => v === 'true');
+
+const schema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  UNIFIED_STAGING: bool.default('false'),
+  TZ: z.string().default('Asia/Riyadh'),
+  API_PORT: z.coerce.number().int().default(3001),
+  APP_URL: z.string().url().default('http://localhost:5173'),
+
+  DATABASE_URL: z.string().refine(validDatabaseCredential, 'DATABASE_URL requires PostgreSQL credentials with a strong non-default password'),
+  REDIS_URL: z.string().default('redis://localhost:6380'),
+
+  JWT_SECRET: z.string().refine(strongSecret, 'JWT_SECRET requires a strong independently generated secret'),
+  JWT_REFRESH_SECRET: z.string().refine(strongSecret, 'JWT_REFRESH_SECRET requires a strong independently generated secret'),
+
+  // Safety flags — defaults are deliberately the safe values.
+  LIVE_X_API: bool.default('false'),
+  X_DRY_RUN: bool.default('false'),
+  X_API_KEY: z.string().optional(),
+  X_API_SECRET: z.string().optional(),
+  X_BEARER_TOKEN: z.string().optional(),
+  AUTO_COLLECTION_ENABLED: bool.default('false'),
+  // New queue/workforce background jobs require explicit production opt-in.
+  QUEUE_WORKER_ENABLED: bool.default('false'),
+  WORKFORCE_WORKER_ENABLED: bool.default('false'),
+  AUTO_COLLECTION_TICK_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
+  // Two-minute production fallback is safe with the current eight queries
+  // (60 requests / 15 min) while Filtered Stream remains the primary path.
+  AUTO_COLLECTION_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(2),
+  AUTO_COLLECTION_MAX_RESULTS: z.coerce.number().int().min(10).max(100).default(10),
+  AUTO_COLLECTION_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
+  AUTO_COLLECTION_EXCLUDED_USERS: z.string().default(''),
+  X_STREAM_ENABLED: bool.default('false'),
+  X_STREAM_RULE_REFRESH_SECONDS: z.coerce.number().int().min(30).max(3600).default(60),
+  X_STREAM_RECONNECT_MAX_SECONDS: z.coerce.number().int().min(10).max(300).default(60),
+
+  AI_SERVICE_URL: z.string().default('http://localhost:8000'),
+  AI_API_KEY: z.string().optional(),
+  ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI: bool.default('false'),
+  EMBEDDING_MODEL: z.string().default('Qwen/Qwen3-Embedding-8B'),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().default(1024),
+  // High-precision defaults: abstain rather than force a weak topic match.
+  // These values still need ongoing calibration against human-reviewed data.
+  STAGE2_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.84),
+  STAGE2_MIN_MARGIN: z.coerce.number().min(0).max(1).default(0.05),
+  // Gates auto-publishing when the LLM names an existing topic itself (it saw
+  // the full post text and the whole taxonomy, not just the nearest two cold
+  // centroids). This is corroboration against hallucination, not a second
+  // "is this really a match" test — reusing STAGE2's blind-cosine bar here
+  // rejected verified-correct picks (measured ~0.73 similarity against a
+  // cold name+description centroid) while different topics in the same
+  // program average ~0.43 similarity to each other, so 0.6 sits well clear
+  // of that noise floor without re-imposing the blind-match bar.
+  STAGE3_EXISTING_MIN_SIMILARITY: z.coerce.number().min(0).max(1).default(0.6),
+  TOPIC_SUGGESTION_SIMILARITY: z.coerce.number().min(0).max(1).default(0.82),
+  TOPIC_SUGGESTION_MIN_SUPPORT: z.coerce.number().int().min(2).max(20).default(3),
+
+  AUTO_CLASSIFICATION_ENABLED: bool.default('false'),
+  AUTO_CLASSIFICATION_TICK_SECONDS: z.coerce.number().int().min(10).max(600).default(20),
+  AUTO_CLASSIFICATION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
+  SIGNAL_CLUSTER_THRESHOLD: z.coerce.number().min(0.5).max(0.99).default(0.70),
+  SIGNAL_MIN_FAMILIES: z.coerce.number().int().min(1).max(20).default(2),
+  SIGNAL_LOOKBACK_DAYS: z.coerce.number().int().min(1).max(30).default(7),
+
+  // News & Web Monitoring — Phase 1 knobs Test Connection relies on (its own
+  // outbound fetch of an admin-supplied URL).
+  NEWS_FETCH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(10_000),
+  NEWS_MAX_RESPONSE_BYTES: z.coerce.number().int().min(10_000).max(20_000_000).default(2_000_000),
+  // Phase 2 — the real per-source polling worker. Mirrors AUTO_COLLECTION_*'s
+  // naming and defaults-off pattern (opt-in via ENABLED, same as X collection
+  // and classification were before they went live).
+  NEWS_FETCH_ENABLED: bool.default('false'),
+  NEWS_FETCH_TICK_SECONDS: z.coerce.number().int().min(10).max(300).default(30),
+  NEWS_FETCH_INTERVAL_MINUTES: z.coerce.number().int().min(5).max(1440).default(5),
+  NEWS_FETCH_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(5),
+  NEWS_FETCH_MAX_BACKOFF_MINUTES: z.coerce.number().int().min(5).max(1440).default(240),
+  NEWS_DOMAIN_MIN_DELAY_MS: z.coerce.number().int().min(0).max(60_000).default(1000), // per-domain pacing, not a global rate cap
+
+  // Article extraction (Scrapling engine, apps/news-extractor). Everything is
+  // off by default; a source must also be opted in (news_sources.extraction_mode).
+  //   ENABLED      — live extraction for sources set to 'static' / 'dynamic'
+  //   SHADOW_MODE  — every opted-in source is measured only; nothing written to news_articles
+  //   DYNAMIC      — allow browser rendering for sources set to 'dynamic'
+  NEWS_SCRAPLING_ENABLED: bool.default('false'),
+  NEWS_SCRAPLING_SHADOW_MODE: bool.default('false'),
+  NEWS_SCRAPLING_DYNAMIC_ENABLED: bool.default('false'),
+  NEWS_EXTRACTOR_URL: z.string().url().default('http://localhost:8010'),
+  NEWS_EXTRACTOR_TOKEN: z.string().default(''),
+  NEWS_EXTRACTION_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(180_000).default(60_000),
+  // Articles extracted inline per source run; the rest are queued, never dropped.
+  NEWS_EXTRACTION_MAX_PER_RUN: z.coerce.number().int().min(0).max(50).default(6),
+  NEWS_EXTRACTION_QUEUE_BATCH: z.coerce.number().int().min(0).max(50).default(6),
+  NEWS_EXTRACTION_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
+  NEWS_EXTRACTION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(4),
+  // Circuit breaker: this many consecutive failures pauses a source's extraction for the cooldown.
+  NEWS_EXTRACTION_BREAKER_FAILURES: z.coerce.number().int().min(2).max(50).default(5),
+  NEWS_EXTRACTION_BREAKER_COOLDOWN_MINUTES: z.coerce.number().int().min(5).max(1440).default(60),
+  // Trial knob: the news worker polls only sources opted in to extraction (any mode but 'off').
+  // Off by default — the worker polls every active source, exactly as before.
+  NEWS_FETCH_ONLY_EXTRACTION_SOURCES: bool.default('false'),
+
+  // Alerts — channel credentials live per-row in notification_channels
+  // (encrypted), not here; this only gates the evaluation tick.
+  ALERTS_ENABLED: bool.default('false'),
+  ALERTS_TICK_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+  // Ticket engine / reporting center (migration 0047, pending approval). Workers are off by default and
+  // also stay idle while the 0047 tables are absent. Exports read stored data only; no provider is called.
+  REPORT_EXPORTS_ENABLED: bool.default('false'),
+  REPORT_SCHEDULES_ENABLED: bool.default('false'),
+  REPORT_EXPORT_DIR: z.string().default(''),
+  REPORT_EXPORT_MAX_ROWS: z.coerce.number().int().min(1000).max(5_000_000).default(2_000_000),
+  REPORT_EXPORT_TTL_HOURS: z.coerce.number().int().min(1).max(24 * 30).default(168),
+  REPORT_EXPORT_MAX_ACTIVE_PER_USER: z.coerce.number().int().min(1).max(10).default(2),
+  // X public posts → tickets. Off by default. When on, every public post SAVED by collection on or after
+  // X_POST_TICKETS_SINCE (ISO timestamp, required) is linked to a ticket; older posts are never touched (no backfill).
+  X_POST_TICKETS_ENABLED: bool.default('false'),
+  X_POST_TICKETS_SINCE: z.string().default('').refine((v) => v === '' || !Number.isNaN(Date.parse(v)), 'X_POST_TICKETS_SINCE must be an ISO timestamp'),
+
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+});
+
+const parsed = schema.refine(v => v.JWT_SECRET !== v.JWT_REFRESH_SECRET, {
+  path: ['JWT_REFRESH_SECRET'], message: 'JWT secrets must be distinct',
+}).safeParse(process.env);
+
+if (!parsed.success) {
+  const issues = parsed.error.issues
+    .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+    .join('\n');
+  console.error(`\n[config] Invalid environment:\n${issues}\n`);
+  console.error('Copy .env.example to .env and fill in the required values.\n');
+  process.exit(1);
+}
+
+export const config = parsed.data;
+export type Config = typeof config;
+
+// Fail loudly rather than silently running unprotected.
+if (config.LIVE_X_API && !config.X_BEARER_TOKEN) {
+  console.error(
+    '\n[config] LIVE_X_API=true but X_BEARER_TOKEN is empty.\n' +
+      'Refusing to start: live collection without credentials would fail on every request.\n',
+  );
+  process.exit(1);
+}
+
+export const isDemoMode = !config.LIVE_X_API;
+export const isDryRun = config.LIVE_X_API && config.X_DRY_RUN;
+
+/** live | dry_run | demo — recorded on every api_usage row. */
+export const collectionMode: 'live' | 'dry_run' | 'demo' = isDemoMode
+  ? 'demo'
+  : isDryRun
+    ? 'dry_run'
+    : 'live';

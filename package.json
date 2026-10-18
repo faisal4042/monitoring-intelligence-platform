@@ -1,0 +1,44 @@
+{
+  "name": "mip",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "db:push": "pnpm --filter @mip/db push",
+    "db:seed": "pnpm --filter @mip/db seed",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "setup": "pnpm install && pnpm infra:up && pnpm db:push && pnpm db:seed",
+    "staging:api": "pnpm --filter @mip/api dev:staging",
+    "staging:web": "pnpm --filter @mip/web dev",
+    "staging:infra": "docker compose -f infra/docker-compose.unified-staging.yml up -d postgres",
+    "staging:test": "pnpm --filter @mip/api exec tsx --test src/staging/unified.itest.ts"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.71.2",
+    "@typescript-eslint/parser": "^8.71.2",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "tsx": "^4.20.3",
+    "turbo": "^2.5.5",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "argon2",
+      "esbuild",
+      "@tailwindcss/oxide"
+    ],
+    "overrides": {
+      "fast-copy@<4.1.0": "4.1.0",
+      "source-map-js@<1.2.2": "1.2.2"
+    }
+  }
+}

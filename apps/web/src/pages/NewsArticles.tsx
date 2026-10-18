@@ -1,0 +1,175 @@
+import { useConfirmAction } from '../components/ConfirmAction';
+import { useBrowsingParams } from '../lib/useBrowsingParams';
+import { changedFilters, uniqueRows } from '../lib/data-browsing';
+import V1BrowsingStatus from '../components/V1BrowsingStatus';
+import CursorPager from '../components/CursorPager';
+import {useCursorNavigation} from '../lib/useCursorNavigation';
+import {useState} from 'react';
+import {useBrowsingScroll} from '../lib/useBrowsingScroll';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../lib/api';
+import DateTime from '../components/DateTime';
+import DateRangeFilter from '../components/DateRangeFilter';
+import { useDateRange } from '../lib/useDateRange';
+import { useAuth } from '../lib/auth';
+import { PERMISSIONS } from '@mip/shared';
+import { Newspaper, RefreshCw } from 'lucide-react';
+import SearchLink from '../components/search/SearchLink';
+
+interface Program { id: string; name_ar: string; color: string }
+
+interface NewsArticle {
+  id: string;
+  url: string;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  author: string | null;
+  published_at: string | null;
+  effective_at: string;
+  source_name: string;
+  source_logo_url: string | null;
+  source_weight: number;
+  program_name: string | null;
+  program_color: string | null;
+  topic_name: string | null;
+  matched_keyword: string | null;
+  relevance_score: number;
+  related_source_count: number;
+  related_source_names: string[];
+}
+
+function decodeText(value: string): string {
+  const named: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+  return value
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&([a-z]+);/gi, (entity, name) => named[name.toLowerCase()] ?? entity);
+}
+
+export default function NewsArticles() {
+  const { can, user } = useAuth();
+  const confirmation = useConfirmAction();
+  const queryClient = useQueryClient();
+  const [params, setParams] = useBrowsingParams();
+  const programId = params.get('programId') ?? '';
+  const setProgramId = (value: string) => setParams(previous => changedFilters(previous, {programId: value}));
+  const dateRange = useDateRange(undefined, {resetKeys: ['cursor', 'page']});
+  const navigation = useCursorNavigation(JSON.stringify([user?.id, 'news', programId, dateRange.apiQuery]));
+  const [round, setRound] = useState(0);
+  const restart = () => { navigation.first(); setRound(value => value + 1); };
+  const canRead = can(PERMISSIONS.NEWS_READ);
+
+  const { data: programs } = useQuery({
+    queryKey: ['programs'],
+    enabled: canRead && can(PERMISSIONS.PROGRAMS_READ),
+    queryFn: () => api.get<{ items: Program[] }>('/programs'),
+  });
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['news-articles', user?.id, programId, dateRange.apiQuery, navigation.cursor, round],
+    retry: false, staleTime: 0, refetchOnWindowFocus: !navigation.cursor,
+    enabled: canRead && !dateRange.error,
+    queryFn: ({signal}) => api.get<{ items: NewsArticle[]; nextCursor: string | null; hasMore?: boolean }>(
+      `/news/articles?limit=100&${dateRange.apiQuery}${programId ? `&programId=${encodeURIComponent(programId)}` : ''}${navigation.cursor ? `&cursor=${encodeURIComponent(navigation.cursor)}` : ''}`, signal,
+    ),
+    refetchInterval: navigation.cursor ? false : 5 * 60 * 1000,
+  });
+
+  const articles = uniqueRows(data?.items ?? []);
+  const legacyLimited = !!data && data.hasMore === undefined && !isError;
+
+  useBrowsingScroll(user?.id, canRead && !dateRange.error && !isLoading && !isError);
+  const fetchNow = useMutation({
+    mutationFn: () => api.post<{ queued: number }>('/news/articles/fetch-now', {}),
+    onSuccess: () => {
+      window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: ['news-articles'] }), 8_000);
+    },
+  });
+
+  const refresh = () => {
+    if (can(PERMISSIONS.NEWS_MANAGE_SOURCES)) confirmation.request({title:'جمع أخبار جديدة',description:'سيتم جدولة جمع الأخبار من المصادر النشطة. قد يرسل ذلك طلبات خارجية ويستهلك موارد التشغيل.',confirmLabel:'جدولة الجمع',allowed:can=>can(PERMISSIONS.NEWS_MANAGE_SOURCES),execute:()=>fetchNow.mutateAsync()});
+  };
+
+  if (!canRead) return <div role="alert">لا تملك صلاحية عرض الأخبار.</div>;
+
+  return (
+    <div className="space-y-5" dir="rtl">{confirmation.dialog}
+      <section className="rounded-2xl border p-5 sm:p-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-600">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+              {navigation.cursor ? 'جولة تصفح — تحديث العرض يعيدك للبداية' : 'تحديث حي كل 5 دقائق'}
+            </div>
+            <h1 className="flex items-center gap-2.5 text-2xl font-black sm:text-3xl"><Newspaper size={24} className="text-brand-600" /> الأخبار العقارية</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة مباشرة بالهيئة وبرامجها وخدماتها فقط، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select className="input min-w-44" value={programId} onChange={(event) => setProgramId(event.target.value)} aria-label="تصفية حسب البرنامج">
+              <option value="">جميع البرامج</option>
+              {programs?.items.map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}
+            </select>
+            <DateRangeFilter state={dateRange} />
+            <SearchLink tab="news" q={programId ? `program:${programId}` : ''} />
+            <button className="btn-ghost" onClick={restart} disabled={isFetching || fetchNow.isPending}>
+              <RefreshCw size={15} className={isFetching || fetchNow.isPending ? 'animate-spin' : ''} />
+              {isFetching ? 'جارٍ التحديث…' : 'تحديث العرض'}
+            </button>
+            {can(PERMISSIONS.NEWS_MANAGE_SOURCES) && <button className="btn-primary" onClick={refresh} disabled={fetchNow.isPending}>جمع أخبار جديدة</button>}
+          </div>
+        </div>
+      </section>
+
+      {!dateRange.error && legacyLimited && <div className="card p-4 text-sm leading-7" role="note" aria-label="حدود تصفح الأخبار">
+        <p>عرض محدود للأخبار: لا يتيح الخادم حاليًا تأكيد صفحة تالية موثوقة. قد تتجاوز طريقة التجميع والمؤشر الزمني أخبارًا لها التوقيت نفسه أو تكرر عنوانًا في صفحات مختلفة؛ لذلك لا تتاح المتابعة من هذا العرض.</p>
+        <p>ضيّق الفترة أو اختر برنامجًا للوصول إلى أخبار أخرى، أو عد إلى البداية. هذا العرض لا يثبت اكتمال النتائج{navigation.cursor ? '، والرابط الحالي يعرض جزءًا أقدم وفق مؤشره الزمني' : ''}.</p>
+      </div>}
+      {!dateRange.error && <V1BrowsingStatus error={error} hasMore={data?.hasMore} busy={isFetching} onRestart={restart} onRetry={() => void refetch()} />}
+      {!dateRange.error && <CursorPager shown={isError ? 0 : articles.length} page={navigation.page} pageKnown={navigation.pageKnown} cursor={navigation.cursor}
+        nextCursor={data?.hasMore === true ? data.nextCursor : null} canPrevious={navigation.canPrevious} busy={isFetching} error={isError}
+        onNext={() => data?.nextCursor && navigation.next(data.nextCursor)} onPrevious={navigation.previous} onFirst={restart} />}
+
+      {dateRange.error ? null : isLoading ? (
+        <div role="status" aria-busy="true" className="rounded-2xl border p-12 text-center muted" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>جارٍ جلب الأخبار الدقيقة…</div>
+      ) : isError ? null : articles.length === 0 ? (
+        <div className="rounded-2xl border p-12 text-center" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+          <div className="text-lg font-bold">لا توجد أخبار مطابقة في هذه الفترة</div>
+          <p className="mt-2 text-sm muted">لم يُرصد خبر يرتبط مباشرة بالهيئة أو أحد برامجها في الفترة المحددة.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {articles.map((article) => (
+            <article key={article.id} className="group overflow-hidden rounded-2xl border transition hover:-translate-y-0.5 hover:shadow-lg" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
+              <a href={article.url} target="_blank" rel="noreferrer" className="flex h-full min-h-48 gap-4 p-4 sm:p-5">
+                {article.image_url && <img src={article.image_url} alt="" loading="lazy" className="h-28 w-28 shrink-0 rounded-xl object-cover sm:h-32 sm:w-36" />}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-bold text-brand-600">{article.source_name}</span>
+                    {article.related_source_count > 1 && <span className="rounded-full bg-brand-500/15 px-2 py-1 font-bold text-brand-600">+{article.related_source_count - 1} مصادر</span>}
+                    <span className="muted">•</span>
+                    {/* Feeds without a publish date fall back to when MIP discovered the article — say so. */}
+                    {article.published_at
+                      ? <DateTime value={article.published_at} className="muted" />
+                      : <span className="muted">اكتُشف <DateTime value={article.effective_at} /></span>}
+                    {article.program_name && (
+                      <span className="rounded-full px-2 py-1 font-bold" style={{ color: article.program_color ?? '#1a3c66', background: `${article.program_color ?? '#1a3c66'}18` }}>{article.program_name}</span>
+                    )}
+                    {article.topic_name && <span className="rounded-full bg-slate-500/10 px-2 py-1 muted">{article.topic_name}</span>}
+                  </div>
+                  <h2 className="line-clamp-3 text-lg font-black leading-7 transition group-hover:text-brand-600">{decodeText(article.title)}</h2>
+                  {article.description && <p className="mt-2 line-clamp-2 text-sm leading-6 muted">{decodeText(article.description.replace(/<[^>]*>/g, ' '))}</p>}
+                  <div className="mt-auto flex items-center justify-between gap-3 pt-4 text-xs">
+                    <span className="muted">{article.matched_keyword ? `مطابق: ${article.matched_keyword}` : 'خبر عقاري مصنف'}</span>
+                    <span className="font-bold text-brand-600">فتح الخبر ↗</span>
+                  </div>
+                </div>
+              </a>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

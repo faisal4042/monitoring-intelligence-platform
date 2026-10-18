@@ -1,0 +1,264 @@
+/** Live feed, post detail, "why did we collect this?", and manual collection. */
+import type { FastifyInstance } from 'fastify';
+import { sql } from '@mip/db';
+import { PERMISSIONS } from '@mip/shared';
+import { badRequest, notFound } from '../lib/errors.js';
+import { audit } from '../lib/audit.js';
+import { collectQuery, CollectionError } from './collection.service.js';
+import { redactRows, redactSensitiveText } from '../lib/privacy.js';
+import { liveFeed, liveDetail, liveBulk, parseLiveQuery } from './posts-live.js';
+import { INTERACTIONS, canSeeRecord, requireScope } from '../lib/authz.js';
+import { APP_TIME_ZONE } from '@mip/shared';
+import { dateBoundsFromQuery, hasDateRange, rangeMeta } from '../lib/date-range.js';
+
+export default async function postRoutes(app: FastifyInstance) {
+  app.addHook('onRequest', app.authenticate);
+
+  /**
+   * Server-side filtering and cursor pagination throughout — the browser never
+   * receives a full table (docs/PROJECT_PLAN.md §54).
+   */
+  // Interactions are scoped (lib/authz.ts): today posts:read grants 'all'; the
+  // queue phase adds own/team and filters this query by req.authzScope.
+  app.get('/', { preHandler: [requireScope(INTERACTIONS)] }, async (req) => {
+    return liveFeed(req, parseLiveQuery(req.query));
+  });
+
+  app.get('/:id/detail', { preHandler: [requireScope(INTERACTIONS)] }, async req => liveDetail(req, (req.params as {id:string}).id));
+  app.post('/bulk', { preHandler: [requireScope(INTERACTIONS)] }, async req => liveBulk(req,req.body));
+
+  /**
+   * Customer history is assembled exclusively from posts already collected by
+   * the platform. Opening a profile never spends X API quota.
+   */
+  app.get('/authors/:xAuthorId/history', { preHandler: [app.requirePermission(PERMISSIONS.CUSTOMERS_READ)] }, async (req) => {
+    const { xAuthorId } = req.params as { xAuthorId: string };
+    const query = req.query as Record<string, string | undefined>;
+    // range/from/to take precedence; otherwise the legacy `days` window (default 30).
+    const ranged = hasDateRange(query) ? dateBoundsFromQuery(query) : null;
+    const parsedDays = ranged || query.days === 'all' ? null : Number(query.days ?? 30);
+    const days = parsedDays !== null && Number.isFinite(parsedDays)
+      ? Math.min(Math.max(Math.trunc(parsedDays), 1), 3650)
+      : null;
+    const from = ranged?.from ?? (days !== null ? new Date(Date.now() - days * 86_400_000).toISOString() : '-infinity');
+    const to = ranged?.to ?? 'infinity';
+    const limit = Math.min(Math.max(Number(query.limit ?? 100), 1), 200);
+
+    const [author] = await sql`
+      SELECT a.x_author_id, a.username, a.display_name, a.description,
+             a.profile_image_url, a.location, a.followers_count,
+             a.following_count, a.tweet_count, a.is_verified,
+             a.account_created_at, a.first_seen_at, a.last_seen_at
+      FROM authors a
+      WHERE a.x_author_id = ${xAuthorId}
+      LIMIT 1`;
+    if (!author) throw notFound('العميل غير موجود');
+
+    const [stats] = await sql`
+      SELECT count(*)::int AS interaction_count,
+             count(*) FILTER (WHERE c.intent = 'complaint')::int AS complaint_count,
+             count(*) FILTER (WHERE c.intent = 'inquiry')::int AS inquiry_count,
+             count(*) FILTER (WHERE s.label IN ('negative','very_negative'))::int AS negative_count,
+             min(p.posted_at) AS first_interaction_at,
+             max(p.posted_at) AS last_interaction_at,
+             coalesce(sum(coalesce(m.like_count, 0) + coalesce(m.repost_count, 0) + coalesce(m.reply_count, 0)), 0)::int AS engagement_total
+      FROM posts p
+      LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
+      LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
+      LEFT JOIN LATERAL (
+        SELECT pm.like_count, pm.repost_count, pm.reply_count
+        FROM post_metrics pm
+        WHERE pm.post_id = p.id AND pm.posted_at = p.posted_at
+        ORDER BY pm.captured_at DESC LIMIT 1
+      ) m ON true
+      WHERE p.x_author_id = ${xAuthorId}
+        AND p.is_redacted = false
+        AND p.status NOT IN ('filtered_out', 'duplicate')
+        AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz`;
+
+    const items = await sql`
+      SELECT p.id, p.x_post_id, p.text, p.posted_at, p.url, p.is_reply,
+             p.is_quote, p.is_repost, p.matched_keywords,
+             c.relevance, c.intent, c.reason_ar,
+             s.label AS sentiment,
+             pr.name_ar AS program_name, pr.color AS program_color,
+             m.like_count, m.repost_count, m.reply_count
+      FROM posts p
+      LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
+      LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
+      LEFT JOIN programs pr ON pr.id = c.program_id
+      LEFT JOIN LATERAL (
+        SELECT pm.like_count, pm.repost_count, pm.reply_count
+        FROM post_metrics pm
+        WHERE pm.post_id = p.id AND pm.posted_at = p.posted_at
+        ORDER BY pm.captured_at DESC LIMIT 1
+      ) m ON true
+      WHERE p.x_author_id = ${xAuthorId}
+        AND p.is_redacted = false
+        AND p.status NOT IN ('filtered_out', 'duplicate')
+        AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz
+      ORDER BY p.posted_at DESC
+      LIMIT ${limit}`;
+
+    const safeAuthor = {
+      ...author,
+      description: typeof author.description === 'string'
+        ? redactSensitiveText(author.description)
+        : author.description,
+    };
+    return {
+      author: safeAuthor, stats, items: redactRows([...items]), rangeDays: days,
+      range: ranged ? rangeMeta(ranged.range) : null,
+    };
+  });
+
+  app.get('/stats', { preHandler: [app.requirePermission(PERMISSIONS.POSTS_READ)] }, async (req) => {
+    // last24h is always a rolling 24 hours; every other count honours the range.
+    const dates = dateBoundsFromQuery(req.query as Record<string, string | undefined>);
+    const [row] = await sql<Record<string, string>[]>`
+      SELECT
+        count(*) FILTER (WHERE c.relevance = 'relevant')                            AS relevant_total,
+        count(*) FILTER (WHERE p.posted_at > now() - interval '24 hours')            AS last_24h,
+        count(*) FILTER (WHERE s.label IN ('negative','very_negative'))              AS negative_total,
+        count(*) FILTER (WHERE c.relevance IN ('advertisement','spam','irrelevant')) AS noise_total,
+        count(*) FILTER (WHERE p.status <> 'duplicate')                              AS total,
+        count(*) FILTER (WHERE p.status = 'duplicate')                               AS duplicate_total,
+        count(DISTINCT p.author_id)                                                  AS unique_authors
+      FROM posts p
+      LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
+      LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
+      WHERE p.is_redacted = false
+        AND p.posted_at >= ${dates.from}::timestamptz AND p.posted_at < ${dates.to}::timestamptz`;
+
+    const total = Number(row?.total ?? 0);
+    const relevant = Number(row?.relevant_total ?? 0);
+    const noise = Number(row?.noise_total ?? 0);
+
+    return {
+      total,
+      relevant,
+      noise,
+      negative: Number(row?.negative_total ?? 0),
+      duplicates: Number(row?.duplicate_total ?? 0),
+      last24h: Number(row?.last_24h ?? 0),
+      uniqueAuthors: Number(row?.unique_authors ?? 0),
+      precision: relevant + noise > 0 ? relevant / (relevant + noise) : null,
+      negativePct: relevant > 0 ? Number(row?.negative_total ?? 0) / relevant : 0,
+      range: rangeMeta(dates.range),
+    };
+  });
+
+  /**
+   * `range`/`from`/`to` take precedence over the legacy `hours` window. Up to
+   * three days are bucketed by hour, longer ranges by Riyadh calendar day.
+   */
+  app.get('/timeline', { preHandler: [app.requirePermission(PERMISSIONS.POSTS_READ)] }, async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    let from: string;
+    let to = 'infinity';
+    let granularity: 'hour' | 'day' = 'hour';
+    let range: ReturnType<typeof rangeMeta> | null = null;
+    if (hasDateRange(q)) {
+      const dates = dateBoundsFromQuery(q);
+      ({ from, to } = dates);
+      range = rangeMeta(dates.range);
+      const span = dates.range.from && dates.range.to
+        ? dates.range.to.getTime() - dates.range.from.getTime()
+        : Infinity;
+      if (span > 3 * 86_400_000) granularity = 'day';
+    } else {
+      const hours = Math.min(Math.max(Number(q.hours ?? 48) || 48, 1), 24 * 90);
+      from = new Date(Date.now() - hours * 3_600_000).toISOString();
+    }
+    return {
+      granularity,
+      range,
+      items: await sql`
+        SELECT date_trunc(${granularity}, p.posted_at, ${APP_TIME_ZONE}) AS bucket,
+               count(*) FILTER (WHERE c.relevance = 'relevant')::int AS relevant,
+               count(*) FILTER (WHERE c.relevance <> 'relevant')::int AS noise,
+               count(*) FILTER (WHERE s.label IN ('negative','very_negative'))::int AS negative
+        FROM posts p
+        LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
+        LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at
+        WHERE p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz
+        GROUP BY 1 ORDER BY 1`,
+    };
+  });
+
+  /** Answers "why did we collect this?" — query, version and matched keywords. */
+  app.get('/:id/why-collected', { preHandler: [requireScope(INTERACTIONS)] }, async (req) => {
+    const { id } = req.params as { id: string };
+    const [row] = await sql`
+      SELECT p.matched_keywords, p.filter_reason, p.status,
+             q.id AS query_id, q.name AS query_name,
+             v.version, v.compiled,
+             c.relevance, c.reason_ar, c.stage
+      FROM posts p
+      LEFT JOIN queries q ON q.id = p.query_id
+      LEFT JOIN query_versions v ON v.id = p.query_version_id
+      LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
+      WHERE p.id = ${id}::uuid AND NOT p.is_redacted`;
+    // Out of scope looks exactly like missing (404), never 403 — no id probing.
+    if (!row || !canSeeRecord(req.authzScope)) throw notFound('المنشور غير موجود');
+    return row;
+  });
+
+  app.post('/:id/feedback', {
+    preHandler: [app.requirePermission(PERMISSIONS.FEEDBACK_WRITE)],
+  }, async (req) => {
+    const { id } = req.params as { id: string };
+    const body = req.body as { type?: string; value?: string; reason?: string };
+    if (!body?.value) throw badRequest('القيمة المصححة مطلوبة');
+
+    const [post] = await sql<{ text: string; posted_at: Date | string }[]>`
+      SELECT text, posted_at FROM posts WHERE id = ${id}::uuid`;
+    if (!post) throw notFound('المنشور غير موجود');
+    const postedAt = post.posted_at;
+
+    const [cls] = await sql<{ relevance: string; relevance_confidence: string | null; stage: number }[]>`
+      SELECT relevance::text, relevance_confidence, stage FROM post_classifications
+      WHERE post_id = ${id}::uuid AND posted_at = ${postedAt}::timestamptz`;
+
+    await sql`
+      INSERT INTO ai_feedback (post_id, posted_at, feedback_type, ai_value, ai_confidence,
+                               ai_stage, human_value, reason, post_text_snapshot, created_by)
+      VALUES (${id}::uuid, ${postedAt}::timestamptz, ${body.type ?? 'relevance'},
+              ${cls?.relevance ?? 'unknown'}, ${cls?.relevance_confidence ?? null},
+              ${cls?.stage ?? null}, ${body.value}, ${body.reason ?? null},
+              ${redactSensitiveText(post.text)}, ${req.user.id}::uuid)`;
+
+    await sql`
+      UPDATE post_classifications
+      SET relevance = ${body.value}::relevance_label, human_corrected = true,
+          corrected_by = ${req.user.id}::uuid, corrected_at = now()
+      WHERE post_id = ${id}::uuid AND posted_at = ${postedAt}::timestamptz`;
+
+    return { ok: true };
+  });
+
+  /**
+   * Manual collection run. The scheduled worker job lands in Phase 1.D; this
+   * endpoint exercises the exact same gateway, so the budget gate, kill switch
+   * and accounting are identical.
+   */
+  app.post('/collect/:queryId', {
+    preHandler: [app.requirePermission(PERMISSIONS.QUERIES_WRITE)],
+  }, async (req) => {
+    const { queryId } = req.params as { queryId: string };
+    try {
+      const result = await collectQuery(queryId, req.user.id);
+      await audit(req, {
+        action: 'query.collect', entityType: 'query', entityId: result.queryId,
+        entityLabel: result.queryName, newValue: result,
+      });
+      return result;
+    } catch (error) {
+      if (error instanceof CollectionError) {
+        if (error.code === 'NOT_FOUND') throw notFound(error.message);
+        throw badRequest(error.message, error.code);
+      }
+      throw error;
+    }
+  });
+}

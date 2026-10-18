@@ -1,0 +1,39 @@
+{
+  "name": "@mip/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/**/*.test.ts",
+    "test:db": "tsx src/test/prepare-test-db.ts",
+    "test:integration": "tsx src/test/prepare-test-db.ts && tsx --test --test-concurrency=1 src/test/*.itest.ts",
+    "dev:staging": "tsx src/unified-staging.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/jwt": "^10.2.5",
+    "@fastify/rate-limit": "^10.2.2",
+    "@mip/config": "workspace:*",
+    "@mip/db": "workspace:*",
+    "@mip/logger": "workspace:*",
+    "@mip/shared": "workspace:*",
+    "@mip/x-collector": "workspace:*",
+    "argon2": "^0.41.1",
+    "fast-xml-parser": "^5.11.2",
+    "fastify": "^5.12.7",
+    "fastify-plugin": "^5.0.1",
+    "nodemailer": "^10.1.2",
+    "robots-parser": "^3.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
