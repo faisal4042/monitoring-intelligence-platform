@@ -120,6 +120,7 @@ services:
       retries: 5
       start_period: 20s
     image: hqak346ube6ddkgkqmdpozsm_ai:11599e9d0bf664ffeb144ebbbbc0a1b6dbc2a502
+    pull_policy: never
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
