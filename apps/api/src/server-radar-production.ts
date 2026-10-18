@@ -11,6 +11,12 @@ import {drainTrackedTasks} from './workers/tracked-task.js';
 import {startReportExportWorker,startReportScheduleWorker} from './workers/reports.worker.js';
 import {startQueueIntakeWorker} from './workers/queue-intake.worker.js';
 import {startWorkforceWorker} from './workers/workforce.worker.js';
+import {startXStreamWorker} from './workers/x-stream.worker.js';
+import {startClassificationWorker} from './workers/classification.worker.js';
+import {startNewsFetchWorker} from './workers/news-fetch.worker.js';
+import {startAlertsWorker} from './workers/alerts.worker.js';
+import {startXPostTicketWorker} from './workers/x-post-tickets.worker.js';
+import {startPartitionCoverageObserver} from './workers/partition-coverage.worker.js';
 import {assertRadarProduction} from './startup/radar-production.js';
 // Google restricts this key to the approved server IPv4 address.
 setDefaultResultOrder('ipv4first');setDefaultAutoSelectFamily(false);
@@ -42,6 +48,15 @@ try{
  if(config.REPORT_SCHEDULES_ENABLED)stops.push(startReportScheduleWorker());
  if(config.QUEUE_WORKER_ENABLED)stops.push(startQueueIntakeWorker());
  if(config.WORKFORCE_WORKER_ENABLED)stops.push(startWorkforceWorker());
+ if(process.env.MIP_APPROVED_RELEASE==='radar360-live-v1-20261018'){
+  stops.push(startPartitionCoverageObserver());
+  stops.push(startXStreamWorker());
+  // Respect existing source intervals and avoid any startup synchronization of operational data.
+  stops.push(startClassificationWorker({transitional:true}));
+  stops.push(startNewsFetchWorker({transitional:true}));
+  stops.push(startAlertsWorker({transitional:true}));
+  if(config.X_POST_TICKETS_ENABLED)stops.push(startXPostTicketWorker());
+ }
  await app.listen({host:'0.0.0.0',port:config.API_PORT});
  console.log('RADAR360_V1_PRODUCTION_READY');
 }catch(error){await close();throw error;}

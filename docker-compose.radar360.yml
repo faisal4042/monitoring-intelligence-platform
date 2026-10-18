@@ -31,12 +31,12 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET}
-      LIVE_X_API: 'false'
-      X_DRY_RUN: ${X_DRY_RUN:-true}
+      LIVE_X_API: 'true'
+      X_DRY_RUN: 'false'
       X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
-      X_STREAM_ENABLED: 'false'
+      X_STREAM_ENABLED: 'true'
       X_STREAM_RULE_REFRESH_SECONDS: ${X_STREAM_RULE_REFRESH_SECONDS:-60}
-      X_STREAM_RECONNECT_MAX_SECONDS: ${X_STREAM_RECONNECT_MAX_SECONDS:-60}
+      X_STREAM_RECONNECT_MAX_SECONDS: '300'
       AUTO_COLLECTION_ENABLED: 'false'
       AUTO_COLLECTION_TICK_SECONDS: ${AUTO_COLLECTION_TICK_SECONDS:-30}
       AUTO_COLLECTION_INTERVAL_MINUTES: ${AUTO_COLLECTION_INTERVAL_MINUTES:-2}
@@ -44,16 +44,16 @@ services:
       AUTO_COLLECTION_EXCLUDED_USERS: ${AUTO_COLLECTION_EXCLUDED_USERS:-}
       AI_SERVICE_URL: http://ai:8000
       AI_API_KEY: ${AI_API_KEY:?set AI_API_KEY}
-      ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI: 'false'
-      AUTO_CLASSIFICATION_ENABLED: 'false'
-      AUTO_CLASSIFICATION_TICK_SECONDS: ${AUTO_CLASSIFICATION_TICK_SECONDS:-300}
-      AUTO_CLASSIFICATION_BATCH_SIZE: ${AUTO_CLASSIFICATION_BATCH_SIZE:-20}
-      NEWS_FETCH_ENABLED: 'false'
+      ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI: 'true'
+      AUTO_CLASSIFICATION_ENABLED: 'true'
+      AUTO_CLASSIFICATION_TICK_SECONDS: '300'
+      AUTO_CLASSIFICATION_BATCH_SIZE: '20'
+      NEWS_FETCH_ENABLED: 'true'
       NEWS_FETCH_TICK_SECONDS: ${NEWS_FETCH_TICK_SECONDS:-30}
       NEWS_FETCH_INTERVAL_MINUTES: ${NEWS_FETCH_INTERVAL_MINUTES:-5}
-      NEWS_FETCH_BATCH_SIZE: ${NEWS_FETCH_BATCH_SIZE:-25}
+      NEWS_FETCH_BATCH_SIZE: '5'
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      MIP_APPROVED_RELEASE: radar360-v1-20261018
+      MIP_APPROVED_RELEASE: radar360-live-v1-20261018
       MIP_NEWS_READER: legacy
       RUN_DB_MIGRATIONS_ON_START: 'false'
       QUEUE_WORKER_ENABLED: 'true'
@@ -67,16 +67,21 @@ services:
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       YOUTUBE_DAILY_SEARCH_LIMIT: '80'
       YOUTUBE_DAILY_UNITS_LIMIT: '1000'
-      ALERTS_ENABLED: 'false'
-      NEWS_SCRAPLING_ENABLED: 'false'
-      NEWS_SCRAPLING_DYNAMIC_ENABLED: 'false'
-      X_POST_TICKETS_ENABLED: 'false'
+      ALERTS_ENABLED: 'true'
+      NEWS_SCRAPLING_ENABLED: 'true'
+      NEWS_SCRAPLING_DYNAMIC_ENABLED: 'true'
+      X_POST_TICKETS_ENABLED: 'true'
+      X_POST_TICKETS_SINCE: '2026-10-18T16:47:38+00:00'
+      NEWS_EXTRACTOR_URL: http://news-extractor:8010
+      NEWS_EXTRACTOR_TOKEN: ${NEWS_EXTRACTOR_TOKEN:?set NEWS_EXTRACTOR_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       ai:
+        condition: service_healthy
+      news-extractor:
         condition: service_healthy
     expose:
     - '3001'
@@ -137,6 +142,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    pull_policy: never
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -155,6 +161,44 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    pull_policy: never
+  news-extractor:
+    build:
+      context: .
+      dockerfile: Dockerfile.news-extractor
+      args:
+        WITH_BROWSER: 'true'
+    restart: unless-stopped
+    environment:
+      NEWS_EXTRACTOR_TOKEN: ${NEWS_EXTRACTOR_TOKEN:?set NEWS_EXTRACTOR_TOKEN}
+      NEWS_SCRAPLING_DYNAMIC_ENABLED: 'true'
+      NEWS_EXTRACTOR_CONCURRENCY: '4'
+      NEWS_EXTRACTOR_DOMAIN_INTERVAL_MS: '1500'
+      NEWS_EXTRACTOR_MAX_BYTES: '3000000'
+    expose:
+    - '8010'
+    read_only: true
+    tmpfs:
+    - /tmp:size=256m
+    security_opt:
+    - no-new-privileges:true
+    cap_drop:
+    - ALL
+    pids_limit: 256
+    mem_limit: 1536m
+    cpus: 1.0
+    shm_size: 256m
+    stop_grace_period: 35s
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request;urllib.request.urlopen('http://127.0.0.1:8010/health',timeout=4)
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 volumes:
   postgres-data:
     external: true
