@@ -98,9 +98,9 @@ export default function YouTubeMvp({client=api,canManage=true,integrated=false}:
           {(status?.quota?.buckets ?? []).map((b: Json) => (
             <div key={b.bucket} className="card p-4" data-testid={`quota-${b.bucket}`}>
               <h2 className="font-semibold mb-1">{BUCKET_AR[b.bucket]}</h2>
-              <p className="text-2xl font-bold">{b.used}<span className="text-sm opacity-60"> / {b.limit ?? '??? ?? ?????'}</span></p>
+              <p className="text-2xl font-bold">{b.used}<span className="text-sm opacity-60"> / {b.limit ?? 'بلا حد داخلي'}</span></p>
               <div className="h-2 rounded bg-black/10 my-2" aria-hidden><div className="h-2 rounded bg-emerald-600" style={{width: `${Math.min(100, (b.used + b.reserved) / Math.max(b.limit, 1) * 100)}%`}} /></div>
-              <p className="text-xs opacity-75">حد داخلي {b.limit ?? '??? ?? ?????'} · حد Google {num(b.googleLimit)}{b.exhausted ? ' · نفدت حصة Google اليوم' : ''}</p>
+              <p className="text-xs opacity-75">حد داخلي {b.limit ?? 'بلا حد داخلي'} · حد Google {num(b.googleLimit)}{b.exhausted ? ' · نفدت حصة Google اليوم' : ''}</p>
               <p className="text-xs opacity-75">يُصفّر {riyadh(status?.quota?.resetsAt)} (منتصف ليل PT)</p>
             </div>
           ))}
