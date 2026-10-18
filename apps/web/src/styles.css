@@ -1552,3 +1552,6 @@ button.ic-media-play { padding: 0; cursor: pointer; }
 .ic-ai-chip.is-relevant { background: color-mix(in srgb, #10b981 10%, transparent); border-color: color-mix(in srgb, #10b981 30%, transparent); }
 .ic-ai-chip.is-relevant b, .ic-ai-chip.is-relevant .ic-ai-conf { color: #047857; }
 .ic-ai-chip.is-irrelevant b { color: #b42318; }
+
+/* Isolate message direction from the RTL card and shared live-card styles. */
+.ic-card .ic-main .ic-text, .ic-card .ic-main .ic-root-text { width: 100%; text-align: start; unicode-bidi: isolate; }

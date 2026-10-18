@@ -98,11 +98,12 @@ export async function prepareReview(tx: Transaction, item: Parameters<typeof aiS
   const nonRelevance = corrected.filter((f) => f !== 'relevance');
   // The outcome must describe what actually happened to the values.
   if (input.outcome === 'irrelevant' && approved.relevant) throw badRequest('نتيجة "غير ذي صلة" تعني أن التفاعل لا يخص البرنامج');
-  if (input.outcome !== 'irrelevant' && !approved.relevant) throw badRequest('التفاعل غير ذي صلة: اختر نتيجة "التفاعل غير ذي صلة"');
+  if (input.outcome !== 'irrelevant' && input.outcome !== 'confirmed' && !approved.relevant) throw badRequest('التفاعل غير ذي صلة: اختر نتيجة "التفاعل غير ذي صلة"');
   if (input.outcome === 'confirmed' && corrected.length) throw badRequest('عدّلت بعض القيم؛ اختر نتيجة "تم تصحيح التصنيفات"');
   if (input.outcome === 'corrected' && !nonRelevance.length) throw badRequest('لم تُصحَّح أي قيمة؛ اختر "التصنيفات صحيحة" أو عدّل القيم');
   if ((corrected.length || input.outcome === 'irrelevant') && !reason) {
     throw badRequest(input.outcome === 'irrelevant' ? 'اكتب سبب اعتبار التفاعل غير ذي صلة' : 'اكتب سبب التصحيح');
   }
-  return { ai: raw, approved, corrected, reason, outcome: input.outcome, resolution: RESOLUTION[input.outcome] };
+  return { ai: raw, approved, corrected, reason, outcome: input.outcome,
+    resolution: approved.relevant ? RESOLUTION[input.outcome] : 'not_actionable' };
 }

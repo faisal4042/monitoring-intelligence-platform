@@ -17,6 +17,7 @@ import {useAuth} from '../../lib/auth';
 import {INTENT_LABELS, SENTIMENT_LABELS, SOURCE_LABELS, sourceOf, workTimer, type QueueItem, type ReviewCatalog} from '../../lib/queue';
 import {fmtCompact, fmtDateTime, fmtNum, fmtRelative} from '../../lib/format';
 import Avatar from '../Avatar';
+import {contentDirection} from '../../lib/content-direction';
 import {SOURCE_BADGE_LABELS, SourceBadge, SourceIcon, isSourceCard, sourceKeyOf, sourceOrigin, sourceText, sourceTitle, sourceUrl} from './SourceParts';
 
 type Panel = null | 'escalate' | 'note' | 'priority';
@@ -84,12 +85,12 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         </span>
         <span className="ic-when" title={at ? fmtDateTime(at) : undefined}><Zap size={15} aria-hidden="true"/>{at ? fmtRelative(at) : '—'}</span>
       </span>
-      {body && <span className="ic-text" dir="auto">{body}</span>}
+      {body && <span className="ic-text" dir={contentDirection(body)}>{body}</span>}
       {!story && !src && item.root_text && <span className="ic-root">
         <span className="ic-root-head"><span className="ic-root-tag">بداية المحادثة</span>
           <span className="ic-root-who">{item.root_display_name ?? item.root_username ?? ''}{item.root_username && <span dir="ltr"> @{item.root_username}</span>}</span>
           {item.root_posted_at && <span className="ic-root-time">{fmtRelative(item.root_posted_at)}</span>}</span>
-        <span className="ic-root-text" dir="auto">{item.root_text}</span>
+        <span className="ic-root-text" dir={contentDirection(item.root_text ?? '')}>{item.root_text}</span>
       </span>}
     </button>
 
