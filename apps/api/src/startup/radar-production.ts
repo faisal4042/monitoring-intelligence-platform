@@ -9,8 +9,8 @@ export function assertRadarProduction(env:NodeJS.ProcessEnv,flags:Record<string,
   throw Error('RADAR_PRODUCTION_PROFILE_DENIED');
  if(env.RUN_DB_MIGRATIONS_ON_START==='true')throw Error('Startup migrations forbidden');
  if(live){
-  // Live X uses only the filtered stream; periodic search polling stays off.
-  if(flags.AUTO_COLLECTION_ENABLED!==false||flags.X_DRY_RUN!==false)throw Error('LIVE_PROFILE_REQUIRES_STREAM_ONLY');
+  // The user approved filtered stream plus periodic search polling.
+  if(flags.AUTO_COLLECTION_ENABLED!==true||flags.X_DRY_RUN!==false)throw Error('LIVE_PROFILE_REQUIRES_STREAM_AND_POLLING');
   for(const key of ['LIVE_X_API','X_STREAM_ENABLED','AUTO_CLASSIFICATION_ENABLED','NEWS_FETCH_ENABLED','ALERTS_ENABLED',
    'ALLOW_INTERNAL_DATA_TO_EXTERNAL_AI','NEWS_SCRAPLING_ENABLED','NEWS_SCRAPLING_DYNAMIC_ENABLED','X_POST_TICKETS_ENABLED'])
    if(flags[key]!==true)throw Error('Live profile requires enabled gate: '+key);

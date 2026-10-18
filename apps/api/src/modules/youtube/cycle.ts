@@ -22,6 +22,13 @@ export function searchAllowance(remaining:number,msUntilReset:number,intervalMin
  return Math.min(remaining,Math.max(1,Math.round(remaining/cyclesLeft)));
 }
 
+/** Unlimited app policy runs every planned query; provider exhaustion still stops search. */
+export function cycleAllowance(search:{limit:number|null;used:number;reserved:number;exhausted?:boolean}|undefined,msUntilReset:number,intervalMinutes:number){
+ if(!search||search.exhausted)return 0;
+ if(search.limit===null)return Number.MAX_SAFE_INTEGER;
+ return searchAllowance(Math.max(0,search.limit-search.used-search.reserved),msUntilReset,intervalMinutes);
+}
+
 /** Sweeps first (oldest attempt first), then unfinished pagination, then the least recently attempted query per program in turn. */
 export function selectQueries(queries:PlannedQuery[],allowance:number){
  const at=(q:PlannedQuery)=>q.last_attempt_at?new Date(q.last_attempt_at).getTime():0;
@@ -40,8 +47,7 @@ export async function runCycle(sql:YouTubeSql,gateway:YouTubeGateway,quota:Quota
  const stillRunning=async()=>{await workerCheckpoint();return !(await gateway.controls()).paused;};
  const [control]=await sql`SELECT interval_minutes FROM youtube_collector_controls WHERE singleton`;
  const search=(await quota.status(mode)).buckets.find((b:{bucket:string})=>b.bucket==='search');
- const remaining=search?Math.max(0,search.limit-search.used-search.reserved):0;
- const allowance=searchAllowance(remaining,nextQuotaReset(now).getTime()-now.getTime(),control.interval_minutes);
+ const allowance=cycleAllowance(search,nextQuotaReset(now).getTime()-now.getTime(),control.interval_minutes);
  const queries=await sql<PlannedQuery[]>`SELECT q.id,q.program_key,q.name,q.last_attempt_at,q.pending_page_token FROM youtube_search_queries q
   JOIN programs p ON p.key=q.program_key WHERE q.is_active AND p.is_active AND p.deleted_at IS NULL`;
  for(const q of selectQueries(queries,allowance)){if(!await stillRunning())return results;results.push(await runDiscovery(sql,gateway,q.id,now));}

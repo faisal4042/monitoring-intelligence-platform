@@ -11,6 +11,7 @@ import {drainTrackedTasks} from './workers/tracked-task.js';
 import {startReportExportWorker,startReportScheduleWorker} from './workers/reports.worker.js';
 import {startQueueIntakeWorker} from './workers/queue-intake.worker.js';
 import {startWorkforceWorker} from './workers/workforce.worker.js';
+import {startCollectionWorker} from './workers/collection.worker.js';
 import {startXStreamWorker} from './workers/x-stream.worker.js';
 import {startClassificationWorker} from './workers/classification.worker.js';
 import {startNewsFetchWorker} from './workers/news-fetch.worker.js';
@@ -51,6 +52,7 @@ try{
  if(process.env.MIP_APPROVED_RELEASE==='radar360-live-v1-20261018'){
   stops.push(startPartitionCoverageObserver());
   stops.push(startXStreamWorker());
+  stops.push(startCollectionWorker({transitional:true}));
   // Respect existing source intervals and avoid any startup synchronization of operational data.
   stops.push(startClassificationWorker({transitional:true}));
   stops.push(startNewsFetchWorker({transitional:true}));

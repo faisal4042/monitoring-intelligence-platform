@@ -19,7 +19,7 @@ function parse<S extends z.ZodTypeAny>(schema:S,data:unknown):z.output<S>{const 
 export default async function youtubeRoutes(app:FastifyInstance){
  const mode=(process.env.YOUTUBE_MODE??'dry_run') as Mode;
  if(!['dry_run','mock','live'].includes(mode))throw Error('Invalid YouTube mode');
- const quota=new QuotaManager(sql,limitsFromEnv(process.env));
+ const quota=new QuotaManager(sql,limitsFromEnv(process.env),undefined,process.env.YOUTUBE_INTERNAL_LIMITS_ENABLED!=='false');
  const gateway=new YouTubeGateway(sql,quota,{mode,transport:mode==='mock'?new MockTransport():mode==='live'?new LiveTransport(()=>process.env.YOUTUBE_API_KEY):null,
   liveApproved:process.env.YOUTUBE_LIVE_APPROVED==='1'});
  const ready=async()=>{const [r]=await sql`SELECT to_regclass('public.youtube_videos') IS NOT NULL AS ready`;if(!r.ready)throw new HttpError(503,'رصد YouTube ينتظر تهيئة قاعدة البيانات المعتمدة','YOUTUBE_NOT_ACTIVATED');};
