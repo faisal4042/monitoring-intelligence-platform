@@ -77,7 +77,6 @@ export default function NewsArticles() {
   });
 
   const articles = uniqueRows(data?.items ?? []);
-  const legacyLimited = !!data && data.hasMore === undefined && !isError;
 
   useBrowsingScroll(user?.id, canRead && !dateRange.error && !isLoading && !isError);
   const fetchNow = useMutation({
@@ -122,10 +121,6 @@ export default function NewsArticles() {
         </div>
       </section>
 
-      {!dateRange.error && legacyLimited && <div className="card p-4 text-sm leading-7" role="note" aria-label="حدود تصفح الأخبار">
-        <p>عرض محدود للأخبار: لا يتيح الخادم حاليًا تأكيد صفحة تالية موثوقة. قد تتجاوز طريقة التجميع والمؤشر الزمني أخبارًا لها التوقيت نفسه أو تكرر عنوانًا في صفحات مختلفة؛ لذلك لا تتاح المتابعة من هذا العرض.</p>
-        <p>ضيّق الفترة أو اختر برنامجًا للوصول إلى أخبار أخرى، أو عد إلى البداية. هذا العرض لا يثبت اكتمال النتائج{navigation.cursor ? '، والرابط الحالي يعرض جزءًا أقدم وفق مؤشره الزمني' : ''}.</p>
-      </div>}
       {!dateRange.error && <V1BrowsingStatus error={error} hasMore={data?.hasMore} busy={isFetching} onRestart={restart} onRetry={() => void refetch()} />}
       {!dateRange.error && <CursorPager shown={isError ? 0 : articles.length} page={navigation.page} pageKnown={navigation.pageKnown} cursor={navigation.cursor}
         nextCursor={data?.hasMore === true ? data.nextCursor : null} canPrevious={navigation.canPrevious} busy={isFetching} error={isError}
