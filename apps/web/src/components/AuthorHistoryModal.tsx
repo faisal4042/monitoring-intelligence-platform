@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime, fmtNum, fmtRelative } from '../lib/format';
 import Avatar from './Avatar';
+import {contentDirection} from '../lib/content-direction';
 import { PERMISSIONS } from '@mip/shared';
 import { useAuth } from '../lib/auth';
 import DateRangeFilter from './DateRangeFilter';
@@ -202,7 +203,7 @@ export default function AuthorHistoryModal({
                   {item.intent && <span className="badge bg-[var(--surface-3)]">{INTENT[item.intent] ?? item.intent}</span>}
                   {item.sentiment && <span className={`badge ${item.sentiment.includes('negative') ? 'text-red-500 bg-red-500/10' : 'bg-[var(--surface-3)]'}`}>{SENTIMENT[item.sentiment] ?? item.sentiment}</span>}
               </div>
-              <div className={`history-item-text ${expanded || !canExpand ? 'is-expanded' : ''}`}>
+              <div dir={contentDirection(item.text)} style={{textAlign: 'start', unicodeBidi: 'isolate'}} className={`history-item-text ${expanded || !canExpand ? 'is-expanded' : ''}`}>
                 {item.text}
               </div>
               {canExpand && (

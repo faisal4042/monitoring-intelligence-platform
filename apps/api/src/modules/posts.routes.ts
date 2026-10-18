@@ -30,6 +30,7 @@ export default async function postRoutes(app: FastifyInstance) {
   /**
    * Customer history is assembled exclusively from posts already collected by
    * the platform. Opening a profile never spends X API quota.
+   * Include filtered-out posts: history describes collected interactions, not only relevant ones.
    */
   app.get('/authors/:xAuthorId/history', { preHandler: [app.requirePermission(PERMISSIONS.CUSTOMERS_READ)] }, async (req) => {
     const { xAuthorId } = req.params as { xAuthorId: string };
@@ -73,7 +74,7 @@ export default async function postRoutes(app: FastifyInstance) {
       ) m ON true
       WHERE p.x_author_id = ${xAuthorId}
         AND p.is_redacted = false
-        AND p.status NOT IN ('filtered_out', 'duplicate')
+        AND p.status <> 'duplicate'
         AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz`;
 
     const items = await sql`
@@ -95,7 +96,7 @@ export default async function postRoutes(app: FastifyInstance) {
       ) m ON true
       WHERE p.x_author_id = ${xAuthorId}
         AND p.is_redacted = false
-        AND p.status NOT IN ('filtered_out', 'duplicate')
+        AND p.status <> 'duplicate'
         AND p.posted_at >= ${from}::timestamptz AND p.posted_at < ${to}::timestamptz
       ORDER BY p.posted_at DESC
       LIMIT ${limit}`;
