@@ -10,6 +10,7 @@ import { useAuth } from '../lib/auth';
 import DateRangeFilter from './DateRangeFilter';
 import { useLocalDateRange } from '../lib/useDateRange';
 import { ExternalLink, Heart, MessageCircle, Repeat2 } from 'lucide-react';
+import { InteractionMedia, type MediaSource } from './media/InteractionMedia';
 
 interface HistoryItem {
   id: string;
@@ -27,6 +28,7 @@ interface HistoryItem {
   program_color: string | null;
   matched_keywords: string[] | null;
   like_count: number | null;
+  media?: MediaSource['media'];
   repost_count: number | null;
   reply_count: number | null;
 }
@@ -216,6 +218,8 @@ export default function AuthorHistoryModal({
                   {expanded ? 'SHOW LESS' : 'READ MORE'}
                 </button>
               )}
+              {!!item.media?.length && <div className="history-media">
+                <InteractionMedia post={item} onLightbox={(url) => window.open(url, '_blank', 'noopener,noreferrer')} /></div>}
               <div className="history-item-footer">
                 {engagement > 0 && (
                   <div className="interaction-metrics">

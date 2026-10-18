@@ -83,7 +83,9 @@ export default async function postRoutes(app: FastifyInstance) {
              c.relevance, c.intent, c.reason_ar,
              s.label AS sentiment,
              pr.name_ar AS program_name, pr.color AS program_color,
-             m.like_count, m.repost_count, m.reply_count
+             m.like_count, m.repost_count, m.reply_count,
+             coalesce((SELECT jsonb_agg(jsonb_build_object('url', md.url, 'type', md.type, 'previewImageUrl', md.preview_image_url))
+               FROM post_media md WHERE md.post_id = p.id AND md.posted_at = p.posted_at), '[]') AS media
       FROM posts p
       LEFT JOIN post_classifications c ON c.post_id = p.id AND c.posted_at = p.posted_at
       LEFT JOIN post_sentiments s ON s.post_id = p.id AND s.posted_at = p.posted_at

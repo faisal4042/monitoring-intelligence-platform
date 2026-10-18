@@ -13,6 +13,7 @@ import {
 import {PERMISSIONS as P, QUEUE_REVIEW_OUTCOME_LABELS, QUEUE_SECTION_LABELS, QUEUE_STATUS_LABELS, type QueueReviewOutcome, type QueueStatus} from '@mip/shared';
 import ModalSurface, {ModalCloseButton} from '../ModalSurface';
 import {api} from '../../lib/api';
+import {InteractionMedia} from '../media/InteractionMedia';
 import {useAuth} from '../../lib/auth';
 import {INTENT_LABELS, SENTIMENT_LABELS, SOURCE_LABELS, sourceOf, workTimer, type QueueItem, type ReviewCatalog} from '../../lib/queue';
 import {fmtCompact, fmtDateTime, fmtNum, fmtRelative} from '../../lib/format';
@@ -103,6 +104,8 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
     </button>
     {canExpand && <button type="button" className="ic-read-more" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
       {expanded ? 'SHOW LESS' : 'READ MORE'}</button>}
+    {!story && !src && !!item.media?.length && <div className="ic-queue-media">
+      <InteractionMedia post={item} onLightbox={(url) => window.open(url, '_blank', 'noopener,noreferrer')}/></div>}
 
     <div className="ic-actions" role="toolbar" aria-label="إجراءات سريعة">
       {canClaim && <button type="button" className="ic-primary" disabled={act.isPending} onClick={() => act.mutate({path: 'claim', body: {}})}><Hand size={16}/>استلام</button>}

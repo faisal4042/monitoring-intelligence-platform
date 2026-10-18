@@ -132,7 +132,10 @@ export default async function queueRoutes(app:FastifyInstance) {
       -- AI classification confidences, shown beside the ticket number on the card.
       c.intent_confidence::float AS intent_confidence,c.relevance_confidence::float AS relevance_confidence,s.confidence::float AS sentiment_confidence,c.model AS ai_model,
       u.full_name AS assignee_name,t.name AS team_name,${storyColumns},${tickets},${rootColumns},tpc.name_ar AS topic_name,
-      (SELECT count(*)::int FROM queue_items m WHERE m.story_item_id=q.id AND m.status NOT IN ('new','completed')) AS story_active_items
+      (SELECT count(*)::int FROM queue_items m WHERE m.story_item_id=q.id AND m.status NOT IN ('new','completed')) AS story_active_items,
+      -- Attached photos/videos, so the card shows them without opening the details.
+      coalesce((SELECT jsonb_agg(jsonb_build_object('url',m.url,'type',m.type,'previewImageUrl',m.preview_image_url))
+        FROM post_media m WHERE m.post_id=p.id AND m.posted_at=p.posted_at),'[]') AS media
       FROM queue_items q ${joins} ${storyJoins} LEFT JOIN authors a ON a.id=p.author_id ${rootJoins} LEFT JOIN topics tpc ON tpc.id=c.topic_id
       LEFT JOIN users u ON u.id=q.assignee_id JOIN teams t ON t.id=q.team_id
       WHERE ${filter(req.user,q)} AND q.entered_at<=${upper}::timestamptz
