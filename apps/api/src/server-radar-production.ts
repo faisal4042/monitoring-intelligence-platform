@@ -1,5 +1,7 @@
 /** Restored Radar360 v1 production profile: fenced ownership, no seed or migrations. */
 import {mkdir} from 'node:fs/promises';
+import {setDefaultResultOrder} from 'node:dns';
+import {setDefaultAutoSelectFamily} from 'node:net';
 import {config} from '@mip/config';
 import {sql,analyticsSql,processWorkerOwnerId} from '@mip/db';
 import {buildApp} from './app.js';
@@ -10,6 +12,8 @@ import {startReportExportWorker,startReportScheduleWorker} from './workers/repor
 import {startQueueIntakeWorker} from './workers/queue-intake.worker.js';
 import {startWorkforceWorker} from './workers/workforce.worker.js';
 import {assertRadarProduction} from './startup/radar-production.js';
+// Google restricts this key to the approved server IPv4 address.
+setDefaultResultOrder('ipv4first');setDefaultAutoSelectFamily(false);
 assertRadarProduction(process.env,config);
 const [identity]=await sql`SELECT current_database() AS name,pg_is_in_recovery() AS recovery,
  EXISTS(SELECT 1 FROM public._migrations WHERE name='0052_unified_tickets_card_merge.sql') AS ready`;
