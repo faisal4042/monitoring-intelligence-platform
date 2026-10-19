@@ -3,7 +3,7 @@ import { config } from '@mip/config';
 import { sql } from '@mip/db';
 import { encryptJson, decryptJson, telegramWebhookSecret } from '../../lib/crypto.js';
 import {
-  sendEmail, sendTelegram, telegramGetMe, telegramSetWebhook, normalizeTelegramConfig,
+  sendEmail, sendTelegram, telegramGetMe, telegramGetUpdates, telegramGetWebhookUrl, telegramSetWebhook, normalizeTelegramConfig,
   type EmailConfig, type TelegramConfig,
 } from './providers.js';
 import { alertLogger as log } from '@mip/logger';
@@ -18,8 +18,17 @@ export async function createTelegramLink(channelId: string): Promise<{ botUserna
 
   const cfg = normalizeTelegramConfig(decryptJson<TelegramConfig>(channel.config_encrypted));
   const me = await telegramGetMe(cfg.botToken);
-  const webhookUrl = `${config.APP_URL.replace(/\/$/, '')}/api/v1/notify/telegram-webhook`;
-  await telegramSetWebhook(cfg.botToken, webhookUrl, telegramWebhookSecret);
+  // Telegram only delivers webhooks to public HTTPS URLs. A local copy (http://127.0.0.1) instead polls for the /start
+  // message — and only with a bot no other server uses, so a local run can never take over the live bot's webhook.
+  const localPolling = !config.APP_URL.startsWith('https://');
+  if (localPolling) {
+    if (await telegramGetWebhookUrl(cfg.botToken)) {
+      throw new Error('هذا البوت مربوط بخادم آخر (غالبًا الاستضافة). للتجربة المحلية أنشئ بوتًا تجريبيًا مستقلًا من BotFather واستخدم رمزه هنا.');
+    }
+  } else {
+    const webhookUrl = `${config.APP_URL.replace(/\/$/, '')}/api/v1/notify/telegram-webhook`;
+    await telegramSetWebhook(cfg.botToken, webhookUrl, telegramWebhookSecret);
+  }
 
   const code = crypto.randomBytes(16).toString('base64url');
   await sql`DELETE FROM telegram_link_codes WHERE channel_id = ${channelId}::uuid`;
@@ -27,7 +36,35 @@ export async function createTelegramLink(channelId: string): Promise<{ botUserna
     INSERT INTO telegram_link_codes (code, channel_id, expires_at)
     VALUES (${code}, ${channelId}::uuid, now() + (${LINK_CODE_TTL_MINUTES} || ' minutes')::interval)`;
 
+  if (localPolling) void pollTelegramStart(cfg.botToken, code);
   return { botUsername: me.username, deepLink: `https://t.me/${me.username}?start=${code}`, expiresInMinutes: LINK_CODE_TTL_MINUTES };
+}
+
+const pollingBots = new Set<string>();
+
+/** Local-only stand-in for the webhook: long-polls the bot until this link code is used or expires. */
+async function pollTelegramStart(botToken: string, code: string): Promise<void> {
+  if (pollingBots.has(botToken)) return; // one poller per bot; it resolves every pending code it sees
+  pollingBots.add(botToken);
+  const deadline = Date.now() + LINK_CODE_TTL_MINUTES * 60_000;
+  let offset = 0;
+  try {
+    while (Date.now() < deadline) {
+      const updates = await telegramGetUpdates(botToken, offset, 25);
+      for (const u of updates) {
+        offset = u.update_id + 1;
+        const match = /^\/start\s+(\S+)/.exec(u.message?.text ?? '');
+        const chatId = u.message?.chat?.id;
+        if (match && chatId) log.info({ linked: await resolveTelegramStart(match[1], chatId), chatId }, 'telegram poll /start');
+      }
+      const [open] = await sql`SELECT 1 FROM telegram_link_codes WHERE code = ${code} AND expires_at > now()`;
+      if (!open) break;
+    }
+  } catch (err) {
+    log.warn({ err: err instanceof Error ? err.message : String(err) }, 'telegram local polling stopped');
+  } finally {
+    pollingBots.delete(botToken);
+  }
 }
 
 /** Called from the (unauthenticated, secret-header-verified) Telegram webhook route. */

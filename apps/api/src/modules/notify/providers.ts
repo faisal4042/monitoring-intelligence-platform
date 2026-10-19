@@ -60,6 +60,16 @@ export async function telegramGetMe(botToken: string): Promise<{ username: strin
   return telegramApi<{ username: string }>(botToken, 'getMe');
 }
 
+export async function telegramGetWebhookUrl(botToken: string): Promise<string> {
+  return (await telegramApi<{ url: string }>(botToken, 'getWebhookInfo')).url;
+}
+
+export interface TelegramPolledUpdate { update_id: number; message?: { text?: string; chat?: { id?: number } } }
+
+export async function telegramGetUpdates(botToken: string, offset: number, timeoutSeconds: number): Promise<TelegramPolledUpdate[]> {
+  return telegramApi<TelegramPolledUpdate[]>(botToken, 'getUpdates', { offset, timeout: timeoutSeconds, allowed_updates: ['message'] });
+}
+
 export async function telegramSetWebhook(botToken: string, url: string, secretToken: string): Promise<void> {
   await telegramApi(botToken, 'setWebhook', { url, secret_token: secretToken, allowed_updates: ['message'] });
 }
