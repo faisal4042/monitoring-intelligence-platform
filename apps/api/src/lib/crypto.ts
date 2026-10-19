@@ -12,6 +12,14 @@ const key = crypto.createHash('sha256').update(`notify:${config.JWT_SECRET}`).di
 /** Validates the Telegram webhook actually came from Telegram (X-Telegram-Bot-Api-Secret-Token). */
 export const telegramWebhookSecret = crypto.createHash('sha256').update(`notify-webhook:${config.JWT_SECRET}`).digest('hex');
 
+/**
+ * Keyed hash for looking up an encrypted value (a WhatsApp number from an inbound webhook) without
+ * decrypting every row. Purpose-separated so one input never yields the same hash in two contexts.
+ */
+export function lookupHash(purpose: string, value: string): string {
+  return crypto.createHmac('sha256', key).update(`${purpose}:${value}`).digest('hex');
+}
+
 export function encryptJson(value: unknown): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);

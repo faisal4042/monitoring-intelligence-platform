@@ -114,6 +114,12 @@ const schema = z.object({
   // (encrypted), not here; this only gates the evaluation tick.
   ALERTS_ENABLED: bool.default('false'),
   ALERTS_TICK_SECONDS: z.coerce.number().int().min(15).max(600).default(60),
+  // WhatsApp (Meta Cloud API) notifications. Off by default: with this false the worker never detects, queues
+  // or sends anything, whatever the in-app settings say. Credentials live encrypted in whatsapp_settings, not here.
+  WHATSAPP_ENABLED: bool.default('false'),
+  WHATSAPP_TICK_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
+  // Graph API host. Only overridden by local tests (a mock server); production uses Meta's host.
+  WHATSAPP_GRAPH_BASE_URL: z.string().url().default('https://graph.facebook.com'),
   // Ticket engine / reporting center (migration 0047, pending approval). Workers are off by default and
   // also stay idle while the 0047 tables are absent. Exports read stored data only; no provider is called.
   REPORT_EXPORTS_ENABLED: bool.default('false'),

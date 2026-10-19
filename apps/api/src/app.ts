@@ -31,6 +31,8 @@ import ticketRoutes from './modules/tickets/routes.js';
 import reportRoutes from './modules/reports/routes.js';
 import notifyRoutes from './modules/notify/routes.js';
 import notifyWebhookRoutes from './modules/notify/webhook.routes.js';
+import whatsappRoutes from './modules/whatsapp/routes.js';
+import whatsappWebhookRoutes from './modules/whatsapp/webhook.routes.js';
 import youtubeRoutes from './modules/youtube/routes.js';
 import { HttpError } from './lib/errors.js';
 import { getXStreamStatus } from './workers/x-stream.worker.js';
@@ -134,6 +136,9 @@ export async function buildApp(opts: FastifyServerOptions & { rateLimit?: boolea
   await app.register(reportRoutes, { prefix: '/api/v1/reports' });
   await app.register(notifyRoutes, { prefix: '/api/v1/notify' });
   await app.register(notifyWebhookRoutes, { prefix: '/api/v1/notify' });
+  // WhatsApp: admin API (authenticated, per-area permissions) and Meta's signed webhook (public).
+  await app.register(whatsappRoutes, { prefix: '/api/v1/whatsapp' });
+  await app.register(whatsappWebhookRoutes, { prefix: '/api/v1/whatsapp' });
   await app.register(youtubeRoutes, { prefix: '/api/v1/youtube' });
 
   return app;

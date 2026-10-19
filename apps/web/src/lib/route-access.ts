@@ -1,4 +1,4 @@
-import { PERMISSIONS as P } from '@mip/shared';
+import { ALL_WHATSAPP_PERMISSIONS, PERMISSIONS as P } from '@mip/shared';
 import { SEARCH_PERMS } from './search';
 
 /** Any-of requirements shared by route guards and navigation; the API remains authoritative. */
@@ -14,7 +14,7 @@ export const ROUTE_ACCESS: Record<string, string[]> = {
   '/classification': [P.TOPICS_READ], '/topics': [P.TOPICS_READ],
   '/influencers': [P.INFLUENCERS_READ], '/advanced-search': SEARCH_PERMS,
   '/admin': [P.ADMIN_SYSTEM], '/users': [P.USERS_READ],
-  '/notifications': [P.ALERTS_READ],
+  '/notifications': [P.ALERTS_READ, ...ALL_WHATSAPP_PERMISSIONS],
   '/news/sources': [P.NEWS_READ], '/news/articles': [P.NEWS_READ],
   '/youtube': [P.YOUTUBE_READ,P.YOUTUBE_MANAGE],
   '/tickets': [P.TICKETS_READ, P.TICKETS_READ_ALL], '/reports': [P.REPORTS_READ],

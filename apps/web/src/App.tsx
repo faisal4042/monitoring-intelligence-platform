@@ -10,6 +10,7 @@ import { routeModule, useIntentPrefetch, type RouteModule } from './lib/route-pr
 
 const Login = lazy(() => import('./pages/Login'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
+const MyWhatsApp = lazy(() => import('./pages/MyWhatsApp'));
 
 // Shell pages, in route order. Each loads on first visit, or on clear intent
 // to visit it (see useIntentPrefetch), and only if ROUTE_ACCESS allows it.
@@ -86,6 +87,8 @@ export default function App() {
           {SHELL_PAGES.map(([path, Page]) => <Route key={path} path={path} element={guard(path, <Page />)} />)}
           <Route path="/" element={<Navigate to={home} replace />} />
           <Route path="/account/password" element={<RouteBoundary><ChangePassword /></RouteBoundary>} />
+          {/* Self-service: any signed-in employee; the API answers for their own recipient record only. */}
+          <Route path="/account/whatsapp" element={<RouteBoundary><MyWhatsApp /></RouteBoundary>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>

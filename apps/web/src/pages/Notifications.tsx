@@ -9,10 +9,12 @@ import { useAuth } from '../lib/auth';
 import { PERMISSIONS } from '@mip/shared';
 import { fmtRelative } from '../lib/format';
 import {
-  Bell, Check, Copy, ExternalLink, Link2, MailPlus, Pencil, Play, Plus, Send, Trash2, X,
+  Bell, Check, Copy, ExternalLink, Link2, MailPlus, MessageCircle, Pencil, Play, Plus, Send, Trash2, X,
 } from 'lucide-react';
 
 import { Button } from '../components/ui/Button';
+import WhatsAppPanel from '../components/whatsapp/WhatsAppPanel';
+import { waAccess } from '../components/whatsapp/types';
 interface Channel {
   id: string; type: 'email' | 'telegram'; name: string; is_active: boolean; is_linked: boolean; linked_count: number | null;
   last_test_at: string | null; last_test_ok: boolean | null; created_at: string;
@@ -75,7 +77,11 @@ export default function Notifications() {
   const { can } = useAuth();
   const confirmation = useConfirmAction();
   const canWrite = can(PERMISSIONS.ALERTS_WRITE);
-  const [tab, setTab] = useState<'channels' | 'rules' | 'log'>('rules');
+  // Email/Telegram need alerts:read; WhatsApp has its own permissions, so either may open this page.
+  const canAlerts = can(PERMISSIONS.ALERTS_READ);
+  const { user } = useAuth();
+  const wa = waAccess(user?.permissions ?? []);
+  const [tab, setTab] = useState<'channels' | 'rules' | 'log' | 'whatsapp'>(canAlerts ? 'rules' : 'whatsapp');
   const [addingChannel, setAddingChannel] = useState(false);
   const [channelForm, setChannelForm] = useState(emptyChannelForm);
   const [addingRule, setAddingRule] = useState(false);
@@ -86,10 +92,10 @@ export default function Notifications() {
   const [linking, setLinking] = useState<{ channel: Channel; botUsername: string; deepLink: string; countBefore: number } | null>(null);
   const channelsRead = useQuery({
     queryKey: ['notify-channels'], queryFn: () => api.get<{ items: Channel[] }>('/notify/channels'),
-    refetchInterval: linking ? 3000 : false,
+    refetchInterval: linking ? 3000 : false, enabled: canAlerts,
   });
   const { data: channels } = channelsRead;
-  const rulesRead = useQuery({ queryKey: ['notify-rules'], queryFn: () => api.get<{ items: Rule[] }>('/notify/rules') });
+  const rulesRead = useQuery({ queryKey: ['notify-rules'], queryFn: () => api.get<{ items: Rule[] }>('/notify/rules'), enabled: canAlerts });
   const { data: rules } = rulesRead;
   const deliveriesRead = useQuery({
     queryKey: ['notify-deliveries'], queryFn: () => api.get<{ items: Delivery[] }>('/notify/deliveries?limit=100'), enabled: tab === 'log',
@@ -166,7 +172,7 @@ export default function Notifications() {
   const deleteRule = useMutation({ mutationFn: (id: string) => api.del(`/notify/rules/${id}`), onSuccess: () => qc.invalidateQueries({ queryKey: ['notify-rules'] }) });
   const runNow = useMutation({ mutationFn: () => api.post<{ evaluated: number; sent: number }>('/notify/rules/run-now'), onSuccess: () => qc.invalidateQueries({ queryKey: ['notify-deliveries'] }) });
 
-  const pageReads = [...(tab === 'channels' ? [channelsRead] : tab === 'rules' ? [rulesRead] : [deliveriesRead])];
+  const pageReads = tab === 'whatsapp' ? [] : [...(tab === 'channels' ? [channelsRead] : tab === 'rules' ? [rulesRead] : [deliveriesRead])];
   const readError = pageReads.find(read => read.error)?.error;
 
   return (
@@ -175,7 +181,7 @@ export default function Notifications() {
       <div className="page-heading">
         <div>
           <h1 className="flex items-center gap-2.5"><Bell size={22} className="text-brand-600" /> الإشعارات والتنبيهات</h1>
-          <p>راقب البريد أو تيليجرام تلقائياً عند نشاط عميل مؤثر، ارتفاع قصة، كلمات محدّدة، أو عدد متابعين معيّن.</p>
+          <p>تنبيهات تلقائية عبر البريد وتيليجرام وواتساب عند نشاط عميل مؤثر، ارتفاع قصة، كلمات محدّدة، أو أحداث الطابور والتشغيل. كل قناة تعمل مستقلة عن الأخرى.</p>
         </div>
         {canWrite && (<Button variant="ghost" type="submit" disabled={runNow.isPending} onClick={() => confirmation.request({ title: 'فحص قواعد التنبيه الآن', description: 'قد يرسل الفحص إشعارات فعلية عبر القنوات النشطة. لا يمكن سحب الرسائل بعد إرسالها.', confirmLabel: 'فحص وإرسال التنبيهات', allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => runNow.mutateAsync() })}>
           <Play size={16} /> {runNow.isPending ? 'جارٍ الفحص…' : 'فحص الآن'}
@@ -189,10 +195,15 @@ export default function Notifications() {
       )}
 
       <div className="classification-tabs" role="tablist">
-        <button className={tab === 'rules' ? 'is-active' : ''} onClick={() => setTab('rules')}>قواعد التنبيه <span className="num">{rules?.items.length ?? 0}</span></button>
-        <button className={tab === 'channels' ? 'is-active' : ''} onClick={() => setTab('channels')}>قنوات الإشعار <span className="num">{channels?.items.length ?? 0}</span></button>
-        <button className={tab === 'log' ? 'is-active' : ''} onClick={() => setTab('log')}>سجل الإشعارات</button>
+        {canAlerts && <>
+          <button className={tab === 'rules' ? 'is-active' : ''} onClick={() => setTab('rules')}>قواعد التنبيه <span className="num">{rules?.items.length ?? 0}</span></button>
+          <button className={tab === 'channels' ? 'is-active' : ''} onClick={() => setTab('channels')}>قنوات الإشعار <span className="num">{channels?.items.length ?? 0}</span></button>
+          <button className={tab === 'log' ? 'is-active' : ''} onClick={() => setTab('log')}>سجل الإشعارات</button>
+        </>}
+        {wa.any && <button className={tab === 'whatsapp' ? 'is-active' : ''} onClick={() => setTab('whatsapp')}><MessageCircle size={15} aria-hidden="true" /> واتساب</button>}
       </div>
+
+      {tab === 'whatsapp' && <WhatsAppPanel access={wa} />}
 
       <AsyncState loading={pageReads.some(read => read.isLoading)} error={readError}
         onRetry={() => Promise.all(pageReads.map(read => read.refetch()))}>

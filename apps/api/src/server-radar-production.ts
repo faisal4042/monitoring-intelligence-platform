@@ -16,6 +16,7 @@ import {startXStreamWorker} from './workers/x-stream.worker.js';
 import {startClassificationWorker} from './workers/classification.worker.js';
 import {startNewsFetchWorker} from './workers/news-fetch.worker.js';
 import {startAlertsWorker} from './workers/alerts.worker.js';
+import {startWhatsAppWorker} from './workers/whatsapp.worker.js';
 import {startXPostTicketWorker} from './workers/x-post-tickets.worker.js';
 import {startPartitionCoverageObserver} from './workers/partition-coverage.worker.js';
 import {assertRadarProduction} from './startup/radar-production.js';
@@ -57,6 +58,8 @@ try{
   stops.push(startClassificationWorker({transitional:true}));
   stops.push(startNewsFetchWorker({transitional:true}));
   stops.push(startAlertsWorker({transitional:true}));
+  // No-op unless WHATSAPP_ENABLED=true (a separate, explicit activation step).
+  stops.push(startWhatsAppWorker({transitional:true}));
   if(config.X_POST_TICKETS_ENABLED)stops.push(startXPostTicketWorker());
  }
  await app.listen({host:'0.0.0.0',port:config.API_PORT});

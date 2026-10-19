@@ -13,7 +13,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { sql } from '@mip/db';
-import { ALL_PERMISSIONS, PERMISSIONS } from '@mip/shared';
+import { ALL_PERMISSIONS, ALL_WHATSAPP_PERMISSIONS, PERMISSIONS } from '@mip/shared';
 import { hashPassword } from '../plugins/auth.js';
 import { audit } from '../lib/audit.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
@@ -269,7 +269,8 @@ export default async function userRoutes(app: FastifyInstance) {
   /** Per-user permission exceptions on top of the role (e.g. budget:write). */
   app.put('/users/:id/permissions/:permission', { preHandler: [canAssign] }, async (req) => {
     const { id, permission } = req.params as { id: string; permission: string };
-    if (!(ALL_PERMISSIONS as string[]).includes(permission)) throw badRequest('صلاحية غير معروفة');
+    // WhatsApp permissions sit outside ALL_PERMISSIONS (no role gets them by default) but are grantable per user.
+    if (!(ALL_PERMISSIONS as string[]).includes(permission) && !(ALL_WHATSAPP_PERMISSIONS as string[]).includes(permission)) throw badRequest('صلاحية غير معروفة');
     assertNotSelf(req, id, 'تعديل الصلاحيات');
     const target = await loadTarget(id);
     assertActorHolds(req, [...target.permissions, permission], 'منح هذه الصلاحية');

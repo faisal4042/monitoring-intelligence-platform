@@ -8,3 +8,4 @@ export * from './news-source-health.js';
 export * from './search-query.js';
 export * from './influencer-card-template.js';
 export * from './influencer-card-access.js';
+export * from './whatsapp.js';

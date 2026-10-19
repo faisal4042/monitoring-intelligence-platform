@@ -13,6 +13,7 @@ import {startQueueIntakeWorker} from './workers/queue-intake.worker.js';
 import {startWorkforceWorker} from './workers/workforce.worker.js';
 import {startNewsFetchWorker} from './workers/news-fetch.worker.js';
 import {startAlertsWorker} from './workers/alerts.worker.js';
+import {startWhatsAppWorker} from './workers/whatsapp.worker.js';
 import {startXStreamWorker} from './workers/x-stream.worker.js';
 import {startReportExportWorker,startReportScheduleWorker} from './workers/reports.worker.js';
 import {startXPostTicketWorker} from './workers/x-post-tickets.worker.js';
@@ -80,6 +81,8 @@ const runtime=createRuntime(plan,{
     ()=>startClassificationWorker({transitional:p.transitional}),
     ()=>startNewsFetchWorker({transitional:p.transitional}),
     ()=>startAlertsWorker({transitional:p.transitional}),
+    // Off by default (WHATSAPP_ENABLED=false); separate from the alerts worker so a WhatsApp fault never affects Telegram/email.
+    ()=>startWhatsAppWorker({transitional:p.transitional}),
     // Off by default; idle while migration 0047 is absent.
     ()=>config.REPORT_EXPORTS_ENABLED ? startReportExportWorker() : async()=>{},
     ()=>config.REPORT_SCHEDULES_ENABLED ? startReportScheduleWorker() : async()=>{},

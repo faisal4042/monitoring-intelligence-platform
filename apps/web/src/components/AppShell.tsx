@@ -15,7 +15,7 @@ import { Button } from './ui/Button';
 import { canAccessRoute } from '../lib/route-access';
 import {
   BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
-  CircleStop, FileBarChart, FolderKanban, Gauge, KeyRound, LayoutGrid, LogOut, Megaphone, Menu, MonitorDot, MonitorPlay, Moon, Newspaper,
+  CircleStop, FileBarChart, FolderKanban, Gauge, KeyRound, LayoutGrid, LogOut, Megaphone, Menu, MessageCircle, MonitorDot, MonitorPlay, Moon, Newspaper,
   PanelRightClose, PanelRightOpen, Radio, Rss, ScanSearch, SearchCode, ServerCog, Settings2, SlidersHorizontal, Sparkles, Sun, Tags, Ticket,
   UserCog, UsersRound, X,
 } from 'lucide-react';
@@ -71,6 +71,7 @@ const ADMIN_NAV: NavItem[] = [
 /** Header title for routes outside the sidebar lists. */
 const EXTRA_TITLES: Array<[string, string]> = [
   ['/queries/new', 'منشئ الاستعلام'], ['/queries/', 'اختبار الاستعلام'], ['/account/password', 'تغيير كلمة المرور'],
+  ['/account/whatsapp', 'تنبيهاتي على واتساب'],
 ];
 const COLLAPSE_KEY = 'mip.sidebar.collapsed';
 
@@ -101,6 +102,8 @@ export default function AppShell() {
     return () => clearInterval(id);
   }, []);
 
+  // Only to show the «my WhatsApp alerts» shortcut to registered recipients; silent when the feature is not installed.
+  const { data: waMe } = useQuery({ queryKey: ['wa-me'], queryFn: () => api.get<{ registered: boolean }>('/whatsapp/me'), retry: false, staleTime: 10 * 60_000 });
   const { data: cost, isError: costFailed } = useQuery({
     queryKey: ['cost-overview'],
     queryFn: () => api.get<CostOverview>('/cost/overview'),
@@ -238,6 +241,11 @@ export default function AppShell() {
             >
               {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
             </button>
+            {waMe?.registered && (
+              <button className="icon-button" onClick={() => navigate('/account/whatsapp')} title="تنبيهاتي على واتساب" aria-label="تنبيهاتي على واتساب">
+                <MessageCircle size={17} />
+              </button>
+            )}
             <button
               className="icon-button"
               onClick={() => navigate('/account/password')}
