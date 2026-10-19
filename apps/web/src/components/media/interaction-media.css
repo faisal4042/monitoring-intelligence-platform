@@ -1,6 +1,6 @@
 .ic-media{display:flex;align-items:flex-start;flex-wrap:wrap;gap:.5rem;margin-top:.45rem;min-width:0}
-.ic-media-item{min-width:0;max-width:100%;display:grid;gap:.2rem;font-size:.72rem}
-.ic-media-item>button{display:block;max-width:100%;border:1px solid var(--border);border-radius:.6rem;overflow:hidden}
+.ic-media-item{min-width:0;max-width:100%;display:grid;gap:.2rem;font-size: var(--fs-caption)}
+.ic-media-item>button{display:block;max-width:100%;border:1px solid var(--border);border-radius: var(--radius-sm);overflow:hidden}
 /* The platform player takes the full width in details; its own buttons are styled by video-player.css. */
 .ic-media-full .ic-media-item:has(> .vp){width:100%}
 .ic-media img:not(.vp img){display:block;width:128px;height:80px;object-fit:cover;background:var(--surface-2)}

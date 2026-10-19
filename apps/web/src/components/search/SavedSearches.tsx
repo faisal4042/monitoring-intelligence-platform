@@ -7,6 +7,7 @@ import { api, ApiError } from '../../lib/api';
 import DateTime from '../DateTime';
 import { searchHref, type SavedSearch } from '../../lib/search';
 
+import { Button } from '../ui/Button';
 /**
  * Saved searches: definitions only (query, tab, period, sort) — never copies
  * of results. Running one re-applies the runner's own permissions; a shared
@@ -32,7 +33,7 @@ export default function SavedSearches({ available, reason, current, onRun }: {
   const patch = useMutation({ mutationFn: (v: { id: string; body: object }) => api.patch(`/search/saved/${v.id}`, v.body), onSuccess: () => { setEditing(null); refresh(); } });
   const remove = useMutation({ mutationFn: (id: string) => api.del(`/search/saved/${id}`), onSuccess: refresh });
   const run = useMutation({ mutationFn: (id: string) => api.post<SavedSearch>(`/search/saved/${id}/run`), onSuccess: (s) => { refresh(); onRun(s); } });
-  const copy = (s: SavedSearch) => navigator.clipboard?.writeText(location.origin + searchHref(s.query, s.tab, Object.fromEntries(Object.entries(s.period).filter(([, v]) => v)) as Record<string, string>));
+  const copy = (s: SavedSearch) => navigator.clipboard?.writeText(location.origin + searchHref(s.query, s.tab, Object.fromEntries(Object.entries(s.period).filter(([, v]) => v)) as Record<string, string>)).catch(() => {});
   const err = (create.error ?? patch.error ?? remove.error ?? run.error) as ApiError | null;
 
   return (
@@ -42,10 +43,10 @@ export default function SavedSearches({ available, reason, current, onRun }: {
         <form className="as-save-form" onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate(); }}>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="اسم للبحث الحالي" aria-label="اسم البحث المحفوظ" />
           <label className="inf-check"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} /> مشترك مع المستخدمين</label>
-          <button className="btn-primary" disabled={!name.trim() || create.isPending}>حفظ البحث الحالي</button>
+          <Button variant="primary" type="submit" disabled={!name.trim() || create.isPending}>حفظ البحث الحالي</Button>
           <p className="as-note">يُحفظ تعريف الاستعلام فقط. المشترك يراه الجميع، وكل مستخدم يرى النتائج المسموح له بها فقط.</p>
         </form>
-        {err && <div className="text-xs text-red-600 my-2" role="alert">{err.message}</div>}
+        {err && <div className="text-xs text-(--status-danger) my-2" role="alert">{err.message}</div>}
         {list.isLoading && <div className="inf-skeleton" style={{ height: 120 }} />}
         {list.data && !list.data.items.length && <div className="inf-state">لا توجد عمليات بحث محفوظة بعد.</div>}
         <ul className="as-saved-list">
@@ -56,7 +57,7 @@ export default function SavedSearches({ available, reason, current, onRun }: {
                   {editing === s.id
                     ? <form onSubmit={(e) => { e.preventDefault(); patch.mutate({ id: s.id, body: { name: newName } }); }} className="flex gap-1">
                         <input className="input" value={newName} onChange={(e) => setNewName(e.target.value)} maxLength={120} autoFocus aria-label="الاسم الجديد" />
-                        <button className="btn-ghost">حفظ</button></form>
+                        <Button variant="ghost" type="submit">حفظ</Button></form>
                     : <div className="font-semibold truncate">{s.name}</div>}
                   <code className="as-saved-q" dir="auto">{s.query || '(كل النتائج)'}</code>
                   <div className="as-saved-meta">
@@ -67,7 +68,7 @@ export default function SavedSearches({ available, reason, current, onRun }: {
                 </div>
               </div>
               <div className="as-saved-actions">
-                <button className="btn-ghost" onClick={() => run.mutate(s.id)}><Play size={14} /> تشغيل</button>
+                <Button variant="ghost" type="submit" onClick={() => run.mutate(s.id)}><Play size={14} /> تشغيل</Button>
                 <button className="icon-button" title="نسخ الرابط" aria-label="نسخ رابط البحث" onClick={() => copy(s)}><Link2 size={14} /></button>
                 {s.is_owner && <>
                   <button className="icon-button" title="إعادة التسمية" aria-label="إعادة تسمية" onClick={() => { setEditing(s.id); setNewName(s.name); }}><Pencil size={14} /></button>

@@ -24,7 +24,7 @@ export default function ActionNotice({ notice, onClose }: { notice: Notice; onCl
   const ok = notice.kind === 'success';
   return (
     <div role={ok ? 'status' : 'alert'}
-      className={`card p-3 text-sm flex items-start justify-between gap-3 ${ok ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-red-500/10 text-red-600'}`}>
+      className={`card p-3 text-sm flex items-start justify-between gap-3 ${ok ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-(--status-danger-soft) text-(--status-danger)'}`}>
       <span>{notice.text}</span>
       <button type="button" className="shrink-0 opacity-70 hover:opacity-100" onClick={onClose} aria-label="إغلاق الرسالة"><X size={14} /></button>
     </div>

@@ -77,7 +77,8 @@ export function State({ loading, error, empty, emptyText = 'لا توجد بيا
   if (error) return <div className="dash-state is-error" role="alert" style={{ minHeight: Math.min(height, 140) }}>
     <AlertTriangle size={18} aria-hidden="true" /><span>{(error as Error).message || 'تعذر تحميل البيانات'}</span>
     {onRetry && <button className="dash-link" onClick={onRetry}><RotateCw size={13} />إعادة المحاولة</button>}</div>;
-  if (empty) return <div className="dash-state" style={{ minHeight: Math.min(height, 140) }}>{emptyText}</div>;
+  // Empty: one quiet line, not a tall placeholder box (DESIGN.md → Layout).
+  if (empty) return <div className="dash-state is-empty" role="status"><Info size={16} aria-hidden="true" /><span>{emptyText}</span></div>;
   return <>{children}</>;
 }
 export function Unavailable({ reason }: { reason: string }) {

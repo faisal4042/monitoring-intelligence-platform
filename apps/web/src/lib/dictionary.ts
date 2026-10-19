@@ -61,8 +61,8 @@ export function queryStateLabel(q: Pick<QueryRowState, 'status' | 'deleted_at'>)
 export function resumeDescription(name: string, q: Pick<QueryRowState, 'resume_to' | 'is_system'>): string {
   if (q.resume_to === 'active') {
     return q.is_system
-      ? `سيعود «${name}» نشطًا ويستأنف الجمع التلقائي في الدورة التالية، ما قد يستهلك حصة X.`
-      : `اجتاز «${name}» اختبار الدقة سابقًا، فسيعود نشطًا ويستأنف الجمع، ما قد يستهلك حصة X.`;
+      ? `سيعود «${name}» نشطًا ويستأنف الجمع التلقائي في الدورة التالية، ما قد يستهلك حصة إكس.`
+      : `اجتاز «${name}» اختبار الدقة سابقًا، فسيعود نشطًا ويستأنف الجمع، ما قد يستهلك حصة إكس.`;
   }
   return `لم يجتز «${name}» اختبار الدقة بعد، فسيعود مسودة ولن يُجمع حتى يُختبر ويُرقّى.`;
 }

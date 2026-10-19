@@ -8,6 +8,7 @@ import {
   type Catalog, type CatalogType, type ExportFormat, type ReportFilters, type ReportRequest, type TemplateRow,
 } from '../../lib/reports';
 
+import { Button } from '../ui/Button';
 interface Program { id: string; name_ar: string; color: string | null }
 interface Preview { columns: Array<{key: string; label: string; type: string}>; rows: unknown[][]; estimate: number | null; period: {from: string; to: string} }
 
@@ -163,10 +164,10 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
           )}
         </div>
         <div className="rc-actions">
-          <button type="button" className="btn-ghost" disabled={!selected.length || previewM.isPending} onClick={() => previewM.mutate(req)}><Eye size={16} aria-hidden="true" /> {previewM.isPending ? 'جارٍ التحضير…' : 'معاينة وتقدير'}</button>
-          <button type="button" className="btn-primary" disabled={!selected.length || !catalog.canExport || !catalog.exportsActivated || exportM.isPending}
+          <Button variant="ghost" type="button" disabled={!selected.length || previewM.isPending} onClick={() => previewM.mutate(req)}><Eye size={16} aria-hidden="true" /> {previewM.isPending ? 'جارٍ التحضير…' : 'معاينة وتقدير'}</Button>
+          <Button variant="primary" type="button" disabled={!selected.length || !catalog.canExport || !catalog.exportsActivated || exportM.isPending}
             title={!catalog.exportsActivated ? EXPORTS_OFF_TEXT : !catalog.canExport ? 'يتطلب صلاحية تصدير التقارير' : undefined}
-            onClick={() => exportM.mutate()}><FileDown size={16} aria-hidden="true" /> إنشاء التصدير</button>
+            onClick={() => exportM.mutate()}><FileDown size={16} aria-hidden="true" /> إنشاء التصدير</Button>
         </div>
         {exportM.isSuccess && <p className="rc-ok" role="status">أُضيف التصدير إلى السجل. يُنشأ الملف في الخلفية دون تحميل البيانات في المتصفح.</p>}
         {!catalog.exportsActivated && <p className="rc-note"><Info size={14} aria-hidden="true" /> {tablesReady(catalog) ? EXPORTS_OFF_TEXT : 'المعاينة متاحة الآن؛ إنشاء الملفات والقوالب والجدولة يتطلب تفعيل الترحيل 0047.'}</p>}
@@ -174,7 +175,7 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
           <details className="rc-save-details"><summary>حفظ إعدادات التقرير كقالب</summary><div className="rc-save">
             <input className="input" value={templateName} maxLength={120} onChange={(e) => setTemplateName(e.target.value)} placeholder="اسم القالب" aria-label="اسم القالب" />
             {catalog.canShareTemplates && <label className="rc-check"><input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} /> مشترك</label>}
-            <button type="button" className="btn-ghost" disabled={!templateName.trim() || templateM.isPending} onClick={() => templateM.mutate()}><Save size={15} aria-hidden="true" /> حفظ كقالب</button>
+            <Button variant="ghost" type="button" disabled={!templateName.trim() || templateM.isPending} onClick={() => templateM.mutate()}><Save size={15} aria-hidden="true" /> حفظ كقالب</Button>
           </div></details>
         )}
         {error && <p className="rc-error" role="alert">{error.message}</p>}
@@ -196,7 +197,7 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
               </table>
             </div>
           )}
-          <div className="rc-pagination"><span>عينة المعاينة حتى 50 سجلًا؛ الملف الكامل عبر التصدير.</span>{preview.rows.length>10&&<div><button className="btn-ghost" disabled={previewPage===1} onClick={()=>setPreviewPage(previewPage-1)}>السابق</button><span>{fmtNum(previewPage)} / {fmtNum(Math.ceil(preview.rows.length/10))}</span><button className="btn-ghost" disabled={previewPage>=Math.ceil(preview.rows.length/10)} onClick={()=>setPreviewPage(previewPage+1)}>التالي</button></div>}</div>
+          <div className="rc-pagination"><span>عينة المعاينة حتى 50 سجلًا؛ الملف الكامل عبر التصدير.</span>{preview.rows.length>10&&<div><Button variant="ghost" type="submit" disabled={previewPage===1} onClick={()=>setPreviewPage(previewPage-1)}>السابق</Button><span>{fmtNum(previewPage)} / {fmtNum(Math.ceil(preview.rows.length/10))}</span><Button variant="ghost" type="submit" disabled={previewPage>=Math.ceil(preview.rows.length/10)} onClick={()=>setPreviewPage(previewPage+1)}>التالي</Button></div>}</div>
         </section>
       )}
     </div>

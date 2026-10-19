@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth';
 import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useTheme } from '../lib/theme';
 import BrandLogo from '../components/BrandLogo';
+import { Button } from '../components/ui/Button';
 
 export default function Login() {
   const { login } = useAuth();
@@ -70,9 +71,9 @@ export default function Login() {
           </div>
         )}
 
-        <button type="submit" className="btn-primary w-full" disabled={busy}>
+        <Button variant="primary" type="submit" className="w-full" disabled={busy}>
           {busy ? 'جارٍ الدخول…' : <><span>تسجيل الدخول</span><ArrowLeft size={17} /></>}
-        </button>
+        </Button>
 
         {staging && <div className="mt-5 pt-4 border-t text-xs muted" style={{ borderColor: 'var(--border)' }}>
           بيئة تجريبية معزولة بنسخة محلية مستقلة. بيانات الدخول محفوظة محليًا في ملف LOCAL-ACCESS.txt.

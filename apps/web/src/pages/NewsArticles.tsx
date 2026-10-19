@@ -16,6 +16,8 @@ import { PERMISSIONS } from '@mip/shared';
 import { Newspaper, RefreshCw } from 'lucide-react';
 import SearchLink from '../components/search/SearchLink';
 
+import { Button } from '../components/ui/Button';
+import { ProgramChip } from '../components/ui/ProgramChip';
 interface Program { id: string; name_ar: string; color: string }
 
 interface NewsArticle {
@@ -97,11 +99,11 @@ export default function NewsArticles() {
       <section className="rounded-2xl border p-5 sm:p-6" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-emerald-600">
-              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" /></span>
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold text-(--status-success)">
+              <span className="relative flex h-2.5 w-2.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-(--status-success) opacity-60" /><span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-(--status-success)" /></span>
               {navigation.cursor ? 'جولة تصفح — تحديث العرض يعيدك للبداية' : 'تحديث حي كل 5 دقائق'}
             </div>
-            <h1 className="flex items-center gap-2.5 text-2xl font-black sm:text-3xl"><Newspaper size={24} className="text-brand-600" /> الأخبار العقارية</h1>
+            <h1 className="flex items-center gap-2.5 text-(length:--fs-page-title)"><Newspaper size={24} className="text-brand-600" /> الأخبار العقارية</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 muted">أخبار مرتبطة مباشرة بالهيئة وبرامجها وخدماتها فقط، مرتبة حسب وقت النشر ومصنفة تلقائيًا حسب البرنامج والموضوع.</p>
           </div>
 
@@ -112,11 +114,11 @@ export default function NewsArticles() {
             </select>
             <DateRangeFilter state={dateRange} />
             <SearchLink tab="news" q={programId ? `program:${programId}` : ''} />
-            <button className="btn-ghost" onClick={restart} disabled={isFetching || fetchNow.isPending}>
+            <Button variant="ghost" type="submit" onClick={restart} disabled={isFetching || fetchNow.isPending}>
               <RefreshCw size={15} className={isFetching || fetchNow.isPending ? 'animate-spin' : ''} />
               {isFetching ? 'جارٍ التحديث…' : 'تحديث العرض'}
-            </button>
-            {can(PERMISSIONS.NEWS_MANAGE_SOURCES) && <button className="btn-primary" onClick={refresh} disabled={fetchNow.isPending}>جمع أخبار جديدة</button>}
+            </Button>
+            {can(PERMISSIONS.NEWS_MANAGE_SOURCES) && <Button variant="primary" type="submit" onClick={refresh} disabled={fetchNow.isPending}>جمع أخبار جديدة</Button>}
           </div>
         </div>
       </section>
@@ -149,7 +151,7 @@ export default function NewsArticles() {
                       ? <DateTime value={article.published_at} className="muted" />
                       : <span className="muted">اكتُشف <DateTime value={article.effective_at} /></span>}
                     {article.program_name && (
-                      <span className="rounded-full px-2 py-1 font-bold" style={{ color: article.program_color ?? '#1a3c66', background: `${article.program_color ?? '#1a3c66'}18` }}>{article.program_name}</span>
+                      <ProgramChip name={article.program_name} color={article.program_color} />
                     )}
                     {article.topic_name && <span className="rounded-full bg-slate-500/10 px-2 py-1 muted">{article.topic_name}</span>}
                   </div>

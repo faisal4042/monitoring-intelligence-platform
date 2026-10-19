@@ -13,6 +13,7 @@ import { DEFAULT_DATE_RANGE, useDateRange } from '../../lib/useDateRange';
 import DateRangeFilter from '../DateRangeFilter';
 import { Panel } from '../dashboard/ui';
 import DialogSurface from './DialogSurface';
+import { Button } from '../ui/Button';
 import './queue-board.css';
 
 export type BoardAction = 'status' | 'release' | 'periods';
@@ -49,7 +50,7 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
       <div><span className="dash-eyebrow">إدارة العمليات</span><h1><MonitorDot size={23} />لوحة فرق الرصد</h1><p>نظرة سريعة على وضع الفريق، حمل الصناديق والتذاكر التي تحتاج تدخلًا.</p></div>
       <div className="qb-header-actions">
         <span className="qb-update">{d ? <>آخر تحديث للبيانات <time dateTime={d.serverNow}>{fmtDateTime(d.serverNow)}</time></> : 'لم تُحمّل البيانات بعد'}</span>
-        <button className="btn-ghost" aria-label="تحديث اللوحة" disabled={board.isFetching || !!date.error} onClick={() => { board.refetch(); options.refetch(); }}><RefreshCw size={15} className={board.isFetching ? 'animate-spin' : ''} />تحديث</button>
+        <Button variant="ghost" type="submit" aria-label="تحديث اللوحة" disabled={board.isFetching || !!date.error} onClick={() => { board.refetch(); options.refetch(); }}><RefreshCw size={15} className={board.isFetching ? 'animate-spin' : ''} />تحديث</Button>
         {manage && <Link className="btn-ghost" to="/queue/settings"><Settings2 size={15} />إعدادات الموظفين</Link>}
       </div>
     </header>
@@ -64,9 +65,9 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
         {(active.length > 0 || date.preset !== DEFAULT_DATE_RANGE || search) && <button className="qb-text-button" onClick={clear}>مسح الفلاتر</button>}
         {active.map(f => <button key={f.key} className="qb-filter-chip" onClick={() => set(f.key, '')}>{f.label ?? 'فلتر محدد'}<X size={12} /><span className="sr-only">إزالة الفلتر</span></button>)}
       </div>
-      {options.error && <p role="alert" className="text-sm text-red-600">تعذر تحميل خيارات الفلاتر. <button className="underline" onClick={() => options.refetch()}>إعادة المحاولة</button></p>}
+      {options.error && <p role="alert" className="text-sm text-(--status-danger)">تعذر تحميل خيارات الفلاتر. <button className="underline" onClick={() => options.refetch()}>إعادة المحاولة</button></p>}
     </section>
-    {board.error && <div role="alert" className="qb-error card"><AlertTriangle size={17} /><span>{d ? 'تعذر التحديث؛ تُعرض آخر بيانات ناجحة.' : 'تعذر تحميل اللوحة.'} {board.error.message}</span><button className="btn-ghost" onClick={() => board.refetch()}>إعادة المحاولة</button></div>}
+    {board.error && <div role="alert" className="qb-error card"><AlertTriangle size={17} /><span>{d ? 'تعذر التحديث؛ تُعرض آخر بيانات ناجحة.' : 'تعذر تحميل اللوحة.'} {board.error.message}</span><Button variant="ghost" type="submit" onClick={() => board.refetch()}>إعادة المحاولة</Button></div>}
     {board.isPending && !date.error && <div className="qb-kpis" role="status" aria-label="جارٍ تحميل اللوحة">{Array.from({ length: 6 }, (_, i) => <div className="dash-skeleton" key={i} style={{ height: 116 }} />)}</div>}
     {d && <>
       <section className="qb-kpis" aria-label="مؤشرات الطابور الآن">
@@ -116,7 +117,7 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
       <section className="qb-drawer-section"><h3>الحمل وتوزيع التذاكر</h3><Capacity agent={selected} /><dl className="qb-facts"><Fact title="الطاقة الاستيعابية" value={fmtNum(selected.maxOpen)} /><Fact title="الإسناد التلقائي للموظف" value={selected.autoAssign ? 'مفعّل' : 'معطّل'} /><Fact title="المصعّد المفتوح" value={fmtNum(selected.escalatedOpen)} /><Fact title="المغلق اليوم" value={fmtNum(selected.closedToday)} /><Fact title="أقدم مفتوح" value={minutesText(selected.oldestOpenMin)} /><Fact title="متوسط عمر المفتوح" value={minutesText(selected.performance.avgOpenAgeMin)} /></dl></section>
       <section className="qb-drawer-section"><h3>الإنجاز خلال الفترة</h3><p className="qb-period">{fmtDateTime(d.range.from)} — {fmtDateTime(d.range.to)}</p><dl className="qb-facts"><Fact title="مغلق في الفترة" value={fmtNum(selected.performance.completedItems)} /><Fact title="دورات الإغلاق" value={fmtNum(selected.performance.completedCycles)} /><Fact title="من الإسناد حتى الإغلاق" value={minutesText(selected.performance.avgAssignmentToCloseMin)} /><Fact title="متوسط الانتظار في الطابور" value={minutesText(selected.performance.avgQueueWaitMin)} /><Fact title="أُعيد فتحه" value={fmtNum(selected.performance.reopened)} /><Fact title="صُعّد في الفترة" value={fmtNum(selected.performance.escalated)} /><Fact title="إسناد أول في الفترة" value={fmtNum(selected.performance.firstAssignedItems)} /></dl></section>
       <section className="qb-drawer-section"><h3>مدد الحالات التشغيلية</h3><TimeSummary time={selected.time} operational={d.operationalStatuses.map(statusLabel).join('، ')} /></section>
-      {manage && <section className="qb-drawer-section"><h3>الإجراءات</h3><div className="qb-drawer-actions"><button className="btn-primary" onClick={() => act(selected, 'status')}>تغيير الحالة</button><button className="btn-ghost" disabled={!selected.open} onClick={() => act(selected, 'release')}>إعادة توزيع الصندوق</button><button className="btn-ghost" onClick={() => act(selected, 'periods')}>سجل الحالات والتصحيحات</button></div></section>}
+      {manage && <section className="qb-drawer-section"><h3>الإجراءات</h3><div className="qb-drawer-actions"><Button variant="primary" type="submit" onClick={() => act(selected, 'status')}>تغيير الحالة</Button><Button variant="ghost" type="submit" disabled={!selected.open} onClick={() => act(selected, 'release')}>إعادة توزيع الصندوق</Button><Button variant="ghost" type="submit" onClick={() => act(selected, 'periods')}>سجل الحالات والتصحيحات</Button></div></section>}
     </DialogSurface>}
   </div>;
 }

@@ -10,6 +10,7 @@ import SourceManager from '../components/news/SourceManager';
 import CollectionMonitor from '../components/news/CollectionMonitor';
 import type { ManagedSource } from '../components/news/source-management-model';
 
+import { Button } from '../components/ui/Button';
 interface NewsSource {
   id: string; program_id: string | null; program_name: string | null;
   name_ar: string; name_en: string | null; base_url: string;
@@ -55,7 +56,7 @@ function DiscoveryPanel({ discovery }: { discovery: DiscoveryResult }) {
     <div className="rounded-xl border p-4 space-y-2" style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
       <div className="text-sm font-medium mb-1">نتيجة اختبار الاتصال</div>
       <div className="grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2">
-        <div>الاتصال: <b className={discovery.connectionOk ? 'text-emerald-600' : 'text-red-600'}>{discovery.connectionOk ? 'ناجح' : 'فشل'}</b></div>
+        <div>الاتصال: <b className={discovery.connectionOk ? 'text-(--status-success)' : 'text-(--status-danger)'}>{discovery.connectionOk ? 'ناجح' : 'فشل'}</b></div>
         <div>حالة HTTP: <span className="num">{discovery.httpStatus ?? '—'}</span></div>
         <div>RSS مكتشف: <span className="num" style={{ direction: 'ltr', unicodeBidi: 'plaintext' }}>{discovery.detectedRssUrl ?? '—'}</span></div>
         <div>Atom مكتشف: <span className="num" style={{ direction: 'ltr', unicodeBidi: 'plaintext' }}>{discovery.detectedAtomUrl ?? '—'}</span></div>
@@ -67,7 +68,7 @@ function DiscoveryPanel({ discovery }: { discovery: DiscoveryResult }) {
         {discovery.lastArticle && <div className="sm:col-span-2">آخر عنصر موجود: {discovery.lastArticle.title}</div>}
       </div>
       {discovery.errors.length > 0 && (
-        <ul className="text-xs text-amber-600 list-disc list-inside">
+        <ul className="text-xs text-(--status-warning) list-disc list-inside">
           {discovery.errors.map((e, i) => <li key={i}>{e}</li>)}
         </ul>
       )}
@@ -169,9 +170,9 @@ export default function NewsSources() {
           <p className="text-sm muted">جلب دوري من الخلاصات وخرائط المواقع، مع مراقبة صحة الجمع واستخراج نص المقالات للمصادر المفعّلة</p>
         </div>
         {canManage && (
-          <button className="btn-primary" onClick={() => { setEditingId(null); setForm(emptyForm); setDiscovery(null); setShowForm((v) => !v); }}>
+          <Button variant="primary" type="submit" onClick={() => { setEditingId(null); setForm(emptyForm); setDiscovery(null); setShowForm((v) => !v); }}>
             {showForm ? <><X size={15} /> إلغاء</> : <><Plus size={15} /> إضافة مصدر</>}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -195,10 +196,10 @@ export default function NewsSources() {
                 <FieldInput className="input" style={{ direction: 'ltr' }} value={form.baseUrl} disabled={!!editingId}
                        onChange={(e) => { setForm({ ...form, baseUrl: e.target.value }); setDiscovery(null); }}
                        placeholder="https://example.com" />
-                <button type="button" className="btn-ghost shrink-0" disabled={!form.baseUrl || testConnection.isPending || Date.now()-(lastTest[form.baseUrl] ?? 0)<60_000}
+                <Button variant="ghost" type="button" className="shrink-0" disabled={!form.baseUrl || testConnection.isPending || Date.now()-(lastTest[form.baseUrl] ?? 0)<60_000}
                         onClick={() => testConnection.mutate(form.baseUrl)}>
                   {testConnection.isPending ? 'جارٍ الاختبار…' : 'اختبار الاتصال'}
-                </button>
+                </Button>
               </div></FormField>
             </div>
             <div>
@@ -255,7 +256,7 @@ export default function NewsSources() {
           </div>
 
           {testConnection.error && (
-            <div className="text-xs p-2.5 rounded-lg bg-red-500/10 text-red-600">
+            <div className="text-xs p-2.5 rounded-lg bg-(--status-danger-soft) text-(--status-danger)">
               {testConnection.error instanceof ApiError ? testConnection.error.message : 'تعذّر اختبار الاتصال'}
             </div>
           )}
@@ -264,14 +265,14 @@ export default function NewsSources() {
 
           <div className="flex justify-end gap-2 pt-1">
             {createSource.error && (
-              <span className="text-xs text-red-600 self-center">
+              <span className="text-xs text-(--status-danger) self-center">
                 {createSource.error instanceof ApiError ? createSource.error.message : 'تعذّر الحفظ'}
               </span>
             )}
-            <button className="btn-primary" disabled={!form.nameAr || !form.baseUrl || createSource.isPending}
+            <Button variant="primary" type="submit" disabled={!form.nameAr || !form.baseUrl || createSource.isPending}
                     onClick={() => createSource.mutate()}>
               {createSource.isPending ? 'جارٍ الحفظ…' : 'حفظ المصدر'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -279,20 +280,20 @@ export default function NewsSources() {
       <SourceManager actions={canManage ? (s: ManagedSource) => <div className="space-y-3">
         <p className="text-xs muted">اختبار الاتصال يدوي ومحدود؛ قد يسجل نتيجة الفحص ويكتشف روابط. لا يُشغّل تلقائيًا عند فتح التفاصيل.</p>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-ghost !text-xs" onClick={() => {
+          <Button variant="ghost" type="submit" className="!text-xs" onClick={() => {
             setEditingId(s.id); setForm({ nameAr:s.name_ar,nameEn:s.name_en ?? '',baseUrl:s.base_url,country:s.country ?? '',language:s.language,
               sourceType:s.source_type,connectorType:s.connector_type,rssUrl:s.rss_url ?? '',sitemapUrl:s.sitemap_url ?? '',apiUrl:s.api_url ?? '',sourceWeight:s.source_weight,checkIntervalMinutes:s.check_interval_minutes });
             setDiscovery(null); setShowForm(true);
-          }}>تعديل المصدر</button>
-          <button className="btn-ghost !text-xs" disabled={testExistingSource.isPending || Date.now()-(lastTest[s.id] ?? 0)<60_000}
-            onClick={() => testExistingSource.mutate({id:s.id})}>{testingSourceId===s.id ? 'جارٍ الاختبار…' : 'اختبار الاتصال'}</button>
-          <button className="btn-ghost !text-xs" disabled={toggleActive.isPending} onClick={()=>confirmation.request({title:s.is_active?'تعطيل مصدر الأخبار':'تفعيل مصدر الأخبار',description:`سيتم ${s.is_active?'إيقاف':'استئناف'} جمع الأخبار من «${s.name_ar}».`,confirmLabel:s.is_active?'تعطيل المصدر':'تفعيل المصدر',danger:s.is_active,allowed:can=>can(PERMISSIONS.NEWS_MANAGE_SOURCES),execute:()=>toggleActive.mutateAsync({id:s.id,isActive:!s.is_active})})}>{s.is_active?'تعطيل':'تفعيل'}</button>
+          }}>تعديل المصدر</Button>
+          <Button variant="ghost" type="submit" className="!text-xs" disabled={testExistingSource.isPending || Date.now()-(lastTest[s.id] ?? 0)<60_000}
+            onClick={() => testExistingSource.mutate({id:s.id})}>{testingSourceId===s.id ? 'جارٍ الاختبار…' : 'اختبار الاتصال'}</Button>
+          <Button variant="ghost" type="submit" className="!text-xs" disabled={toggleActive.isPending} onClick={()=>confirmation.request({title:s.is_active?'تعطيل مصدر الأخبار':'تفعيل مصدر الأخبار',description:`سيتم ${s.is_active?'إيقاف':'استئناف'} جمع الأخبار من «${s.name_ar}».`,confirmLabel:s.is_active?'تعطيل المصدر':'تفعيل المصدر',danger:s.is_active,allowed:can=>can(PERMISSIONS.NEWS_MANAGE_SOURCES),execute:()=>toggleActive.mutateAsync({id:s.id,isActive:!s.is_active})})}>{s.is_active?'تعطيل':'تفعيل'}</Button>
         </div>
         <label className="text-xs block">استخراج النص<select aria-label={`وضع استخراج النص لمصدر ${s.name_ar}`} className="input mt-1" value={s.extraction_mode ?? 'off'} disabled={setExtractionMode.isPending}
           onChange={e=>{const mode=e.target.value as NewsSource['extraction_mode'];confirmation.request({title:'تغيير طريقة استخراج الأخبار',description:`تغيير طريقة الاستخراج لـ«${s.name_ar}» إلى ${EXTRACTION_MODES[mode].text} يؤثر على طلبات المصدر واستهلاك الموارد.`,confirmLabel:'تغيير طريقة الاستخراج',allowed:can=>can(PERMISSIONS.NEWS_MANAGE_SOURCES),execute:()=>setExtractionMode.mutateAsync({id:s.id,mode})});}}>{Object.entries(EXTRACTION_MODES).map(([k,v])=><option key={k} value={k}>{v.text}</option>)}</select></label>
-        {modeError[s.id]&&<p role="alert" className="text-xs text-red-600">{modeError[s.id]}</p>}
-        {sourceErrors[s.id]&&<p role="alert" className="text-xs text-red-600">{sourceErrors[s.id]}</p>}
-        {toggleActive.error&&<p role="alert" className="text-xs text-red-600">تعذر تغيير حالة المصدر.</p>}
+        {modeError[s.id]&&<p role="alert" className="text-xs text-(--status-danger)">{modeError[s.id]}</p>}
+        {sourceErrors[s.id]&&<p role="alert" className="text-xs text-(--status-danger)">{sourceErrors[s.id]}</p>}
+        {toggleActive.error&&<p role="alert" className="text-xs text-(--status-danger)">تعذر تغيير حالة المصدر.</p>}
         {sourceResults[s.id]&&<DiscoveryPanel discovery={sourceResults[s.id]}/>}
         {editingId===s.id&&showForm&&<p className="text-xs text-brand-600">نموذج التعديل جاهز أعلى الصفحة؛ أغلق التفاصيل لإكمال التعديل.</p>}
       </div> : undefined} />

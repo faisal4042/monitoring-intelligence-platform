@@ -3,6 +3,7 @@ import {QUEUE_REVIEW_OUTCOMES,QUEUE_REVIEW_OUTCOME_LABELS,type QueueReviewOutcom
 import {INTENT_LABELS,SENTIMENT_LABELS,type QueueItem,type QueueReviewInput,type ReviewCatalog} from '../lib/queue';
 import {fmtDateTime} from '../lib/format';
 
+import { Button } from './ui/Button';
 export function QueueReviewHistory({item,catalog}:{item:QueueItem;catalog?:ReviewCatalog}) {
   const program=(id:unknown)=>catalog?.programs.find(p=>p.id===id)?.name_ar??String(id??'غير متاح');
   const topic=(id:unknown)=>catalog?.topics.find(t=>t.id===id)?.name_ar??String(id??'غير متاح');
@@ -64,7 +65,7 @@ export default function QueueReview({item,catalog,onComplete,disabled,draft,onDr
       {story&&<label className="queue-field">روابط القصة<select className="input" value={changes.linksConfirmed===false?'false':'true'} onChange={e=>setChanges(c=>({...c,linksConfirmed:e.target.value==='true'}))}><option value="true">صحيحة</option><option value="false">تحتاج تصحيحًا</option></select></label>}
     </div>}
     {(outcome==='corrected'||outcome==='irrelevant')&&<label className="queue-field">سبب {outcome==='corrected'?'التصحيح':'الاستبعاد'} (إلزامي)<textarea aria-label="سبب المراجعة" className="input" maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label>}
-    <button className="btn-primary" disabled={disabled||!outcome||outcome==='corrected'&&(!changed||!reason.trim())||outcome==='irrelevant'&&!reason.trim()}
-      onClick={()=>outcome&&onComplete({outcome,...changes,...(outcome==='irrelevant'?{relevant:false}:{}),...(reason.trim()?{reason}: {})})}>إغلاق التفاعل</button>
+    <Button variant="primary" type="submit" disabled={disabled||!outcome||outcome==='corrected'&&(!changed||!reason.trim())||outcome==='irrelevant'&&!reason.trim()}
+      onClick={()=>outcome&&onComplete({outcome,...changes,...(outcome==='irrelevant'?{relevant:false}:{}),...(reason.trim()?{reason}: {})})}>إغلاق التفاعل</Button>
   </section>;
 }

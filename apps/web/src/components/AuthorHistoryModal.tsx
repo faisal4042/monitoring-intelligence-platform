@@ -136,11 +136,11 @@ export default function AuthorHistoryModal({
                 href={`https://x.com/${author.username}`}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`فتح حساب @${author.username} في X في نافذة جديدة`}
-                title={`فتح @${author.username} في X`}
+                aria-label={`فتح حساب @${author.username} في إكس في نافذة جديدة`}
+                title={`فتح @${author.username} في إكس`}
               >
                 <span className="history-x-mark" aria-hidden="true">X</span>
-                <span className="history-x-label">فتح في X</span>
+                <span className="history-x-label">فتح في إكس</span>
                 <ExternalLink className="history-x-external" size={15} strokeWidth={2} aria-hidden="true" />
               </a>
             )}
@@ -169,7 +169,7 @@ export default function AuthorHistoryModal({
 
         <div className="history-list">
           {isLoading && <div className="history-empty">جارٍ تحميل سجل العميل…</div>}
-          {isError && <div className="history-empty text-red-500">تعذر تحميل سجل العميل.</div>}
+          {isError && <div className="history-empty text-(--status-danger)">تعذر تحميل سجل العميل.</div>}
           {!isLoading && !isError && !data?.items.length && (
             <div className="history-empty">لا توجد تفاعلات في هذه المدة.</div>
           )}
@@ -198,12 +198,12 @@ export default function AuthorHistoryModal({
               <div className="history-item-meta">
                   {item.program_name && (
                     <span className="inline-flex items-center gap-1.5 font-medium">
-                      <span className="h-2 w-2 rounded-full" style={{ background: item.program_color ?? '#888' }} />
+                      <span className="h-2 w-2 rounded-full" style={{ background: item.program_color ?? 'var(--text-subtle)' }} />
                       {item.program_name}
                     </span>
                   )}
                   {item.intent && <span className="badge bg-[var(--surface-3)]">{INTENT[item.intent] ?? item.intent}</span>}
-                  {item.sentiment && <span className={`badge ${item.sentiment.includes('negative') ? 'text-red-500 bg-red-500/10' : 'bg-[var(--surface-3)]'}`}>{SENTIMENT[item.sentiment] ?? item.sentiment}</span>}
+                  {item.sentiment && <span className={`badge ${item.sentiment.includes('negative') ? 'text-(--status-danger) bg-(--status-danger-soft)' : 'bg-[var(--surface-3)]'}`}>{SENTIMENT[item.sentiment] ?? item.sentiment}</span>}
               </div>
               <div dir={contentDirection(item.text)} style={{textAlign: 'start', unicodeBidi: 'isolate'}} className={`history-item-text ${expanded || !canExpand ? 'is-expanded' : ''}`}>
                 {item.text}
@@ -215,7 +215,7 @@ export default function AuthorHistoryModal({
                   onClick={() => toggleExpanded(item.id)}
                   aria-expanded={expanded}
                 >
-                  {expanded ? 'SHOW LESS' : 'READ MORE'}
+                  {expanded ? 'عرض أقل' : 'عرض المزيد'}
                 </button>
               )}
               {!!item.media?.length && <div className="history-media">
@@ -232,7 +232,7 @@ export default function AuthorHistoryModal({
                   <span className="truncate">طابق: {item.matched_keywords.join('، ')}</span>
                 ) : null}
                 {item.url && (
-                  <a className="history-x-link" href={item.url} target="_blank" rel="noreferrer" aria-label="فتح التفاعل في X في نافذة جديدة">
+                  <a className="history-x-link" href={item.url} target="_blank" rel="noreferrer" aria-label="فتح التفاعل في إكس في نافذة جديدة">
                     <span aria-hidden="true">X</span>
                     فتح في X
                     <ExternalLink size={13} strokeWidth={2} aria-hidden="true" />

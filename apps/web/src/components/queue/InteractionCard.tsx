@@ -4,7 +4,7 @@
  * ticket number and the clocks. Actions go to the same queue endpoints as the drawer (the server re-checks every rule);
  * anything that needs more (assigning to someone, a corrected review, transfers) opens the details.
  */
-import {lazy, Suspense, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
+import {lazy, Suspense, useLayoutEffect, useRef, useState} from 'react';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
   CheckCircle2, Clock, Copy, ExternalLink, Flame, Hand, History, IdCard, Maximize2, ScrollText, MessageSquareText, Sparkles,
@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import {canReadInfluencerCards, PERMISSIONS as P, QUEUE_REVIEW_OUTCOME_LABELS, QUEUE_SECTION_LABELS, QUEUE_STATUS_LABELS, type QueueReviewOutcome, type QueueStatus} from '@mip/shared';
 import ModalSurface, {ModalCloseButton} from '../ModalSurface';
+import {Button} from '../ui/Button';
+import {OverflowMenu, type OverflowItem} from '../ui/OverflowMenu';
 import {api} from '../../lib/api';
 import {InteractionMedia} from '../media/InteractionMedia';
 import TicketHistoryDialog from './TicketHistoryDialog';
@@ -81,7 +83,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
     if (el && !expanded) setCanExpand(el.scrollHeight - el.clientHeight > 1);
   }, [body, expanded]);
   const at = story ? item.story_last_seen_at : src ? item.source_snapshot?.publishedAt : item.post_posted_at;
-  const channelTag = story ? 'قصة متداولة على X' : src ? SOURCE_BADGE_LABELS[key] : `X · ${item.root_text ? SOURCE_LABELS.reply : SOURCE_LABELS[sourceOf(item)]}`;
+  const channelTag = story ? 'قصة متداولة على إكس' : src ? SOURCE_BADGE_LABELS[key] : `X · ${item.root_text ? SOURCE_LABELS.reply : SOURCE_LABELS[sourceOf(item)]}`;
 
   return <article className={`ic-card card queue-card--src-${key} ${selected ? 'is-selected' : ''} ${item.priority === 'high' ? 'is-high' : ''}`} aria-label={`${SOURCE_BADGE_LABELS[key]}: ${name}`}>
     <button type="button" className="ic-main" onClick={onOpen} aria-label={`فتح تفاصيل ${name}`}>
@@ -108,27 +110,30 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
       </span>}
     </button>
     {canExpand && <button type="button" className="ic-read-more" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-      {expanded ? 'SHOW LESS' : 'READ MORE'}</button>}
+      {expanded ? 'عرض أقل' : 'عرض المزيد'}</button>}
     {!story && !src && !!item.media?.length && <div className="ic-queue-media">
       <InteractionMedia post={item} onLightbox={(url) => window.open(url, '_blank', 'noopener,noreferrer')}/></div>}
 
-    <div className="ic-actions" role="toolbar" aria-label="إجراءات سريعة">
-      {canClaim && <button type="button" className="ic-primary" disabled={act.isPending} onClick={() => act.mutate({path: 'claim', body: {}})}><Hand size={16}/>استلام</button>}
-      <span className="ic-icons">
-        <IconAction label="إغلاق التفاعل" disabled={!canClose} active={closing} onClick={() => { act.reset(); setPanel(null); setClosing(true); }}><CheckCircle2 size={17}/></IconAction>
-        <IconAction label="تصعيد" disabled={!canEscalate} active={panel === 'escalate'} onClick={() => toggle('escalate')}><TriangleAlert size={17}/></IconAction>
-        <IconAction label="ملاحظة داخلية" disabled={!canNote} active={panel === 'note'} onClick={() => toggle('note')}><StickyNote size={17}/></IconAction>
-        {supervise && <IconAction label={item.priority === 'high' ? 'إلغاء الأولوية العالية' : 'أولوية عالية'} disabled={!live} active={panel === 'priority' || item.priority === 'high'} onClick={() => toggle('priority')}><Flame size={17}/></IconAction>}
-        <IconAction label={copied ? 'نُسخ الرابط' : 'نسخ الرابط'} disabled={!link} onClick={() => void copy()}><Copy size={17}/></IconAction>
-        {link ? <a className="ic-icon" href={link} target="_blank" rel="noopener noreferrer" title="فتح في المصدر" aria-label="فتح في المصدر"><ExternalLink size={17}/></a>
-          : <IconAction label="فتح في المصدر" disabled onClick={() => {}}><ExternalLink size={17}/></IconAction>}
-        {!story && !src && <IconAction label="سجل العميل والتفاصيل" onClick={onOpen}><History size={17}/></IconAction>}
-        <IconAction label="سجل التذكرة" active={historyOpen} onClick={() => setHistoryOpen(true)}><ScrollText size={17}/></IconAction>
-        {item.section === 'influencer' && item.influencer_id && canReadInfluencerCards(user) &&
-          <IconAction label="تصدير بطاقة المؤثر" onClick={() => setExportingCard(true)}><IdCard size={17}/></IconAction>}
-        <IconAction label="كل التفاصيل والإجراءات" onClick={onOpen}><Maximize2 size={17}/></IconAction>
-      </span>
+    {/* One primary action (claim, else close), the details, and everything else under «المزيد» — only what is allowed now. */}
+    <div className="ic-actions" role="toolbar" aria-label="إجراءات التفاعل">
+      {canClaim ? <Button variant="primary" size="sm" icon={<Hand size={16} aria-hidden="true"/>} loading={act.isPending} onClick={() => run('claim')}>استلام</Button>
+        : canClose && <Button variant="primary" size="sm" icon={<CheckCircle2 size={16} aria-hidden="true"/>} aria-pressed={closing || undefined}
+            onClick={() => { act.reset(); setPanel(null); setClosing(true); }}>إغلاق التفاعل</Button>}
+      <Button variant="ghost" size="sm" icon={<Maximize2 size={15} aria-hidden="true"/>} onClick={onOpen}>التفاصيل</Button>
+      <OverflowMenu items={([
+        canClaim && canClose ? {key: 'close', label: 'إغلاق التفاعل', icon: <CheckCircle2 size={16}/>, onSelect: () => { act.reset(); setPanel(null); setClosing(true); }} : null,
+        canEscalate ? {key: 'escalate', label: 'تصعيد', icon: <TriangleAlert size={16}/>, onSelect: () => toggle('escalate')} : null,
+        canNote ? {key: 'note', label: 'ملاحظة داخلية', icon: <StickyNote size={16}/>, onSelect: () => toggle('note')} : null,
+        supervise && live ? {key: 'priority', label: item.priority === 'high' ? 'إلغاء الأولوية العالية' : 'أولوية عالية', icon: <Flame size={16}/>, onSelect: () => toggle('priority')} : null,
+        link ? {key: 'open', label: 'فتح في المصدر', icon: <ExternalLink size={16}/>, href: link} : null,
+        link ? {key: 'copy', label: copied ? 'نُسخ الرابط' : 'نسخ الرابط', icon: <Copy size={16}/>, onSelect: () => void copy()} : null,
+        !story && !src ? {key: 'client', label: 'سجل العميل', icon: <History size={16}/>, onSelect: onOpen} : null,
+        {key: 'history', label: 'سجل التذكرة', icon: <ScrollText size={16}/>, onSelect: () => setHistoryOpen(true)},
+        item.section === 'influencer' && item.influencer_id && canReadInfluencerCards(user)
+          ? {key: 'card', label: 'تصدير بطاقة المؤثر', icon: <IdCard size={16}/>, onSelect: () => setExportingCard(true)} : null,
+      ] as Array<OverflowItem | null>).filter((x): x is OverflowItem => !!x)}/>
       <span className={`ic-channel ic-channel--${key}`}>{channelTag}{item.program_snapshot?.name ? ` (${item.program_snapshot.name})` : ''}</span>
+      {copied && <span className="sr-only" role="status">نُسخ الرابط</span>}
     </div>
 
     {panel && <div className="ic-panel">
@@ -141,7 +146,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
         <input className="input ic-input" autoFocus maxLength={panel === 'note' ? 5000 : 2000} value={text} onChange={(e) => setText(e.target.value)}
           aria-label={panel === 'escalate' ? 'سبب التصعيد' : panel === 'note' ? 'نص الملاحظة' : 'سبب تغيير الأولوية'}
           placeholder={panel === 'escalate' ? 'سبب التصعيد (إلزامي)' : panel === 'note' ? 'ملاحظة داخلية للفريق' : item.priority === 'high' ? 'سبب إعادة الأولوية لعادية (إلزامي)' : 'سبب الأولوية العالية (إلزامي)'}/>
-        <button className="btn-primary" disabled={act.isPending || !text.trim()}>{panel === 'escalate' ? 'تصعيد' : panel === 'note' ? 'حفظ' : item.priority === 'high' ? 'أولوية عادية' : 'أولوية عالية'}</button>
+        <Button variant="primary" type="submit" disabled={act.isPending || !text.trim()}>{panel === 'escalate' ? 'تصعيد' : panel === 'note' ? 'حفظ' : item.priority === 'high' ? 'أولوية عادية' : 'أولوية عالية'}</Button>
       </form>}
       <button type="button" className="ic-panel-close" aria-label="إغلاق اللوحة" onClick={() => setPanel(null)}><Close size={15}/></button>
       {act.error && <p role="alert" className="ic-error">{(act.error as Error).message}</p>}
@@ -217,12 +222,8 @@ function CloseDialog({ticket, busy, error, onCancel, onSave, onOpenDetails}: {
         placeholder={needsComment ? 'لماذا التفاعل غير ذي صلة؟' : 'ملاحظة تُحفظ مع المراجعة'}/></label>
     {error && <p role="alert" className="ic-error">{error}</p>}
     <footer className="ic-dialog-actions">
-      <button type="button" className="btn-ghost" onClick={onCancel} disabled={busy}>إلغاء</button>
-      <button type="submit" className="btn-primary" disabled={!ready || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+      <Button variant="ghost" type="button" onClick={onCancel} disabled={busy}>إلغاء</Button>
+      <Button variant="primary" type="submit" disabled={!ready || busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
     </footer>
   </ModalSurface>;
-}
-
-function IconAction({label, onClick, disabled = false, active = false, children}: {label: string; onClick: () => void; disabled?: boolean; active?: boolean; children: ReactNode}) {
-  return <button type="button" className={`ic-icon ${active ? 'is-active' : ''}`} title={label} aria-label={label} aria-pressed={active || undefined} disabled={disabled} onClick={onClick}>{children}</button>;
 }

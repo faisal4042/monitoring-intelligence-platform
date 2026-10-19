@@ -12,7 +12,7 @@ export default function NewsPanel({ q, allowed, panel }: { q: Q<NewsData>; allow
   const d = q.data;
   const maxSource = Math.max(1, ...(d?.bySource ?? []).slice(0, SOURCES).map((s) => s.relevant));
   return <Panel id="news" title="الأخبار المهمة" eyebrow="ذكاء الأخبار" {...panel}
-    info="أخبار المصادر المرصودة حسب تاريخ نشرها (أو اكتشافها إن لم يتوفر)، منفصلة تمامًا عن منشورات X ولا تُضاف إلى إجمالياتها. «ذات صلة» = مرتبطة ببرنامج."
+    info="أخبار المصادر المرصودة حسب تاريخ نشرها (أو اكتشافها إن لم يتوفر)، منفصلة تمامًا عن منشورات إكس ولا تُضاف إلى إجمالياتها. «ذات صلة» = مرتبطة ببرنامج."
     footer={allowed && <Link className="dash-link" to="/news/articles">كل الأخبار<ChevronLeft size={14} /></Link>}>
     {!allowed ? <Unavailable reason="يتطلب هذا القسم صلاحية عرض الأخبار." /> :
     <State loading={q.isLoading} error={q.error} height={260}>

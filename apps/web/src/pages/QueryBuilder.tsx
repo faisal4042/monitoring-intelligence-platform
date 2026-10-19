@@ -10,6 +10,7 @@ import { fmtMoney } from '../lib/format';
 import type { QueryNode, QueryEstimate } from '@mip/shared';
 import { Wand2 } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface Program { id: string; name_ar: string }
 interface Group { id: string; name_ar: string; type: string; program_name: string; keyword_count: number }
 
@@ -103,7 +104,7 @@ export default function QueryBuilder() {
   function Meter({ label, value, invert }: { label: string; value: number; invert?: boolean }) {
     const bad = invert ? value > 55 : value > 65;
     const warn = invert ? value > 35 : value > 45;
-    const color = bad ? 'bg-red-500' : warn ? 'bg-amber-500' : 'bg-emerald-500';
+    const color = bad ? 'bg-(--status-danger)' : warn ? 'bg-(--status-warning)' : 'bg-(--status-success)';
     return (
       <div>
         <div className="flex justify-between text-xs mb-1">
@@ -147,7 +148,7 @@ export default function QueryBuilder() {
       <div className="page-heading">
         <div>
           <h1 className="flex items-center gap-2.5"><Wand2 size={22} className="text-brand-600" /> بناء استعلام</h1>
-          <p>التقدير أدناه مجاني تماماً — لا يُرسل أي طلب إلى X. الاختبار الفعلي يأتي في الخطوة التالية.</p>
+          <p>التقدير أدناه مجاني تماماً — لا يُرسل أي طلب إلى إكس. الاختبار الفعلي يأتي في الخطوة التالية.</p>
         </div>
       </div>
 
@@ -236,8 +237,8 @@ export default function QueryBuilder() {
                 <div
                   key={i}
                   className={`text-xs p-2.5 rounded-lg leading-relaxed ${
-                    w.severity === 'critical' ? 'bg-red-500/10 text-red-700 dark:text-red-400'
-                      : w.severity === 'warning' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                    w.severity === 'critical' ? 'bg-(--status-danger-soft) text-(--status-danger)'
+                      : w.severity === 'warning' ? 'bg-(--status-warning-soft) text-(--status-warning)'
                       : 'bg-brand-500/10 text-brand-700 dark:text-brand-400'
                   }`}
                 >
@@ -247,14 +248,13 @@ export default function QueryBuilder() {
             </div>
           ) : null}
 
-          <button
-            className="btn-primary w-full"
+          <Button variant="primary" type="submit"
+            className="w-full"
             disabled={!programId || !name.trim() || !estimate?.compiled || create.isPending}
-            onClick={() => create.mutate()}
-          >
+            onClick={() => create.mutate()}>
             حفظ ثم الانتقال للاختبار
-          </button>
-          {create.error && <div className="text-xs text-red-600">{(create.error as Error).message}</div>}
+          </Button>
+          {create.error && <div className="text-xs text-(--status-danger)">{(create.error as Error).message}</div>}
           <p className="text-xs muted text-center">
             الاستعلام يُحفظ بحالة «مسودة» ولن يُنفَّذ إطلاقاً قبل اجتياز الاختبار.
           </p>

@@ -1,5 +1,6 @@
 import {ApiError} from '../lib/api';
 
+import { Button } from './ui/Button';
 export function browsingErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.code === 'INVALID_CURSOR') return 'انتهت صلاحية رابط التصفح أو لا يطابق المستخدم والفلاتر الحالية. ابدأ تصفحًا جديدًا.';
   if (error instanceof ApiError && error.code === 'NEWS_GROUPS_NOT_READY') return 'الأخبار غير جاهزة للتصفح؛ لم تكتمل تهيئة العناوين في الخادم. لم تُخفَ نتائج ناقصة. أعد المحاولة بعد اكتمال التهيئة.';
@@ -12,8 +13,8 @@ export default function V1BrowsingStatus({error, busy, onRestart, onRetry}: {
   if (error) return <div className="card p-4 space-y-3" role="alert">
     <p>{browsingErrorMessage(error)}</p>
     <div className="flex flex-wrap gap-2">
-      <button className="btn-ghost" disabled={busy} onClick={onRestart}>بدء تصفح جديد</button>
-      {!(error instanceof ApiError && error.code === 'INVALID_CURSOR') && <button className="btn-ghost" disabled={busy} onClick={onRetry}>إعادة المحاولة</button>}
+      <Button variant="ghost" type="submit" disabled={busy} onClick={onRestart}>بدء تصفح جديد</Button>
+      {!(error instanceof ApiError && error.code === 'INVALID_CURSOR') && <Button variant="ghost" type="submit" disabled={busy} onClick={onRetry}>إعادة المحاولة</Button>}
     </div>
   </div>;
   // Only real errors are shown; the general browsing notes were removed on request.

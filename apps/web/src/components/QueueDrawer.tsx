@@ -19,6 +19,7 @@ import {XVideoFrame,xPostIdOf} from './live/VideoEmbed';
 import VideoPlayer from './media/VideoPlayer';
 import {SOURCE_KIND_LABELS,SOURCE_OPEN_LABELS,SourceBadge,SourceIcon,TicketNumbers,isSourceCard,sourceOrigin,sourceText,sourceTitle,sourceUrl} from './queue/SourceParts';
 
+import { Button } from './ui/Button';
 export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
   const {user}=useAuth();
   return <QueueDrawerContent key={`${user?.id}:${id}`} id={id} onClose={onClose}/>;
@@ -69,7 +70,7 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
         <h2 className="text-xl font-bold flex items-center gap-2">{story?<><Sparkles size={20}/>تفاصيل القصة</>:'تفاصيل التفاعل'}</h2>
         <ModalCloseButton  className="icon-button" aria-label="إغلاق التفاصيل" onClick={discard.close}><X size={18}/></ModalCloseButton>
       </header>
-      {isLoading&&<p>جارٍ التحميل…</p>}{error&&<p role="alert" className="text-red-600">{error.message}</p>}
+      {isLoading&&<p>جارٍ التحميل…</p>}{error&&<p role="alert" className="text-(--status-danger)">{error.message}</p>}
       {item&&<>
         <div className="flex gap-2 flex-wrap items-center">
           <SourceBadge item={item}/>
@@ -81,10 +82,10 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
           {item.priority==='high'&&<span className="queue-tag queue-tag--hold"><Flame size={11}/>أولوية عالية</span>}
           {item.section_hold&&<span className="queue-tag queue-tag--hold"><TriangleAlert size={11}/>ينتمي لقصة في فريق آخر — بانتظار مراجعة المشرف</span>}
         </div>
-        {item.section_hold&&supervise&&!transferOpen&&<p className="rounded-lg p-3 bg-red-500/5 text-sm flex flex-wrap items-center gap-2">
+        {item.section_hold&&supervise&&!transferOpen&&<p className="rounded-lg p-3 bg-(--status-danger)/5 text-sm flex flex-wrap items-center gap-2">
           هذا التفاعل ضمن قصة يتابعها فريق آخر، فلم يُنقل تلقائياً.
           <button className="underline text-brand-600" onClick={()=>{setTransferOpen(true);setToTeam(item.hold_team_id??'');}}>تنفيذ النقل إلى فريق القصة</button></p>}
-        {item.merged_into_id&&<p className="rounded-lg p-3 bg-amber-500/10 text-sm">دُمجت هذه القصة في قصة أخرى. <button className="underline text-brand-600" onClick={()=>openItem(item.merged_into_id!)}>فتح القصة الأساسية</button></p>}
+        {item.merged_into_id&&<p className="rounded-lg p-3 bg-(--status-warning-soft) text-sm">دُمجت هذه القصة في قصة أخرى. <button className="underline text-brand-600" onClick={()=>openItem(item.merged_into_id!)}>فتح القصة الأساسية</button></p>}
 
         {story?<article className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
           <div className="flex items-start gap-2 justify-between"><h3 className="font-bold text-lg leading-8">{item.story_title}</h3>
@@ -127,8 +128,8 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
             :m.type!=='photo'&&xPostIdOf(item.url)?<div key={i} className="col-span-2"><XVideoFrame postId={xPostIdOf(item.url)!} className="x-video-frame--inline"/></div>
             :m.url?<a key={i} href={m.url} target="_blank" rel="noreferrer" className="text-brand-600 underline">فتح الوسائط</a>:null)}</div>
           <div className="flex gap-2 flex-wrap">
-            {item.url&&<a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={15}/>فتح في X</a>}
-            {item.x_author_id&&can(P.CUSTOMERS_READ)&&<button className="btn-ghost" onClick={()=>setHistory(true)}>سجل تفاعلات العميل</button>}
+            {item.url&&<a className="btn-ghost" href={item.url} target="_blank" rel="noreferrer"><ExternalLink size={15}/>فتح في إكس</a>}
+            {item.x_author_id&&can(P.CUSTOMERS_READ)&&<Button variant="ghost" type="submit" onClick={()=>setHistory(true)}>سجل تفاعلات العميل</Button>}
           </div>
         </article>}
 
@@ -139,28 +140,28 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
           <div>إعادة الإسناد: {item.reassignment_count}</div><div>التصعيد: {item.escalation_count}</div>
           <div>إعادة الفتح: {item.reopen_count??0}</div><div>الأولوية: {item.priority==='high'?'عالية':'عادية'}</div>
         </div>
-        {change.error&&<p role="alert" className="rounded-lg p-3 bg-red-500/10 text-red-600">{change.error.message}</p>}
+        {change.error&&<p role="alert" className="rounded-lg p-3 bg-(--status-danger-soft) text-(--status-danger)">{change.error.message}</p>}
         <fieldset disabled={change.isPending||!!item.merged_into_id} className="space-y-3">
           {supervise&&['new','assigned','escalated','in_progress'].includes(item.status)&&<div className="space-y-2">
-            <div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id&&m.id!==item.assignee_id).map(m=><option key={m.id} value={m.id}>{m.full_name}{m.status?` — ${statusLabel(m.status)} · ${m.open??0} في الصندوق`:''}</option>)}</select><button className="btn-primary" disabled={!assignee||(item.status==='in_progress'&&!assignReason.trim())} onClick={()=>confirmation.request({title:item.assignee_id?'إعادة إسناد التفاعل':'إسناد التفاعل',description:`التفاعل ${id} سيُسند إلى «${options?.members.find(m=>m.id===assignee)?.full_name??assignee}»${item.assignee_id?' بدل الموظف الحالي':''}. السبب: ${assignReason||'غير مطلوب لهذه الحالة'}.`,confirmLabel:'تأكيد الإسناد',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'assign',extra:{assigneeId:assignee,...(assignReason.trim()?{reason:assignReason}:{})}})})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='new'?'إسناد':'إعادة الإسناد'}</button></div>
+            <div className="flex gap-2"><select aria-label="الموظف للإسناد" className="input flex-1" value={assignee} onChange={e=>setAssignee(e.target.value)}><option value="">اختر موظف الفريق</option>{options?.members.filter(m=>m.team_id===item.team_id&&m.id!==item.assignee_id).map(m=><option key={m.id} value={m.id}>{m.full_name}{m.status?` — ${statusLabel(m.status)} · ${m.open??0} في الصندوق`:''}</option>)}</select><Button variant="primary" type="submit" disabled={!assignee||(item.status==='in_progress'&&!assignReason.trim())} onClick={()=>confirmation.request({title:item.assignee_id?'إعادة إسناد التفاعل':'إسناد التفاعل',description:`التفاعل ${id} سيُسند إلى «${options?.members.find(m=>m.id===assignee)?.full_name??assignee}»${item.assignee_id?' بدل الموظف الحالي':''}. السبب: ${assignReason||'غير مطلوب لهذه الحالة'}.`,confirmLabel:'تأكيد الإسناد',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'assign',extra:{assigneeId:assignee,...(assignReason.trim()?{reason:assignReason}:{})}})})}>{item.status==='escalated'?'إعادة التوجيه':item.status==='new'?'إسناد':'إعادة الإسناد'}</Button></div>
             {/* Taking work from someone mid-task needs a reason; the new assignee starts their own cycle. */}
-            {assignee&&options?.members.find(m=>m.id===assignee&&m.team_id===item.team_id&&m.status&&m.status!=='available')&&<p className="text-xs text-amber-600">الموظف المختار ليس «متاحاً» الآن؛ الإسناد اليدوي مسموح ويُسجَّل في السجل.</p>}
+            {assignee&&options?.members.find(m=>m.id===assignee&&m.team_id===item.team_id&&m.status&&m.status!=='available')&&<p className="text-xs text-(--status-warning)">الموظف المختار ليس «متاحاً» الآن؛ الإسناد اليدوي مسموح ويُسجَّل في السجل.</p>}
             {item.status==='in_progress'&&<input aria-label="سبب إعادة الإسناد" placeholder="سبب إعادة الإسناد أثناء المعالجة (إلزامي)" className="input w-full" value={assignReason} maxLength={2000} onChange={e=>setAssignReason(e.target.value)}/>}
           </div>}
           <div className="flex gap-2">
-            {item.status==='assigned'&&supervise&&<button className="btn-ghost" onClick={()=>confirmation.request({title:'إلغاء إسناد التفاعل',description:`سيعود التفاعل ${id} إلى انتظار الإسناد وفق قواعد Queue الحالية.`,confirmLabel:'إلغاء الإسناد',danger:true,allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'unassign'})})}>إلغاء الإسناد</button>}
-            {item.status==='in_progress'&&supervise&&<button className="btn-ghost" disabled={!assignReason.trim()} title="اكتب السبب في حقل سبب إعادة الإسناد" onClick={()=>confirmation.request({title:'إلغاء إسناد تفاعل قيد العمل',description:`التفاعل ${id} سيخرج من صندوق الموظف الحالي. السبب: ${assignReason}.`,confirmLabel:'إلغاء الإسناد',danger:true,allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'unassign',extra:{reason:assignReason}})})}>إلغاء الإسناد</button>}
-            {item.status==='completed'&&supervise&&<div className="flex gap-2 w-full"><input aria-label="سبب إعادة الفتح" className="input flex-1" placeholder="سبب إعادة الفتح (إلزامي)" maxLength={2000} value={reopenReason} onChange={e=>setReopenReason(e.target.value)}/><button className="btn-primary" disabled={!reopenReason.trim()} onClick={()=>confirmation.request({title:'إعادة فتح التفاعل',description:`سيعود التفاعل المكتمل ${id} إلى العمل وفق قواعد Queue. السبب: ${reopenReason}.`,confirmLabel:'إعادة الفتح',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'reopen',extra:{reason:reopenReason}})})}>إعادة الفتح</button></div>}
-            {item.status==='new'&&!supervise&&catalog?.selfClaim&&can(P.QUEUE_WORK)&&<button className="btn-primary" onClick={()=>change.mutate({action:'claim'})}>استلام التفاعل</button>}
+            {item.status==='assigned'&&supervise&&<Button variant="ghost" type="submit" onClick={()=>confirmation.request({title:'إلغاء إسناد التفاعل',description:`سيعود التفاعل ${id} إلى انتظار الإسناد وفق قواعد Queue الحالية.`,confirmLabel:'إلغاء الإسناد',danger:true,allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'unassign'})})}>إلغاء الإسناد</Button>}
+            {item.status==='in_progress'&&supervise&&<Button variant="ghost" type="submit" disabled={!assignReason.trim()} title="اكتب السبب في حقل سبب إعادة الإسناد" onClick={()=>confirmation.request({title:'إلغاء إسناد تفاعل قيد العمل',description:`التفاعل ${id} سيخرج من صندوق الموظف الحالي. السبب: ${assignReason}.`,confirmLabel:'إلغاء الإسناد',danger:true,allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'unassign',extra:{reason:assignReason}})})}>إلغاء الإسناد</Button>}
+            {item.status==='completed'&&supervise&&<div className="flex gap-2 w-full"><input aria-label="سبب إعادة الفتح" className="input flex-1" placeholder="سبب إعادة الفتح (إلزامي)" maxLength={2000} value={reopenReason} onChange={e=>setReopenReason(e.target.value)}/><Button variant="primary" type="submit" disabled={!reopenReason.trim()} onClick={()=>confirmation.request({title:'إعادة فتح التفاعل',description:`سيعود التفاعل المكتمل ${id} إلى العمل وفق قواعد Queue. السبب: ${reopenReason}.`,confirmLabel:'إعادة الفتح',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>change.mutateAsync({action:'reopen',extra:{reason:reopenReason}})})}>إعادة الفتح</Button></div>}
+            {item.status==='new'&&!supervise&&catalog?.selfClaim&&can(P.QUEUE_WORK)&&<Button variant="primary" type="submit" onClick={()=>change.mutate({action:'claim'})}>استلام التفاعل</Button>}
           </div>
-          {work&&['assigned','in_progress'].includes(item.status)&&<div className="flex gap-2"><input aria-label="سبب التصعيد" placeholder="سبب التصعيد (إلزامي)" className="input flex-1" value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/><button className="btn-ghost" disabled={!reason.trim()} onClick={()=>change.mutate({action:'escalate',extra:{reason}})}><ArrowUpRight size={16}/>تصعيد</button></div>}
+          {work&&['assigned','in_progress'].includes(item.status)&&<div className="flex gap-2"><input aria-label="سبب التصعيد" placeholder="سبب التصعيد (إلزامي)" className="input flex-1" value={reason} maxLength={2000} onChange={e=>setReason(e.target.value)}/><Button variant="ghost" type="submit" disabled={!reason.trim()} onClick={()=>change.mutate({action:'escalate',extra:{reason}})}><ArrowUpRight size={16}/>تصعيد</Button></div>}
           {/* Review and close straight from the box: there is no start step. */}
           {work&&(['assigned','in_progress'].includes(item.status)||item.status==='escalated'&&supervise)&&<><QueueReview draft={reviewDraft} onDraftChange={setReviewDraft} item={item} catalog={catalog} disabled={change.isPending||!!note.trim()} onComplete={review=>change.mutate({action:'complete',extra:{review}})}/>{note.trim()&&<p className="text-sm muted">احفظ الملاحظة المكتوبة قبل إغلاق التفاعل.</p>}</>}
           {supervise&&item.status!=='completed'&&<div className="flex gap-2 flex-wrap items-center">
             <input aria-label="سبب تغيير الأولوية" className="input flex-1 min-w-[12rem]" placeholder="سبب تغيير الأولوية (إلزامي)" maxLength={2000} value={priorityReason} onChange={e=>setPriorityReason(e.target.value)}/>
-            <button className="btn-ghost" disabled={!priorityReason.trim()||priority.isPending} onClick={()=>priority.mutate(item.priority==='high'?'normal':'high')}>
-              <Flame size={15}/>{item.priority==='high'?'إرجاع لأولوية عادية':'أولوية عالية'}</button>
-            {priority.error&&<p role="alert" className="text-sm text-red-600 w-full">{priority.error.message}</p>}
+            <Button variant="ghost" type="submit" disabled={!priorityReason.trim()||priority.isPending} onClick={()=>priority.mutate(item.priority==='high'?'normal':'high')}>
+              <Flame size={15}/>{item.priority==='high'?'إرجاع لأولوية عادية':'أولوية عالية'}</Button>
+            {priority.error&&<p role="alert" className="text-sm text-(--status-danger) w-full">{priority.error.message}</p>}
           </div>}
           {supervise&&!story&&item.status!=='completed'&&<div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
             <button className="flex items-center gap-2 text-sm font-bold" aria-expanded={transferOpen} onClick={()=>{setTransferOpen(o=>!o);if(!toTeam&&item.hold_team_id)setToTeam(item.hold_team_id);}}>
@@ -174,13 +175,13 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
               </div>
               <input aria-label="سبب النقل" placeholder="سبب النقل (إلزامي)" className="input w-full" value={transferReason} maxLength={2000} onChange={e=>setTransferReason(e.target.value)}/>
               {options&&!options.teams.some(t=>t.id!==item.team_id)&&<p className="text-xs muted">لا يوجد فريق آخر ضمن نطاقك للنقل إليه.</p>}
-              {transfer.error&&<p role="alert" className="text-sm text-red-600">{transfer.error.message}</p>}
-              <div className="flex gap-2"><button className="btn-primary" disabled={!toTeam||!toMember||!transferReason.trim()||transfer.isPending} onClick={()=>confirmation.request({title:'نقل التفاعل بين الفرق',description:`نقل ${id} إلى «${options?.teams.find(t=>t.id===toTeam)?.name??toTeam}» وإسناده إلى «${options?.members.find(m=>m.id===toMember)?.full_name??toMember}». السبب: ${transferReason}.`,confirmLabel:'تنفيذ النقل',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>transfer.mutateAsync()})}>تنفيذ النقل</button>
-                <button className="btn-ghost" onClick={()=>setTransferOpen(false)}>إلغاء</button></div>
+              {transfer.error&&<p role="alert" className="text-sm text-(--status-danger)">{transfer.error.message}</p>}
+              <div className="flex gap-2"><Button variant="primary" type="submit" disabled={!toTeam||!toMember||!transferReason.trim()||transfer.isPending} onClick={()=>confirmation.request({title:'نقل التفاعل بين الفرق',description:`نقل ${id} إلى «${options?.teams.find(t=>t.id===toTeam)?.name??toTeam}» وإسناده إلى «${options?.members.find(m=>m.id===toMember)?.full_name??toMember}». السبب: ${transferReason}.`,confirmLabel:'تنفيذ النقل',allowed:can=>can(P.QUEUE_SUPERVISE),execute:()=>transfer.mutateAsync()})}>تنفيذ النقل</Button>
+                <Button variant="ghost" type="submit" onClick={()=>setTransferOpen(false)}>إلغاء</Button></div>
               <p className="text-xs muted">يُسند العنصر للموظف المستلم ويبدأ دورة جديدة؛ يبقى الفريق والموظف السابقان في السجل.</p>
             </>}
           </div>}
-          {work&&item.status!=='completed'&&<div className="space-y-2"><label className="block text-sm font-bold" htmlFor="queue-note">ملاحظة داخلية</label><textarea id="queue-note" className="input w-full" rows={3} maxLength={5000} value={note} onChange={e=>setNote(e.target.value)} placeholder="التصحيح يكون بملاحظة جديدة؛ لا يمكن تعديل الملاحظات أو حذفها."/><button className="btn-ghost" disabled={!note.trim()} onClick={()=>change.mutate({action:'notes',extra:{body:note}})}><StickyNote size={16}/>إضافة ملاحظة</button></div>}
+          {work&&item.status!=='completed'&&<div className="space-y-2"><label className="block text-sm font-bold" htmlFor="queue-note">ملاحظة داخلية</label><textarea id="queue-note" className="input w-full" rows={3} maxLength={5000} value={note} onChange={e=>setNote(e.target.value)} placeholder="التصحيح يكون بملاحظة جديدة؛ لا يمكن تعديل الملاحظات أو حذفها."/><Button variant="ghost" type="submit" disabled={!note.trim()} onClick={()=>change.mutate({action:'notes',extra:{body:note}})}><StickyNote size={16}/>إضافة ملاحظة</Button></div>}
         </fieldset>
 
         <QueueReviewHistory item={item} catalog={catalog}/>

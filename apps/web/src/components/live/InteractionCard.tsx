@@ -89,7 +89,7 @@ export function AnalysisDetails({ post, onClassify }: { post: Interaction; onCla
   </div>;
 }
 
-type MenuAction = { label: string; icon: ReactNode; onClick: () => void };
+type MenuAction = { label: string; icon: ReactNode; onClick: () => void; href?: string };
 function MoreMenu({ actions }: { actions: MenuAction[] }) {
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const trigger = useRef<HTMLButtonElement>(null), menu = useRef<HTMLDivElement>(null);
@@ -102,7 +102,7 @@ function MoreMenu({ actions }: { actions: MenuAction[] }) {
     const top = rect.bottom > window.innerHeight - 8 ? Math.max(8, triggerRect.top - rect.height - 6) : position.top;
     const left = Math.max(8, Math.min(position.left, window.innerWidth - rect.width - 8));
     if (top !== position.top || left !== position.left) setPosition({ top, left });
-    menu.current.querySelector<HTMLButtonElement>('button')?.focus({ preventScroll: true });
+    menu.current.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
   }, [position]);
   useEffect(() => {
     if (!position) return;
@@ -119,24 +119,28 @@ function MoreMenu({ actions }: { actions: MenuAction[] }) {
       const rect = trigger.current!.getBoundingClientRect(); setPosition({ top: rect.bottom + 6, left: rect.right - 210 });
     }} aria-label={`المزيد من الإجراءات (${actions.length})`} title="المزيد من الإجراءات"><MoreHorizontal size={16} aria-hidden="true"/><span className="ic-action-label">المزيد</span><span className="ic-more-count" aria-hidden="true">{actions.length}</span></button>
     {position && createPortal(<div ref={menu} id={id} role="menu" aria-label="إجراءات إضافية" dir="rtl" className="ic-more-menu" style={position} onKeyDown={event => {
-      const buttons = [...menu.current!.querySelectorAll<HTMLButtonElement>('button')];
+      const buttons = [...menu.current!.querySelectorAll<HTMLElement>('[role="menuitem"]')];
       const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); }
       else if (event.key === 'Tab') { event.preventDefault(); close(true); }
       else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
         event.preventDefault(); buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus();
       }
-    }}>{actions.map(action => <button key={action.label} type="button" role="menuitem" onClick={() => { close(true); action.onClick(); }}>{action.icon}{action.label}</button>)}</div>, document.body)}
+    }}>{actions.map(action => action.href
+      ? <a key={action.label} role="menuitem" href={action.href} target="_blank" rel="noreferrer" onClick={() => close(true)}>{action.icon}{action.label}</a>
+      : <button key={action.label} type="button" role="menuitem" onClick={() => { close(true); action.onClick(); }}>{action.icon}{action.label}</button>)}</div>, document.body)}
   </>;
 }
 
 /**
- * Primary: the actions used on almost every card (details, the ticket when one exists, the original post).
- * Everything else lives in «المزيد», with the same permission gates (an action absent from `actions` is never offered).
+ * Primary: at most two visible actions (details, and the ticket when one exists).
+ * Everything else, including the original post, lives in «المزيد», with the same permission gates
+ * (an action absent from `actions` is never offered).
  */
 export function InteractionActionBar({ post, actions }: { post: Interaction; actions: InteractionActions }) {
   const url = safeExternalUrl(post.url);
   const secondary: MenuAction[] = [];
+  if (url) secondary.push({ label: 'فتح المنشور الأصلي', icon: <ExternalLink size={16} aria-hidden="true"/>, onClick: () => {}, href: url });
   if (actions.onHistory) secondary.push({ label: 'سجل الحساب', icon: <History size={16} aria-hidden="true"/>, onClick: () => actions.onHistory!(post) });
   if (post.relevance && actions.onClassify) secondary.push({ label: 'تعديل التصنيف', icon: <Pencil size={16} aria-hidden="true"/>, onClick: () => actions.onClassify!(post) });
   if (!post.queue_id && !['duplicate', 'filtered_out'].includes(post.status) && actions.onAddToQueue) secondary.push({ label: 'إضافة للطابور', icon: <ListPlus size={16} aria-hidden="true"/>, onClick: () => actions.onAddToQueue!(post) });
@@ -144,7 +148,6 @@ export function InteractionActionBar({ post, actions }: { post: Interaction; act
   return <div className="ic-actions" aria-label="إجراءات التفاعل">
     <button type="button" className="ic-action ic-action-primary" onClick={() => actions.onDetails(post)}><FileText size={15} aria-hidden="true"/>التفاصيل</button>
     {post.queue_id && actions.onTicket && <button type="button" className="ic-action" aria-label="التذكرة والإسناد" title="التذكرة والإسناد" onClick={() => actions.onTicket!(post)}><Ticket size={15} aria-hidden="true"/><span className="ic-action-label">التذكرة والإسناد</span></button>}
-    {url && <a className="ic-action" href={url} target="_blank" rel="noreferrer" aria-label="الأصل (يفتح في نافذة جديدة)" title="فتح المنشور الأصلي على X"><ExternalLink size={15} aria-hidden="true"/><span className="ic-action-label">الأصل</span></a>}
     <MoreMenu actions={secondary}/>
   </div>;
 }
@@ -172,7 +175,7 @@ export default function InteractionCard({ post, density, selected = false, onSel
         <div className="ic-account-stats">{onAccount && post.username ? <button className="ic-username" title="كل منشورات الحساب" onClick={() => onAccount(post.username!)}><bdi>@{post.username}</bdi></button> : <bdi className="ic-username">@{post.username ?? '—'}</bdi>}<span>المتابعون <bdi>{fmtNum(post.followers_count)}</bdi></span><span>يتابع <bdi>{fmtNum(post.following_count)}</bdi></span></div>
         {post.author_bio?.trim() && <InteractionText text={post.author_bio} full={density === 'expanded'} bio/>}
       </div>
-      <div className="ic-header-meta"><span className="ic-when"><span className="ic-platform" role="img" aria-label="منصة X">𝕏</span><time dateTime={post.posted_at}><bdi>{fmtDateTime(post.posted_at)}</bdi></time></span><span className={`ic-state ic-tone-${state.tone}`}>{state.label}</span></div>
+      <div className="ic-header-meta"><span className="ic-when"><span className="ic-platform" role="img" aria-label="منصة إكس">𝕏</span><time dateTime={post.posted_at}><bdi>{fmtDateTime(post.posted_at)}</bdi></time></span><span className={`ic-state ic-tone-${state.tone}`}>{state.label}</span></div>
     </header>
     <div className="ic-content"><InteractionText text={post.text} full={density === 'expanded'}>{textContent}</InteractionText><InteractionMedia post={post} onLightbox={onLightbox} full={density === 'expanded'}/></div>
     <ClassificationSummary post={post} onDetails={() => actions.onDetails(post, 'analysis')}/>

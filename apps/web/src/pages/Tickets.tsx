@@ -6,6 +6,7 @@ import { fmtDateTime, fmtNum } from '../lib/format';
 import { CHANNEL_LABELS, SOURCE_FILTERS, TICKET_STATUS_LABELS, TICKET_STATUS_TONE, type TicketRow, type TicketStatus } from '../lib/tickets';
 import { useBrowsingParams } from '../lib/useBrowsingParams';
 import TicketDrawer from '../components/tickets/TicketDrawer';
+import { Button } from '../components/ui/Button';
 import '../components/search/search.css';
 import '../components/reports/reports.css';
 
@@ -38,14 +39,14 @@ export default function Tickets() {
       <header className="rc-header"><div>
         <span className="eyebrow">العمليات</span>
         <h1 className="rc-h1"><Ticket size={24} className="rc-h1-icon" aria-hidden="true" /> التذاكر</h1>
-        <p className="rc-lead">كل ما يرصده النظام من X والأخبار وYouTube يصبح تذكرة برقم ثابت، ويُعالَج من بطاقته في طابور الرصد. الرسالة بعد الإغلاق تفتح تذكرة جديدة.</p>
+        <p className="rc-lead">كل ما يرصده النظام من إكس والأخبار ويوتيوب يصبح تذكرة برقم ثابت، ويُعالَج من بطاقته في طابور الرصد. الرسالة بعد الإغلاق تفتح تذكرة جديدة.</p>
       </div></header>
       <div className="tk-filters">
         <div className="as-tabs" role="group" aria-label="المصدر">{SOURCE_FILTERS.map((x) => <button key={x.key} type="button" className="as-tab" aria-pressed={source.key === x.key}
           onClick={() => setParam('source', x.key === 'all' ? '' : x.key)}>{x.ar}</button>)}</div>
         <form className="tk-number" role="search" onSubmit={(e) => { e.preventDefault(); setParam('number', numberDraft.trim().replace(/^#/, '')); }}>
           <input className="input" inputMode="numeric" aria-label="رقم التذكرة" placeholder="رقم التذكرة" value={numberDraft} onChange={(e) => setNumberDraft(e.target.value)} />
-          <button className="btn-ghost" type="submit">بحث</button>{number && <button className="btn-ghost" type="button" onClick={() => { setNumberDraft(''); setParam('number', ''); }}>مسح</button>}
+          <Button variant="ghost" type="submit">بحث</Button>{number && <Button variant="ghost" type="button" onClick={() => { setNumberDraft(''); setParam('number', ''); }}>مسح</Button>}
         </form>
       </div>
       <div className="as-tabs" role="tablist" aria-label="تصفية التذاكر">
@@ -76,7 +77,7 @@ export default function Tickets() {
           </table>
         </div>
       )}
-      {list.data?.nextCursor && <div className="rc-actions"><button type="button" className="btn-ghost" onClick={() => setCursor(list.data!.nextCursor)}>الصفحة التالية</button>{cursor && <button type="button" className="btn-ghost" onClick={() => setCursor(null)}>العودة للبداية</button>}</div>}
+      {list.data?.nextCursor && <div className="rc-actions"><Button variant="ghost" type="button" onClick={() => setCursor(list.data!.nextCursor)}>الصفحة التالية</Button>{cursor && <Button variant="ghost" type="button" onClick={() => setCursor(null)}>العودة للبداية</Button>}</div>}
       {open && <TicketDrawer id={open} onClose={() => setOpen(null)} />}
     </div>
   );

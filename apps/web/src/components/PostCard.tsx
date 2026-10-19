@@ -8,19 +8,19 @@ import { useAuth } from '../lib/auth';
 import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 
 const REL: Record<string, { text: string; cls: string }> = {
-  relevant:      { text: 'مرتبط',     cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  relevant:      { text: 'مرتبط',     cls: 'bg-(--status-success-soft) text-(--status-success)' },
   irrelevant:    { text: 'غير مرتبط', cls: 'bg-slate-500/15 text-slate-500' },
-  advertisement: { text: 'إعلان',     cls: 'bg-orange-500/15 text-orange-600' },
-  spam:          { text: 'spam',      cls: 'bg-red-500/15 text-red-600' },
-  unknown:       { text: 'غير محدد',  cls: 'bg-amber-500/15 text-amber-600' },
+  advertisement: { text: 'إعلان',     cls: 'bg-(--status-warning-soft) text-(--status-warning)' },
+  spam:          { text: 'spam',      cls: 'bg-(--status-danger-soft) text-(--status-danger)' },
+  unknown:       { text: 'غير محدد',  cls: 'bg-(--status-warning-soft) text-(--status-warning)' },
 };
 
 const SENT: Record<string, { text: string; cls: string }> = {
-  very_positive: { text: 'إيجابي جداً', cls: 'text-emerald-600' },
-  positive:      { text: 'إيجابي',      cls: 'text-emerald-500' },
+  very_positive: { text: 'إيجابي جداً', cls: 'text-(--status-success)' },
+  positive:      { text: 'إيجابي',      cls: 'text-(--status-success)' },
   neutral:       { text: 'محايد',       cls: 'muted' },
-  negative:      { text: 'سلبي',        cls: 'text-orange-600' },
-  very_negative: { text: 'سلبي جداً',   cls: 'text-red-600' },
+  negative:      { text: 'سلبي',        cls: 'text-(--status-warning)' },
+  very_negative: { text: 'سلبي جداً',   cls: 'text-(--status-danger)' },
 };
 
 export default function PostCard({
@@ -83,7 +83,7 @@ export default function PostCard({
                   <span className="verified-mark" title="حساب موثّق" aria-label="حساب موثّق">✓</span>
                 )}
                 {p.is_influencer && (
-                  <span className="badge bg-amber-500/15 text-amber-600 dark:text-amber-400 !px-1.5 !py-0 text-[10px]" title="عميل مؤثر متابَع">
+                  <span className="badge bg-(--status-warning-soft) text-(--status-warning) !px-1.5 !py-0 text-xs" title="عميل مؤثر متابَع">
                     ★ مؤثر
                   </span>
                 )}
@@ -102,7 +102,7 @@ export default function PostCard({
                 </span>
               )}
               <span className={`badge ${rel.cls}`}>{rel.text}</span>
-              {p.stage && <span className="badge bg-[var(--surface-3)] num text-[10px]">S{p.stage}</span>}
+              {p.stage && <span className="badge bg-[var(--surface-3)] num text-xs">S{p.stage}</span>}
             </div>
           </header>
 
@@ -129,7 +129,7 @@ export default function PostCard({
               onClick={() => setExpanded((v) => !v)}
               aria-expanded={expanded}
             >
-              {expanded ? 'SHOW LESS' : 'READ MORE'}
+              {expanded ? 'عرض أقل' : 'عرض المزيد'}
             </button>
           )}
 
@@ -154,13 +154,13 @@ export default function PostCard({
               {p.collected_at && (() => {
                 const seconds = Math.max(0, Math.round(((parseInstant(p.collected_at)?.getTime() ?? 0) - (parseInstant(p.posted_at)?.getTime() ?? 0)) / 1000));
                 const latency = seconds < 60 ? `${seconds} ث` : `${Math.round(seconds / 60)} د`;
-                return <span className="mr-1">· وصل خلال {latency}</span>;
+                return <span className="ms-1">· وصل خلال {latency}</span>;
               })()}
             </a>
             <span className={sent.cls}>{sent.text}</span>
             {p.program_name && (
               <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ background: p.program_color ?? '#888' }} />
+                <span className="h-2 w-2 rounded-full" style={{ background: p.program_color ?? 'var(--text-subtle)' }} />
                 {p.program_name}
               </span>
             )}

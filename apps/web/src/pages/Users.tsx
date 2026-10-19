@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth';
 import { fmtDateTime, fmtRelative } from '../lib/format';
 import { AlertTriangle, Check, Copy, KeyRound, Pencil, Plus, Power, ShieldCheck, UserCog, UsersRound } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface UserRow {
   id: string; email: string; full_name: string; is_active: boolean;
   last_login_at: string | null; created_at: string;
@@ -32,9 +33,9 @@ function Modal({ label, onClose, children, busy = false, dismissible = true }: {
 
 function StatusBadge({ u }: { u: UserRow }) {
   if (!u.is_active) return <span className="badge bg-slate-500/15 text-slate-500">معطّل</span>;
-  if (u.is_locked) return <span className="badge bg-red-500/15 text-red-600">مقفل مؤقتاً</span>;
-  if (u.must_change_password) return <span className="badge bg-amber-500/15 text-amber-600">بانتظار تغيير كلمة المرور</span>;
-  return <span className="badge bg-emerald-500/15 text-emerald-600">نشط</span>;
+  if (u.is_locked) return <span className="badge bg-(--status-danger-soft) text-(--status-danger)">مقفل مؤقتاً</span>;
+  if (u.must_change_password) return <span className="badge bg-(--status-warning-soft) text-(--status-warning)">بانتظار تغيير كلمة المرور</span>;
+  return <span className="badge bg-(--status-success-soft) text-(--status-success)">نشط</span>;
 }
 
 export default function Users() {
@@ -98,7 +99,7 @@ export default function Users() {
     if (!issued) return;
     try { await navigator.clipboard.writeText(issued.password); setCopied(true); } catch { setCopied(false); }
   };
-  const err = (e: unknown) => e ? <div className="text-xs text-red-600 mt-3" role="alert">{(e as ApiError).message}</div> : null;
+  const err = (e: unknown) => e ? <div className="text-xs text-(--status-danger) mt-3" role="alert">{(e as ApiError).message}</div> : null;
 
   const pageReads = [usersRead, rolesRead];
   const readError = pageReads.find(read => read.error)?.error;
@@ -111,7 +112,7 @@ export default function Users() {
           <p className="text-sm muted">الحسابات والأدوار. لا يُحذف أي حساب — يُعطَّل ويمكن إعادة تفعيله.</p>
         </div>
         {canWrite && canAssign && (
-          <button className="btn-primary" onClick={() => { createUser.reset(); setAdding(true); }}><Plus size={16} /> مستخدم جديد</button>
+          <Button variant="primary" type="submit" onClick={() => { createUser.reset(); setAdding(true); }}><Plus size={16} /> مستخدم جديد</Button>
         )}
       </div>
 
@@ -144,7 +145,7 @@ export default function Users() {
                         {u.role_key === 'admin' && <ShieldCheck size={13} className="text-brand-600" aria-hidden="true" />} {u.role_name}
                       </span>
                       {u.extra_permissions.length > 0 && (
-                        <div className="text-[11px] muted" title={u.extra_permissions.join('، ')}>+{u.extra_permissions.length} صلاحية إضافية</div>
+                        <div className="text-xs muted" title={u.extra_permissions.join('، ')}>+{u.extra_permissions.length} صلاحية إضافية</div>
                       )}
                     </td>
                     <td className="td"><StatusBadge u={u} /></td>
@@ -175,7 +176,7 @@ export default function Users() {
                           </button>
                         )}
                         {canWrite && (
-                          <button className={`icon-button !w-8 !h-8 ${u.is_active ? '!text-red-600' : '!text-emerald-600'}`} disabled={self}
+                          <button className={`icon-button !w-8 !h-8 ${u.is_active ? '!text-(--status-danger)' : '!text-(--status-success)'}`} disabled={self}
                             title={self ? 'لا يمكنك تعطيل حسابك' : u.is_active ? 'تعطيل' : 'تفعيل'} aria-label={`${u.is_active ? 'تعطيل' : 'تفعيل'} ${u.full_name}`}
                             onClick={() => { toggleActive.reset(); setToggling(u); }}>
                             <Power size={14} />
@@ -216,7 +217,7 @@ export default function Users() {
             {roleById(create.roleId) && <p className="text-xs muted mb-2">{roleById(create.roleId)!.permissions.length} صلاحية</p>}
             <div className="flex gap-2 justify-end mt-3">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setAdding(false)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={createUser.isPending}>{createUser.isPending ? 'جارٍ الإنشاء…' : 'إنشاء'}</button>
+              <Button variant="primary" type="submit" disabled={createUser.isPending}>{createUser.isPending ? 'جارٍ الإنشاء…' : 'إنشاء'}</Button>
             </div>
             {err(createUser.error)}
           </form>
@@ -235,7 +236,7 @@ export default function Users() {
             </FormField>
             <div className="flex gap-2 justify-end">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setEditing(null)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={updateUser.isPending}>{updateUser.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+              <Button variant="primary" type="submit" disabled={updateUser.isPending}>{updateUser.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
             </div>
             {err(updateUser.error)}
           </form>
@@ -254,9 +255,9 @@ export default function Users() {
             {roleById(roleDraft) && <p className="text-xs muted">{roleById(roleDraft)!.permissions.length} صلاحية</p>}
             <div className="flex gap-2 justify-end mt-4">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setRoleFor(null)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={changeRole.isPending || roleDraft === roleFor.role_id}>
+              <Button variant="primary" type="submit" disabled={changeRole.isPending || roleDraft === roleFor.role_id}>
                 {changeRole.isPending ? 'جارٍ الحفظ…' : 'تغيير الدور'}
-              </button>
+              </Button>
             </div>
             {err(changeRole.error)}
           </form>
@@ -287,9 +288,9 @@ export default function Users() {
           <p className="text-xs muted mb-4">يولّد النظام كلمة مرور مؤقتة جديدة، وتُغلق كل جلسات المستخدم، ويُطلب منه تغييرها عند الدخول.</p>
           <div className="flex gap-2 justify-end">
             <ModalCloseButton className="btn-ghost" onClick={() => setResetting(null)}>إلغاء</ModalCloseButton>
-            <button className="btn-primary" disabled={resetPassword.isPending} onClick={() => resetPassword.mutate(resetting)}>
+            <Button variant="primary" type="submit" disabled={resetPassword.isPending} onClick={() => resetPassword.mutate(resetting)}>
               {resetPassword.isPending ? 'جارٍ التوليد…' : 'إعادة التعيين'}
-            </button>
+            </Button>
           </div>
           {err(resetPassword.error)}
         </Modal>
@@ -302,15 +303,15 @@ export default function Users() {
           <div className="flex items-center gap-2 rounded-lg p-3 mb-3" style={{ background: 'var(--surface-2)' }}>
             <code className="flex-1 select-all break-all text-sm font-semibold" dir="ltr">{issued.password}</code>
             <button className="icon-button !w-8 !h-8" onClick={copy} title="نسخ" aria-label="نسخ كلمة المرور">
-              {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copied ? <Check size={14} className="text-(--status-success)" /> : <Copy size={14} />}
             </button>
           </div>
-          <p className="flex items-start gap-2 rounded-lg bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400" role="alert">
+          <p className="flex items-start gap-2 rounded-lg bg-(--status-warning-soft) p-3 text-xs leading-relaxed text-(--status-warning)" role="alert">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" aria-hidden="true" />
             لن تظهر كلمة المرور هذه مرة أخرى. سلّمها للمستخدم بطريقة آمنة، وسيُطلب منه تغييرها عند أول دخول.
           </p>
           <div className="flex justify-end mt-4">
-            <button className="btn-primary" onClick={closeIssued}>تم، أغلق</button>
+            <Button variant="primary" type="submit" onClick={closeIssued}>تم، أغلق</Button>
           </div>
         </Modal>
       )}

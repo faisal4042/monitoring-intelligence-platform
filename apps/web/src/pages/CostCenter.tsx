@@ -10,6 +10,7 @@ import { useDateRange } from '../lib/useDateRange';
 import { PERMISSIONS } from '@mip/shared';
 import { BadgeDollarSign, Ban, SearchCode, Wallet } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface Overview {
   spentTodayUnits: number; spentTodayCost: number;
   spentMonthUnits: number; spentMonthCost: number;
@@ -67,7 +68,7 @@ export default function CostCenter() {
   });
 
   const pct = o?.usagePct ?? 0;
-  const bar = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+  const bar = pct >= 90 ? 'bg-(--status-danger)' : pct >= 70 ? 'bg-(--status-warning)' : 'bg-(--status-success)';
   const overBudget = o?.monthCostLimit != null && o.projectedMonthCost > o.monthCostLimit;
 
   const pageReads = [overviewRead, ...(!dateRange.error ? [queriesRead] : []), budgetsRead, denialsRead];
@@ -78,7 +79,7 @@ export default function CostCenter() {
       <div className="page-heading">
         <div>
           <h1 className="flex items-center gap-2.5"><BadgeDollarSign size={22} className="text-brand-600" /> مركز التكلفة</h1>
-          <p>الاستهلاك بوحدات الحصة (عدد المنشورات) — وهي العملة الحقيقية لـ X API</p>
+          <p>الاستهلاك بوحدات الحصة (عدد المنشورات) — وهي العملة الحقيقية لواجهة إكس</p>
         </div>
       </div>
 
@@ -97,12 +98,12 @@ export default function CostCenter() {
         </div>
         <div className="card p-4">
           <div className="text-xs muted mb-1">المتبقي</div>
-          <div className="text-2xl font-bold num">{o?.remainingUnits === null ? '∞' : fmtNum(o?.remainingUnits)}</div>
-          <div className="text-xs muted mt-1 num">{o?.remainingCost === null ? '—' : fmtMoney(o?.remainingCost)}</div>
+          <div className="text-2xl font-bold num">{o?.remainingUnits === null ? 'بلا حد' : fmtNum(o?.remainingUnits)}</div>
+          <div className="text-xs muted mt-1 num">{o?.remainingCost === null ? 'لا يوجد حد شهري' : fmtMoney(o?.remainingCost)}</div>
         </div>
         <div className="card p-4">
           <div className="text-xs muted mb-1">التوقع لنهاية الشهر</div>
-          <div className={`text-2xl font-bold num ${overBudget ? 'text-red-600 dark:text-red-400' : ''}`}>
+          <div className={`text-2xl font-bold num ${overBudget ? 'text-(--status-danger)' : ''}`}>
             {fmtMoney(o?.projectedMonthCost)}
           </div>
           <div className="text-xs muted mt-1 num">{fmtNum(o?.projectedMonthUnits)} وحدة</div>
@@ -110,18 +111,26 @@ export default function CostCenter() {
       </div>
 
       <div className="card p-4">
-        <div className="flex justify-between text-sm mb-2">
-          <span>استهلاك الحصة الشهرية</span>
-          <span className="num font-medium">{pct.toFixed(1)}%</span>
-        </div>
-        <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
-          <div className={`h-full ${bar} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
-        </div>
-        <div className="flex justify-between text-xs muted mt-2">
-          {[50, 70, 80, 90, 100].map((t) => (
-            <span key={t} className={pct >= t ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}>{t}%</span>
-          ))}
-        </div>
+        {/* Without a monthly limit a percentage bar would always read 0% — say so instead. */}
+        {o && o.monthUnitLimit == null ? (
+          <div className="flex justify-between gap-3 text-sm">
+            <span>استهلاك الحصة الشهرية</span>
+            <span className="muted">لا يوجد حد شهري — الاستهلاك معروض بالوحدات والتكلفة أعلاه</span>
+          </div>
+        ) : <>
+          <div className="flex justify-between text-sm mb-2">
+            <span>استهلاك الحصة الشهرية</span>
+            <span className="num font-medium">{pct.toFixed(1)}%</span>
+          </div>
+          <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+            <div className={`h-full ${bar} transition-all`} style={{ width: `${Math.min(100, pct)}%` }} />
+          </div>
+          <div className="flex justify-between text-xs muted mt-2">
+            {[50, 70, 80, 90, 100].map((t) => (
+              <span key={t} className={pct >= t ? 'text-(--status-warning) font-medium' : ''}>{t}%</span>
+            ))}
+          </div>
+        </>}
         {o && (
           <p className="text-xs muted mt-3 leading-relaxed">
             سعر الوحدة <span className="num">{fmtMoney(o.pricing.unitPrice)}</span> مشتق من
@@ -135,8 +144,8 @@ export default function CostCenter() {
       </div>
 
       {o?.killSwitches && o.killSwitches.length > 0 && (
-        <div className="card p-4 bg-red-500/5 border-red-500/30">
-          <div className="font-semibold text-red-600 dark:text-red-400 mb-2">عمليات إيقاف نشطة</div>
+        <div className="card p-4 bg-(--status-danger)/5 border-(--status-danger)/30">
+          <div className="font-semibold text-(--status-danger) mb-2">عمليات إيقاف نشطة</div>
           {o.killSwitches.map((k) => (
             <div key={k.id} className="text-sm flex justify-between py-1">
               <span>{k.scope === 'global' ? 'إيقاف شامل' : k.scope} — {k.reason}</span>
@@ -190,7 +199,7 @@ export default function CostCenter() {
               {(queries?.items ?? []).map((q) => {
                 const bad = q.precision !== null && q.precision < 0.4 && q.units > 0;
                 return (
-                  <tr key={q.id} className={`border-t ${bad ? 'bg-red-500/5' : ''}`} style={{ borderColor: 'var(--border)' }}>
+                  <tr key={q.id} className={`border-t ${bad ? 'bg-(--status-danger)/5' : ''}`} style={{ borderColor: 'var(--border)' }}>
                     <td className="td font-medium">{q.name}</td>
                     <td className="td">
                       <span className="inline-flex items-center gap-1.5">
@@ -199,16 +208,16 @@ export default function CostCenter() {
                       </span>
                     </td>
                     <td className="td num">{fmtNum(q.requests)}</td>
-                    <td className={`td num ${(q.emptyRequestPct ?? 0) >= 0.7 ? 'text-amber-600 dark:text-amber-400 font-semibold' : ''}`}>
+                    <td className={`td num ${(q.emptyRequestPct ?? 0) >= 0.7 ? 'text-(--status-warning) font-semibold' : ''}`}>
                       {fmtNum(q.emptyRequests)} · {fmtPct(q.emptyRequestPct)}
                     </td>
                     <td className="td num">{fmtNum(q.units)}</td>
                     <td className="td num">{fmtNum(q.relevant)}</td>
                     <td className="td num">{fmtNum(q.irrelevant)}</td>
-                    <td className={`td num ${bad ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}>{fmtPct(q.precision)}</td>
+                    <td className={`td num ${bad ? 'text-(--status-danger) font-semibold' : ''}`}>{fmtPct(q.precision)}</td>
                     <td className="td num">{fmtMoney(q.cost)}</td>
                     <td className="td num">{fmtMoney(q.costPerRelevant)}</td>
-                    <td className="td num text-red-600 dark:text-red-400">{fmtMoney(q.wastedCost)}</td>
+                    <td className={`td num ${q.wastedCost > 0 ? 'text-(--status-danger)' : ''}`}>{fmtMoney(q.wastedCost)}</td>
                   </tr>
                 );
               })}
@@ -242,22 +251,21 @@ export default function CostCenter() {
                 <tr key={b.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                   <td className="td">{b.program_name ?? (b.scope === 'global' ? 'عام' : b.scope)}</td>
                   <td className="td">{{ hour: 'ساعة', day: 'يوم', month: 'شهر' }[b.period] ?? b.period}</td>
-                  <td className="td num">{b.unit_limit ?? '∞'}</td>
+                  <td className="td num">{b.unit_limit ?? 'بلا حد'}</td>
                   <td className="td num">{b.cost_limit ? `$${b.cost_limit}` : '—'}</td>
                   <td className="td num">{b.units_used ?? 0}</td>
                   <td className="td">
-                    <span className={`badge ${b.is_hard_limit ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-amber-500/15 text-amber-600'}`}>
+                    <span className={`badge ${b.is_hard_limit ? 'bg-(--status-danger-soft) text-(--status-danger)' : 'bg-(--status-warning-soft) text-(--status-warning)'}`}>
                       {b.is_hard_limit ? 'حد صلب' : 'تنبيه فقط'}
                     </span>
                   </td>
                   <td className="td text-end">
                     {can(PERMISSIONS.BUDGET_WRITE) && (
-                      <button
-                        className="btn-ghost !px-2 !py-1 !text-xs"
-                        onClick={() => { setEditing(b); setDraft({ unitLimit: b.unit_limit ?? 0, costLimit: Number(b.cost_limit ?? 0) }); }}
-                      >
+                      <Button variant="ghost" type="submit"
+                        className="!px-2 !py-1 !text-xs"
+                        onClick={() => { setEditing(b); setDraft({ unitLimit: b.unit_limit ?? 0, costLimit: Number(b.cost_limit ?? 0) }); }}>
                         تعديل
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -289,7 +297,7 @@ export default function CostCenter() {
                 <tr key={d.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                   <td className="td text-xs muted">{fmtDateTime(d.occurred_at)}</td>
                   <td className="td">{d.query_name ?? '—'}</td>
-                  <td className="td"><span className="badge bg-red-500/15 text-red-600 dark:text-red-400">{d.reason}</span></td>
+                  <td className="td"><span className="badge bg-(--status-danger-soft) text-(--status-danger)">{d.reason}</span></td>
                   <td className="td text-xs">{d.scope ?? '—'}</td>
                   <td className="td num">{d.requested_units}</td>
                 </tr>
@@ -308,7 +316,7 @@ export default function CostCenter() {
         <ModalSurface label={'تعديل الميزانية'} onClose={() => setEditing(null)} busy={saveBudget.isPending} overlayClassName="fixed inset-0 bg-black/50 grid place-items-center z-50 p-4" panelClassName="card p-5 w-full max-w-sm" as="div">
             <h3 className="font-bold mb-4">تعديل الميزانية — {editing.scope}/{editing.period}</h3>
             <p className="text-sm muted mb-3">يؤثر الحفظ على حدود جمع البيانات والتكلفة لهذا النطاق. راجع القيم قبل الحفظ.</p>
-            {saveBudget.error&&<p role="alert" className="text-red-600">{saveBudget.error.message}</p>}
+            {saveBudget.error&&<p role="alert" className="text-(--status-danger)">{saveBudget.error.message}</p>}
             <label className="block text-sm mb-1">حد الوحدات (عدد المنشورات)</label>
             <input className="input mb-3 num" type="number" value={draft.unitLimit}
                    onChange={(e) => setDraft({ ...draft, unitLimit: Number(e.target.value) })} />
@@ -317,7 +325,7 @@ export default function CostCenter() {
                    onChange={(e) => setDraft({ ...draft, costLimit: Number(e.target.value) })} />
             <div className="flex gap-2 justify-end">
               <ModalCloseButton className="btn-ghost" onClick={() => setEditing(null)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate(editing)}>حفظ</button>
+              <Button variant="primary" type="submit" disabled={saveBudget.isPending} onClick={() => saveBudget.mutate(editing)}>حفظ</Button>
             </div>
           </ModalSurface>
       )}

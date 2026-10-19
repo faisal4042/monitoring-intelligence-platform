@@ -9,6 +9,7 @@ import {fmtRelative} from '../lib/format';
 import {ALERT_KIND_LABELS,type AlertPrefs,type AlertUnread,type QueueAlert} from '../lib/queue';
 import {audioState,chime,onAudioState,unlockAudio,type AudioState} from '../lib/alertSound';
 
+import { Button } from './ui/Button';
 export const ALERTS_UNREAD_KEY=['queue-alerts','unread'];
 const DEFAULT_PREFS:AlertPrefs={soundEnabled:true,toastsEnabled:true,volume:0.6};
 const openUrl=(a:QueueAlert)=>`/queue?section=${a.section}&item=${a.item_id}`;
@@ -101,7 +102,7 @@ export default function AlertCenter() {
     {open&&<div className="alert-panel card" role="dialog" aria-label="مركز التنبيهات">
       <header className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <strong>التنبيهات</strong>
-        <button className="btn-ghost !py-1 !px-2 !text-xs" disabled={!count||markAll.isPending} onClick={()=>markAll.mutate()}><CheckCheck size={14}/>تعليم الكل كمقروء</button>
+        <Button variant="ghost" type="submit" className="!py-1 !px-2 !text-xs" disabled={!count||markAll.isPending} onClick={()=>markAll.mutate()}><CheckCheck size={14}/>تعليم الكل كمقروء</Button>
       </header>
       <div className="alert-sound-row">
         <button className="icon-button" aria-pressed={soundOn} aria-label={soundOn?'كتم صوت التنبيهات':'تشغيل صوت التنبيهات'}
@@ -111,8 +112,8 @@ export default function AlertCenter() {
           onPointerUp={e=>savePrefs.mutate({...prefs,volume:Number((e.target as HTMLInputElement).value)})}
           onKeyUp={e=>savePrefs.mutate({...prefs,volume:Number((e.target as HTMLInputElement).value)})}/>
         {audio==='running'
-          ?<button className="btn-ghost !py-1 !px-2 !text-xs" disabled={!soundOn} onClick={()=>chime(prefs.volume,true)}>تجربة الصوت</button>
-          :<button className="btn-primary !py-1 !px-2 !text-xs" onClick={async()=>{if(await unlockAudio()&&soundOn)chime(prefs.volume,true);}}>تفعيل التنبيهات الصوتية</button>}
+          ?<Button variant="ghost" type="submit" className="!py-1 !px-2 !text-xs" disabled={!soundOn} onClick={()=>chime(prefs.volume,true)}>تجربة الصوت</Button>
+          :<Button variant="primary" type="submit" className="!py-1 !px-2 !text-xs" onClick={async()=>{if(await unlockAudio()&&soundOn)chime(prefs.volume,true);}}>تفعيل التنبيهات الصوتية</Button>}
       </div>
       <label className="flex items-center gap-2 px-4 pb-2 text-xs muted">
         <input type="checkbox" checked={prefs.toastsEnabled} onChange={e=>savePrefs.mutate({...prefs,toastsEnabled:e.target.checked})}/>إظهار الإشعارات المنبثقة

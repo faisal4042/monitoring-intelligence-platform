@@ -78,8 +78,8 @@ export const INTENT_LABELS:Record<string,string>={
   warning:'تحذير',issue:'مشكلة',request:'طلب',other:'أخرى',
 };
 export const SENTIMENT_LABELS:Record<string,{text:string;cls:string}>={
-  very_positive:{text:'إيجابي جداً',cls:'text-emerald-600'},positive:{text:'إيجابي',cls:'text-emerald-600'},
-  neutral:{text:'محايد',cls:'muted'},negative:{text:'سلبي',cls:'text-red-600'},very_negative:{text:'سلبي جداً',cls:'text-red-600'},
+  very_positive:{text:'إيجابي جداً',cls:'text-(--status-success)'},positive:{text:'إيجابي',cls:'text-(--status-success)'},
+  neutral:{text:'محايد',cls:'muted'},negative:{text:'سلبي',cls:'text-(--status-danger)'},very_negative:{text:'سلبي جداً',cls:'text-(--status-danger)'},
 };
 export const STORY_STATE_LABELS:Record<string,string>={new:'جديدة',rising:'متصاعدة',steady:'مستقرة',fading:'تخفت',candidate:'أولية'};
 export const SOURCE_LABELS={original:'تغريدة أصلية',reply:'رد',quote:'اقتباس'} as const;

@@ -7,7 +7,7 @@ export default function Lightbox({ url, onClose }: { url: string; onClose: () =>
       <button
         data-dialog-initial-focus
         type="button"
-        className="absolute top-4 left-4 text-white/80 hover:text-white text-2xl leading-none"
+        className="absolute top-4 end-4 text-white/80 hover:text-white text-2xl leading-none"
         onClick={onClose}
         aria-label="إغلاق"
       >

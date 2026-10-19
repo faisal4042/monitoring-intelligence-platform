@@ -22,6 +22,7 @@ import DateRangeFilter from '../components/DateRangeFilter';
 import QueueDrawer from '../components/QueueDrawer';
 import Avatar from '../components/Avatar';
 
+import { Button } from '../components/ui/Button';
 type Tab='box'|'closed'|'performance';
 const TABS:Array<{key:Tab;label:string;icon:typeof Inbox}>=[
   {key:'box',label:'صندوقي',icon:Inbox},{key:'closed',label:'المغلقة',icon:CheckCircle2},{key:'performance',label:'أدائي',icon:BarChart3},
@@ -63,7 +64,7 @@ export default function AgentWorkspace() {
 function MyStrip() {
   const me=useMyWorkforce();
   const now=useServerClock(me.data?.serverNow,30000);
-  if(me.error)return <div className="card p-4" role="alert">تعذر تحميل حالة الموظف: {me.error.message}<button className="btn-ghost" onClick={()=>me.refetch()}>إعادة المحاولة</button></div>;
+  if(me.error)return <div className="card p-4" role="alert">تعذر تحميل حالة الموظف: {me.error.message}<Button variant="ghost" type="submit" onClick={()=>me.refetch()}>إعادة المحاولة</Button></div>;
   if(!me.data)return <div className="card p-4 muted text-sm">جارٍ التحميل…</div>;
   const d=me.data;const pct=d.maxOpen?Math.min(100,Math.round(d.open/d.maxOpen*100)):100;
   return <section className="wf-strip" aria-label="حالتي وسعة صندوقي">
@@ -124,7 +125,7 @@ function MyBox({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|null}
       {lane!=='story'&&<SourceFilter value={kind} onChange={k=>set('kind',k)} withStories={false}/>}
       <button className="icon-button" aria-label="تحديث" onClick={()=>{list.refetch();summary.refetch();}}><RefreshCw size={16} className={list.isFetching?'animate-spin':''}/></button>
     </div>
-    {list.error&&<p role="alert" className="card p-4 text-red-600">{list.error.message}<button className="btn-ghost" onClick={()=>list.refetch()}>إعادة المحاولة</button></p>}
+    {list.error&&<p role="alert" className="card p-4 text-(--status-danger)">{list.error.message}<Button variant="ghost" type="submit" onClick={()=>list.refetch()}>إعادة المحاولة</Button></p>}
     {list.isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
     {list.isSuccess&&!items.length&&<div className="card p-10 text-center">
       <Inbox size={34} className="mx-auto mb-3 text-brand-600"/><h2 className="font-bold">{lane||program||intent?'لا توجد نتائج للفلاتر المحددة':'صندوقك فارغ'}</h2>
@@ -150,7 +151,7 @@ function MyClosed({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|nu
     <div className="card p-3 flex flex-wrap items-center gap-3"><span className="text-sm font-bold">الفترة (دخول الطابور)</span><DateRangeFilter state={date}/></div>
     {list.isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
     {date.error&&<p role="alert">{date.error}</p>}
-    {list.error&&<p role="alert" className="card p-4">{list.error.message}<button className="btn-ghost" onClick={()=>list.refetch()}>إعادة المحاولة</button></p>}
+    {list.error&&<p role="alert" className="card p-4">{list.error.message}<Button variant="ghost" type="submit" onClick={()=>list.refetch()}>إعادة المحاولة</Button></p>}
     {list.isSuccess&&!items.length&&<div className="card p-8 text-center muted">لا توجد تفاعلات أغلقتها في هذه الفترة.</div>}
     <ul className="space-y-2.5">{items.map(i=><li key={i.id}><WorkCard item={i} warn={warn} closed selected={i.id===selected} onOpen={()=>onOpen(i.id)}/></li>)}</ul>
     <CursorPager shown={items.length} {...navigation} nextCursor={list.data?.nextCursor} busy={list.isFetching} error={!!list.error||!!date.error} onNext={()=>navigation.next(list.data!.nextCursor!)} onPrevious={navigation.previous} onFirst={navigation.first}/>
@@ -165,7 +166,7 @@ function MyPerformance() {
   const occupancy=data&&data.maxOpen?Math.round(data.open/data.maxOpen*100):null;
   return <div className="space-y-3">
     <div className="card p-3 flex flex-wrap items-center gap-3"><span className="text-sm font-bold">الفترة</span><DateRangeFilter state={date}/></div>
-    {error&&<p role="alert" className="card p-4 text-red-600">{error.message}</p>}
+    {error&&<p role="alert" className="card p-4 text-(--status-danger)">{error.message}</p>}
     {isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
     {p&&t&&<>
       <section className="card p-4"><h2 className="font-bold mb-3">إنجازي</h2>

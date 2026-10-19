@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useDebounced } from '../../lib/influencers';
 import { VALUE_LABELS, type FieldInfo } from '../../lib/search';
 
+import { Button } from '../ui/Button';
 interface Suggestion { insert: string; label: string; hint?: string; disabled?: string }
 
 /** The token the caret is in: [start, end) and its text. */
@@ -127,7 +128,7 @@ export default function SearchBar({ value, onSubmit, fields, tab }: {
             </ul>
           )}
         </div>
-        <button className="btn-primary as-go" disabled={!!syntax} onClick={() => { setOpen(false); onSubmit(text); }}><Search size={16} aria-hidden="true" /> بحث</button>
+        <Button variant="primary" type="submit" className="as-go" disabled={!!syntax} onClick={() => { setOpen(false); onSubmit(text); }}><Search size={16} aria-hidden="true" /> بحث</Button>
       </div>
       <div className="as-bar-foot">
         <div id="as-syntax" className={`as-syntax ${syntax ? 'is-error' : ''}`} role={syntax ? 'alert' : undefined}>
@@ -183,7 +184,7 @@ export function SyntaxHelp() {
       <table className="as-help-table"><tbody>
         {rows.map(([q, d]) => <tr key={q}><td><code dir="auto">{q}</code></td><td>{d}</td></tr>)}
       </tbody></table>
-      <p className="text-xs muted mt-2">علامات الترقيم في أطراف الكلمة (؟ ! . ،) تُتجاهل. لا يُرسل أي بحث إلى X — البحث في بيانات المنصة المجمعة فقط.</p>
+      <p className="text-xs muted mt-2">علامات الترقيم في أطراف الكلمة (؟ ! . ،) تُتجاهل. لا يُرسل أي بحث إلى إكس — البحث في بيانات المنصة المجمعة فقط.</p>
     </div>
   );
 }

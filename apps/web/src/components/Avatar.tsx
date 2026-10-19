@@ -45,7 +45,7 @@ export default function Avatar({
         background: showImage ? 'transparent' : tone,
         color: '#ffffff',
         fontSize: size * 0.42,
-        fontWeight: 600,
+        fontWeight: 400,
         lineHeight: 1,
       }}
       title={username ? `@${username}` : undefined}

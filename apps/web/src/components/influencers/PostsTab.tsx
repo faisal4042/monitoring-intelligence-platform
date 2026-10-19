@@ -13,6 +13,7 @@ import { RELEVANCE, SENTIMENT, useDebounced, type AccountPage } from '../../lib/
 import Avatar from '../Avatar';
 import { StateBox } from './shared';
 
+import { Button } from '../ui/Button';
 const PAGE_SIZE = 20;
 
 /** The influencer feed: server-side filters and cursor pages from GET /posts — never the whole table. */
@@ -110,7 +111,7 @@ export default function PostsTab({ date }: { date: DateRangeState }) {
           <input type="checkbox" checked={includeFiltered} onChange={(e) => set('filtered', e.target.checked ? '1' : '')} />
           إظهار المستبعدة
         </label>
-        {active > 0 && <button className="btn-ghost" onClick={clearAll}><X size={14} /> مسح الفلاتر ({active})</button>}
+        {active > 0 && <Button variant="ghost" type="submit" onClick={clearAll}><X size={14} /> مسح الفلاتر ({active})</Button>}
       </div>
 
       <div className="inf-result-line">
@@ -119,7 +120,7 @@ export default function PostsTab({ date }: { date: DateRangeState }) {
             ? <>يُعرض <span className="num">{fmtNum(posts.length)}</span> منشوراً{feed.hasNextPage ? ' — المزيد يُحمَّل عند التمرير' : ' — نهاية النتائج'}</>
             : null)}
         </span>
-        <span>الأحدث أولاً حسب وقت النشر على X</span>
+        <span>الأحدث أولاً حسب وقت النشر على إكس</span>
       </div>
 
       <StateBox
@@ -127,16 +128,16 @@ export default function PostsTab({ date }: { date: DateRangeState }) {
         onRetry={() => feed.refetch()} height={320}
         empty={!posts.length}
         emptyText={active > 0
-          ? <>لا توجد منشورات تطابق هذه الفلاتر في الفترة المحددة.<button className="btn-ghost" onClick={clearAll}>مسح الفلاتر</button></>
+          ? <>لا توجد منشورات تطابق هذه الفلاتر في الفترة المحددة.<Button variant="ghost" type="submit" onClick={clearAll}>مسح الفلاتر</Button></>
           : 'لا توجد منشورات مرصودة من الحسابات المتابَعة في هذه الفترة. جرّب فترة أطول من منتقي الفترة.'}
       >
         <InteractionList posts={posts} onAccount={username => set('account', username)}/>
         <div ref={sentinel} />
         {feed.hasNextPage && (
           <div className="flex justify-center pt-2">
-            <button className="btn-ghost" onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage}>
+            <Button variant="ghost" type="submit" onClick={() => feed.fetchNextPage()} disabled={feed.isFetchingNextPage}>
               {feed.isFetchingNextPage ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد'}
-            </button>
+            </Button>
           </div>
         )}
         {feed.isFetchNextPageError && <div className="inf-state inf-state--error" role="alert">تعذّر تحميل الصفحة التالية.</div>}
@@ -190,7 +191,7 @@ function AccountPicker({ value, onChange }: { value: string; onChange: (username
               <span className="muted num text-xs">{fmtNum(a.total_posts)}</span>
             </button>
           ))}
-          {data && data.total > data.items.length && <div className="p-2 text-[11px] muted">اكتب لتضييق النتائج — {fmtNum(data.total)} حساباً مطابقاً.</div>}
+          {data && data.total > data.items.length && <div className="p-2 text-xs muted">اكتب لتضييق النتائج — {fmtNum(data.total)} حساباً مطابقاً.</div>}
         </div>
       )}
     </div>

@@ -6,17 +6,17 @@ import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
-import { fmtRelative } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import AlertCenter from './AlertCenter';
 import AgentStatusControl from './AgentStatusControl';
 import BrandLogo from './BrandLogo';
+import SystemStatus from './SystemStatus';
+import { Button } from './ui/Button';
 import { canAccessRoute } from '../lib/route-access';
-import { collectionModeBadge } from '../lib/collection-mode';
 import {
-  Activity, BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
-  CircleStop, FileBarChart, Gauge, KeyRound, LayoutGrid, LogOut, Menu, MonitorDot, Moon, Newspaper, PanelRightClose, PanelRightOpen,
-  Radio, ScanSearch, SearchCode, Settings2, ShieldCheck, Sparkles, Sun, Tags, Ticket,
+  BadgeDollarSign, Bell, BookOpenText, ChartNoAxesCombined, ChevronDown, ChevronLeft,
+  CircleStop, FileBarChart, FolderKanban, Gauge, KeyRound, LayoutGrid, LogOut, Megaphone, Menu, MonitorDot, MonitorPlay, Moon, Newspaper,
+  PanelRightClose, PanelRightOpen, Radio, Rss, ScanSearch, SearchCode, ServerCog, Settings2, SlidersHorizontal, Sparkles, Sun, Tags, Ticket,
   UserCog, UsersRound, X,
 } from 'lucide-react';
 
@@ -27,34 +27,45 @@ interface CostOverview {
   lastUpdatedAt: string | null;
 }
 
-const NAV = [
-  { to: '/youtube', label: 'رصد YouTube', icon: Radio },
-  { to: '/queue', label: 'طابور الرصد / مهامي', icon: LayoutGrid },
-  { to: '/queue/board', label: 'لوحة فرق الرصد', icon: MonitorDot },
-  { to: '/dashboard', label: 'لوحة التحكم', icon: Gauge },
-  { to: '/advanced-search', label: 'البحث المتقدم', icon: ScanSearch },
-  { to: '/tickets', label: 'التذاكر', icon: Ticket },
-  { to: '/reports', label: 'مركز التقارير', icon: FileBarChart },
-  { to: '/live', label: 'رصد اكس', icon: Radio },
-  { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles },
-  { to: '/keywords', label: 'قاموس الكلمات', icon: Tags },
-  { to: '/queries', label: 'الاستعلامات', icon: SearchCode },
-  { to: '/classification', label: 'تصنيف التفاعلات', icon: ChartNoAxesCombined },
-  { to: '/topics', label: 'إدارة المواضيع', icon: BookOpenText },
-  { to: '/influencers', label: 'العملاء المؤثرون', icon: UsersRound },
-  { to: '/news/articles', label: 'الأخبار', icon: Newspaper },
-  { to: '/news/sources', label: 'مصادر الأخبار', icon: Activity },
+interface NavItem { to: string; label: string; icon: typeof Gauge }
+
+/** The sidebar in four task groups, then the collapsible "الإدارة" group. One icon per destination. */
+const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
+  { title: 'العمل اليومي', items: [
+    { to: '/queue', label: 'طابور الرصد', icon: LayoutGrid },
+    { to: '/queue/board', label: 'لوحة فرق الرصد', icon: MonitorDot },
+    { to: '/tickets', label: 'التذاكر', icon: Ticket },
+  ] },
+  { title: 'الرصد', items: [
+    { to: '/live', label: 'رصد إكس', icon: Radio },
+    { to: '/youtube', label: 'رصد يوتيوب', icon: MonitorPlay },
+    { to: '/news/articles', label: 'الأخبار', icon: Newspaper },
+    { to: '/influencers', label: 'العملاء المؤثرون', icon: Megaphone },
+  ] },
+  { title: 'التحليل', items: [
+    { to: '/dashboard', label: 'لوحة التحكم', icon: Gauge },
+    { to: '/signals', label: 'الإشارات والقصص', icon: Sparkles },
+    { to: '/advanced-search', label: 'البحث المتقدم', icon: ScanSearch },
+    { to: '/reports', label: 'مركز التقارير', icon: FileBarChart },
+  ] },
+  { title: 'الإعداد', items: [
+    { to: '/keywords', label: 'قاموس الكلمات', icon: Tags },
+    { to: '/queries', label: 'الاستعلامات', icon: SearchCode },
+    { to: '/classification', label: 'تصنيف التفاعلات', icon: ChartNoAxesCombined },
+    { to: '/topics', label: 'إدارة المواضيع', icon: BookOpenText },
+    { to: '/news/sources', label: 'مصادر الأخبار', icon: Rss },
+  ] },
 ];
 
 /** Grouped under one collapsible "الإدارة" entry instead of each sitting flat in the sidebar. */
-const ADMIN_NAV = [
-  { to: '/programs', label: 'إدارة البرامج', icon: BookOpenText },
+const ADMIN_NAV: NavItem[] = [
+  { to: '/programs', label: 'إدارة البرامج', icon: FolderKanban },
   { to: '/teams', label: 'فرق الرصد', icon: UsersRound },
-  { to: '/queue/settings', label: 'إعدادات موظفي الطابور', icon: Settings2 },
+  { to: '/queue/settings', label: 'إعدادات موظفي الطابور', icon: SlidersHorizontal },
   { to: '/notifications', label: 'الإشعارات والتنبيهات', icon: Bell },
   { to: '/cost', label: 'مركز التكلفة', icon: BadgeDollarSign },
   { to: '/users', label: 'إدارة المستخدمين', icon: UserCog },
-  { to: '/admin', label: 'لوحة النظام', icon: Settings2 },
+  { to: '/admin', label: 'لوحة النظام', icon: ServerCog },
 ];
 
 /** Header title for routes outside the sidebar lists. */
@@ -108,13 +119,24 @@ export default function AppShell() {
   });
 
   const globalKill = cost?.killSwitches?.find((k) => k.scope === 'global');
-  const mode = collectionModeBadge(cost?.collectionMode, costFailed);
   const pct = cost?.usagePct ?? 0;
-  const barColor = pct >= 90 ? 'var(--status-danger-solid)' : pct >= 70 ? '#d97706' : 'var(--ithra-teal)';
-  const allNav = [...NAV, ...ADMIN_NAV];
+  const barColor = pct >= 90 ? 'var(--status-danger-solid)' : pct >= 70 ? 'var(--status-warning)' : 'var(--accent)';
+  // Agents who only work their own queue see it as «مهامي».
+  const queueLabel = can(PERMISSIONS.QUEUE_SUPERVISE, PERMISSIONS.QUEUE_VIEW_ALL) ? 'طابور الرصد' : 'مهامي';
+  const navLabel = (n: NavItem) => (n.to === '/queue' ? queueLabel : n.label);
+  const permissions = user?.permissions ?? [];
+  const visibleGroups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((n) => canAccessRoute(n.to, permissions)) })).filter((g) => g.items.length > 0);
+  const allNav = [...NAV_GROUPS.flatMap((g) => g.items), ...ADMIN_NAV];
+  const pageMatch = allNav.filter((n) => location.pathname === n.to || location.pathname.startsWith(n.to + '/')).sort((a, b) => b.to.length - a.to.length)[0];
   const pageTitle = EXTRA_TITLES.find(([prefix]) => location.pathname.startsWith(prefix))?.[1]
-    ?? allNav.filter((n) => location.pathname === n.to || location.pathname.startsWith(n.to + '/')).sort((a, b) => b.to.length - a.to.length)[0]?.label
-    ?? 'منصة الرصد';
+    ?? (pageMatch ? navLabel(pageMatch) : 'منصة الرصد');
+  const requestResume = (id: string) => confirmation.request({
+    title: 'استئناف جمع بيانات إكس',
+    description: 'إزالة الإيقاف العام تسمح باستئناف الجمع وفق الميزانية والإعدادات الحالية، وقد تستهلك تكلفة تشغيلية.',
+    confirmLabel: 'استئناف الجمع',
+    allowed: (c) => c(PERMISSIONS.KILLSWITCH_OPERATE),
+    execute: () => resume.mutateAsync(id),
+  });
 
   return (
     <div className={`app-frame min-h-screen flex ${collapsed ? 'is-collapsed' : ''}`}>
@@ -133,19 +155,24 @@ export default function AppShell() {
         </div>
 
         <nav className="sidebar-nav" aria-label="التنقل الرئيسي">
-          {NAV.filter((n) => canAccessRoute(n.to, user?.permissions ?? [])).map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.to === '/' || n.to === '/queue'}
-              onClick={() => setMobileNavOpen(false)}
-              className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
-              title={collapsed ? n.label : undefined}
-            >
-              <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
-              <span className="sidebar-link-label flex-1">{n.to==='/queue' ? (can(PERMISSIONS.QUEUE_SUPERVISE,PERMISSIONS.QUEUE_VIEW_ALL)?'طابور الرصد':'مهامي — My Queue') : n.label}</span>
-              <ChevronLeft className="sidebar-link-arrow" size={15} />
-            </NavLink>
+          {visibleGroups.map((g) => (
+            <div key={g.title} className="sidebar-group" role="group" aria-labelledby={`nav-group-${g.title}`}>
+              <div id={`nav-group-${g.title}`} className="sidebar-group-title">{g.title}</div>
+              {g.items.map((n) => (
+                <NavLink
+                  key={n.to}
+                  to={n.to}
+                  end={n.to === '/queue'}
+                  onClick={() => setMobileNavOpen(false)}
+                  className={({ isActive }) => `sidebar-link ${isActive ? 'is-active' : ''}`}
+                  title={collapsed ? navLabel(n) : undefined}
+                >
+                  <n.icon className="sidebar-link-icon" size={18} strokeWidth={1.75} aria-hidden="true" />
+                  <span className="sidebar-link-label flex-1">{navLabel(n)}</span>
+                  <ChevronLeft className="sidebar-link-arrow" size={15} />
+                </NavLink>
+              ))}
+            </div>
           ))}
 
           {visibleAdminNav.length > 0 && (
@@ -181,13 +208,13 @@ export default function AppShell() {
           )}
         </nav>
 
-        {/* Budget meter — always visible, never buried in a settings page. */}
-        {cost && (
+        {/* Budget meter — only when a monthly limit is set; usage without a limit lives in the status panel. */}
+        {cost && cost.monthUnitLimit != null && (
           <div className="budget-card">
             <div className="flex justify-between mb-1.5">
               <span className="muted">حصة الشهر</span>
-              <span className="num font-medium">
-                {cost.spentMonthUnits}/{cost.monthUnitLimit ?? '∞'}
+              <span className="num">
+                {cost.spentMonthUnits} من {cost.monthUnitLimit}
               </span>
             </div>
             <div className="progress-track">
@@ -241,53 +268,31 @@ export default function AppShell() {
             title={collapsed ? 'توسيع القائمة الجانبية' : 'طي القائمة الجانبية'} onClick={toggleCollapsed}>
             {collapsed ? <PanelRightOpen size={18} /> : <PanelRightClose size={18} />}</button>
           <div className="app-header-title" aria-live="polite"><span className="app-header-product">منصة الرصد</span><span aria-hidden="true">/</span><strong>{pageTitle}</strong></div>
-          {location.pathname!=='/youtube'&&<span className={`badge mode-badge status-pill ${mode.cls}`} title={mode.title}>
-            {!costFailed && cost?.collectionMode === 'live' ? (
-              <span className="live-orbit-icon" aria-hidden="true">
-                <span className="live-orbit-ring" />
-                <span className="live-orbit-ring live-orbit-ring--inner" />
-                <span className="live-orbit-sweep" />
-                <span className="live-orbit-blip live-orbit-blip--one" />
-                <span className="live-orbit-blip live-orbit-blip--two" />
-                <span className="live-orbit-blip live-orbit-blip--three" />
-                <span className="live-orbit-core" />
-              </span>
-            ) : (
-              <span aria-hidden="true">●</span>
-            )}
-            <span>{mode.text}</span>
-          </span>}
-
-          {location.pathname!=='/youtube'&&cost?.lastUpdatedAt && (
-            <span className="text-xs muted" title={cost.lastUpdatedAt}>
-              آخر طلب API {fmtRelative(cost.lastUpdatedAt)}
-            </span>
-          )}
-
-          {location.pathname!=='/youtube'&&globalKill && (
-            <span className="badge status-pill status-pill--danger-solid">
-              الجمع موقوف — {globalKill.reason}
-            </span>
+          {/* One system-status indicator for X collection; details and resume live in its panel. */}
+          {can(PERMISSIONS.COST_READ) && (
+            <SystemStatus
+              mode={cost?.collectionMode}
+              failed={costFailed}
+              stop={globalKill ?? null}
+              lastRequestAt={cost?.lastUpdatedAt}
+              spentMonthUnits={cost?.spentMonthUnits}
+              monthUnitLimit={cost?.monthUnitLimit}
+              onResume={globalKill && can(PERMISSIONS.KILLSWITCH_OPERATE) ? () => requestResume(globalKill.id) : undefined}
+            />
           )}
 
           <div className="flex-1" />
 
-          {/* Influencer/story alerts: only for users who work the queue. */}
           {/* Availability: only people who receive queue work have a status. */}
           {can(PERMISSIONS.QUEUE_WORK) && <AgentStatusControl />}
+          {/* Influencer/story alerts: only for users who work the queue. */}
           {can(PERMISSIONS.QUEUE_WORK, PERMISSIONS.QUEUE_SUPERVISE, PERMISSIONS.QUEUE_VIEW_ALL) && <AlertCenter />}
 
-          {/* The emergency stop stays reachable at all times, by design. */}
-          {location.pathname!=='/youtube'&&can(PERMISSIONS.KILLSWITCH_OPERATE) && (
-            globalKill ? (
-              <button className="btn-ghost btn-success-text" aria-label="استئناف الجمع" onClick={() => confirmation.request({title:'استئناف جمع بيانات X',description:'إزالة الإيقاف العام تسمح باستئناف الجمع وفق الميزانية والإعدادات الحالية، وقد تستهلك تكلفة تشغيلية.',confirmLabel:'استئناف الجمع',allowed:can=>can(PERMISSIONS.KILLSWITCH_OPERATE),execute:()=>resume.mutateAsync(globalKill.id)})}>
-                <ShieldCheck size={17} /> <span className="emergency-label">استئناف الجمع</span>
-              </button>
-            ) : (
-              <button className="btn-danger" onClick={() => setShowKill(true)}>
-                <CircleStop size={17} /> <span className="emergency-label">إيقاف جمع بيانات X</span>
-              </button>
-            )
+          {/* The emergency stop stays reachable whenever collection is running, by design. */}
+          {can(PERMISSIONS.KILLSWITCH_OPERATE) && !globalKill && (
+            <Button variant="danger" icon={<CircleStop size={17} aria-hidden="true" />} aria-label="إيقاف جمع بيانات إكس" onClick={() => setShowKill(true)}>
+              <span className="emergency-label">إيقاف جمع بيانات إكس</span>
+            </Button>
           )}
         </header>
 
@@ -301,9 +306,9 @@ export default function AppShell() {
       </div>
 
       {showKill && (
-        <ModalSurface label={'إيقاف جمع بيانات X'} onClose={() => setShowKill(false)} busy={stopAll.isPending} overlayClassName="modal-overlay" panelClassName="card modal-card p-5 w-full max-w-md" as="div">
+        <ModalSurface label={'إيقاف جمع بيانات إكس'} onClose={() => setShowKill(false)} busy={stopAll.isPending} overlayClassName="modal-overlay" panelClassName="card modal-card p-5 w-full max-w-md" as="div">
             <ModalCloseButton className="icon-button absolute top-4 end-4" aria-label="إغلاق" onClick={() => setShowKill(false)}><X size={18} /></ModalCloseButton>
-            <h3 id="kill-title" className="font-bold text-lg mb-1">إيقاف جمع بيانات X</h3>
+            <h3 id="kill-title" className="font-bold text-lg mb-1">إيقاف جمع بيانات إكس</h3>
             <p className="text-sm muted mb-4">
               يوقف كل عمليات الجلب فوراً. المنصة تبقى تعمل بالكامل على البيانات المخزّنة —
               التصنيف والتقارير ولوحة التحكم لا تتأثر.
@@ -318,13 +323,11 @@ export default function AppShell() {
             />
             <div className="flex gap-2 justify-end">
               <ModalCloseButton className="btn-ghost" onClick={() => setShowKill(false)}>إلغاء</ModalCloseButton>
-              <button
-                className="btn-danger"
+              <Button variant="danger" type="submit"
                 disabled={!reason.trim() || stopAll.isPending}
-                onClick={() => stopAll.mutate()}
-              >
+                onClick={() => stopAll.mutate()}>
                 تأكيد الإيقاف
-              </button>
+              </Button>
             </div>
           </ModalSurface>
       )}

@@ -84,12 +84,12 @@ export default function YouTubeMvp({client=api,canManage=true,integrated=false}:
           </div>
         </header>
 
-        {message && <div role="status" data-testid="message" className={`card p-3 text-sm ${message.kind === 'error' ? 'text-red-700' : 'text-emerald-700'}`}>{message.text}</div>}
+        {message && <div role="status" data-testid="message" className={`card p-3 text-sm ${message.kind === 'error' ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>{message.text}</div>}
 
         <section className="grid gap-4 md:grid-cols-4">
           <div className="card p-4" data-testid="kill-switch">
             <h2 className="font-semibold mb-1">مفتاح الإيقاف (YouTube فقط)</h2>
-            <p className={`text-lg font-bold ${paused ? 'text-red-700' : 'text-emerald-700'}`}>{status ? (paused ? 'الجمع موقوف' : 'الجمع مسموح') : '…'}</p>
+            <p className={`text-lg font-bold ${paused ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>{status ? (paused ? 'الجمع موقوف' : 'الجمع مسموح') : '…'}</p>
             <p className="text-xs opacity-75 mb-2">{status?.controls?.reason} · إخفاقات متتالية: {status?.controls?.consecutive_failures ?? 0}</p>
             <button type="button" className={paused ? 'btn btn-primary' : 'btn btn-danger'} disabled={!canManage || !status || busy} onClick={toggleSwitch}>
               {paused ? 'استئناف الجمع' : 'إيقاف الجمع'}
@@ -99,7 +99,7 @@ export default function YouTubeMvp({client=api,canManage=true,integrated=false}:
             <div key={b.bucket} className="card p-4" data-testid={`quota-${b.bucket}`}>
               <h2 className="font-semibold mb-1">{BUCKET_AR[b.bucket]}</h2>
               <p className="text-2xl font-bold">{b.used}<span className="text-sm opacity-60"> / {b.limit ?? 'بلا حد داخلي'}</span></p>
-              <div className="h-2 rounded bg-black/10 my-2" aria-hidden><div className="h-2 rounded bg-emerald-600" style={{width: `${Math.min(100, (b.used + b.reserved) / Math.max(b.limit, 1) * 100)}%`}} /></div>
+              <div className="h-2 rounded bg-black/10 my-2" aria-hidden><div className="h-2 rounded bg-(--status-success)" style={{width: `${Math.min(100, (b.used + b.reserved) / Math.max(b.limit, 1) * 100)}%`}} /></div>
               <p className="text-xs opacity-75">حد داخلي {b.limit ?? 'بلا حد داخلي'} · حد Google {num(b.googleLimit)}{b.exhausted ? ' · نفدت حصة Google اليوم' : ''}</p>
               <p className="text-xs opacity-75">يُصفّر {riyadh(status?.quota?.resetsAt)} (منتصف ليل PT)</p>
             </div>
@@ -203,7 +203,7 @@ export default function YouTubeMvp({client=api,canManage=true,integrated=false}:
             <h2 className="font-semibold mb-2">آخر عمليات الجمع</h2>
             <table className="w-full text-sm" data-testid="runs-table"><thead><tr className="text-right opacity-70"><th className="p-2">المسار</th><th className="p-2">الوضع</th><th className="p-2">النتيجة</th><th className="p-2">طلبات/وحدات</th><th className="p-2">الوقت</th></tr></thead>
               <tbody>{(status?.runs ?? []).map((r: Json) => <tr key={r.id} className="border-t border-black/5"><td className="p-2">{LANE_AR[r.lane]}</td><td className="p-2">{r.mode}</td>
-                <td className="p-2">{r.status}{r.error_message ? <div className="text-xs text-red-700">{r.error_message}</div> : null}</td><td className="p-2">{r.calls}/{r.units}</td><td className="p-2 text-xs">{riyadh(r.started_at)}</td></tr>)}</tbody></table>
+                <td className="p-2">{r.status}{r.error_message ? <div className="text-xs text-(--status-danger)">{r.error_message}</div> : null}</td><td className="p-2">{r.calls}/{r.units}</td><td className="p-2 text-xs">{riyadh(r.started_at)}</td></tr>)}</tbody></table>
           </div>
         </section>
 

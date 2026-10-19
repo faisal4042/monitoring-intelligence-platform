@@ -11,7 +11,7 @@ export default function YouTubePanel({ q, allowed, programMode, panel }: { q: Q<
     : d.byProgram.map((p) => ({ id: p.key, label: p.name_ar, value: p.videos }));
   const maxMeter = Math.max(1, ...meters.map((m) => m.value));
   return <Panel id="youtube" title="رصد يوتيوب" eyebrow="فيديوهات وتعليقات" {...panel}
-    info="فيديوهات يوتيوب حسب تاريخ نشرها، منفصلة تمامًا عن منشورات X ولا تُضاف إلى إجمالياتها. «ذات صلة» = مطابقة أو مؤكدة لبرنامج. التعليقات حسب تاريخ نشرها على الفيديوهات ذات الصلة. المشاهدات من آخر تحديث لإحصاءات كل فيديو."
+    info="فيديوهات يوتيوب حسب تاريخ نشرها، منفصلة تمامًا عن منشورات إكس ولا تُضاف إلى إجمالياتها. «ذات صلة» = مطابقة أو مؤكدة لبرنامج. التعليقات حسب تاريخ نشرها على الفيديوهات ذات الصلة. المشاهدات من آخر تحديث لإحصاءات كل فيديو."
     footer={allowed && <Link className="dash-link" to="/youtube">كل فيديوهات يوتيوب<ChevronLeft size={14} /></Link>}>
     {!allowed ? <Unavailable reason="يتطلب هذا القسم صلاحية عرض يوتيوب." /> :
     <State loading={q.isLoading} error={q.error} height={260}>

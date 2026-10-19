@@ -5,6 +5,7 @@ import type { AuthUser } from '@mip/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
+import { Button } from '../components/ui/Button';
 const MIN_LENGTH = 12;
 
 /**
@@ -50,7 +51,7 @@ export default function ChangePassword() {
     <form className="card w-full max-w-md p-6" onSubmit={submit}>
       <h1 className="mb-1 flex items-center gap-2 text-lg font-bold"><KeyRound size={20} className="text-brand-600" /> تغيير كلمة المرور</h1>
       {forced ? (
-        <p className="mb-5 rounded-lg bg-amber-500/10 p-3 text-sm leading-relaxed text-amber-700 dark:text-amber-400" role="status">
+        <p className="mb-5 rounded-lg bg-(--status-warning-soft) p-3 text-sm leading-relaxed text-(--status-warning)" role="status">
           تستخدم كلمة مرور مؤقتة. اختر كلمة مرور جديدة خاصة بك للمتابعة إلى المنصة.
         </p>
       ) : (
@@ -64,25 +65,25 @@ export default function ChangePassword() {
       <label className="mb-1 block text-sm" htmlFor="cp-new">كلمة المرور الجديدة</label>
       <input id="cp-new" className="input mb-1" type="password" autoComplete="new-password"
              value={next} onChange={(e) => setNext(e.target.value)} minLength={MIN_LENGTH} required />
-      <p className={`mb-3 text-xs ${tooShort ? 'text-red-600' : 'muted'}`}>{MIN_LENGTH} حرفاً على الأقل، ولا تحتوي اسم المستخدم.</p>
+      <p className={`mb-3 text-xs ${tooShort ? 'text-(--status-danger)' : 'muted'}`}>{MIN_LENGTH} حرفاً على الأقل، ولا تحتوي اسم المستخدم.</p>
 
       <label className="mb-1 block text-sm" htmlFor="cp-confirm">تأكيد كلمة المرور الجديدة</label>
       <input id="cp-confirm" className="input mb-1" type="password" autoComplete="new-password"
              value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-      {mismatch && <p className="mb-2 text-xs text-red-600">كلمتا المرور غير متطابقتين</p>}
+      {mismatch && <p className="mb-2 text-xs text-(--status-danger)">كلمتا المرور غير متطابقتين</p>}
 
-      {error && <div className="mt-3 text-sm text-red-600" role="alert">{error}</div>}
-      {done && !forced && <div className="mt-3 text-sm text-emerald-600" role="status">تم تغيير كلمة المرور.</div>}
+      {error && <div className="mt-3 text-sm text-(--status-danger)" role="alert">{error}</div>}
+      {done && !forced && <div className="mt-3 text-sm text-(--status-success)" role="status">تم تغيير كلمة المرور.</div>}
 
       <div className="mt-5 flex items-center justify-between gap-2">
         {forced ? (
-          <button type="button" className="btn-ghost" onClick={() => logout().then(() => navigate('/login'))}>
+          <Button variant="ghost" type="button" onClick={() => logout().then(() => navigate('/login'))}>
             <LogOut size={15} /> تسجيل الخروج
-          </button>
+          </Button>
         ) : <span />}
-        <button className="btn-primary" disabled={saving || mismatch || tooShort || !current || !next || !confirm}>
+        <Button variant="primary" type="submit" disabled={saving || mismatch || tooShort || !current || !next || !confirm}>
           {saving ? 'جارٍ الحفظ…' : 'حفظ كلمة المرور'}
-        </button>
+        </Button>
       </div>
     </form>
   );

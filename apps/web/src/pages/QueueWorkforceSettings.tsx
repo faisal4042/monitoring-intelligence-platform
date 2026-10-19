@@ -10,6 +10,7 @@ import {useAuth} from '../lib/auth';
 import {INTENT_LABELS,type QueueOptions} from '../lib/queue';
 import {SOURCE_LABELS,statusLabel,type Effective,type SettingsOverview,type SystemSettings} from '../lib/workforce';
 
+import { Button } from '../components/ui/Button';
 type Fields={programIds:string[]|null;intents:string[]|null;sections:string[]|null;maxOpen:number|null;autoAssign:boolean|null;acceptsHighPriority:boolean|null};
 const FIELD_LABELS:Record<keyof Fields,string>={programIds:'البرامج المسموحة',intents:'أنواع التفاعلات المسموحة',sections:'المسارات المسموحة',
   maxOpen:'الحد الأعلى للصندوق',autoAssign:'الإسناد التلقائي',acceptsHighPriority:'يستقبل الأولوية العالية'};
@@ -28,15 +29,15 @@ export default function QueueWorkforceSettings() {
   const programName=(id:string)=>options?.programs.find(p=>p.id===id)?.name_ar??'برنامج';
   return <div className="space-y-4">
     <div className="page-heading"><div>
-      <p className="eyebrow">QUEUE SETTINGS</p><h1 className="flex items-center gap-2"><Settings2 size={22}/>إعدادات موظفي الطابور</h1>
+      <p className="eyebrow">الإدارة</p><h1 className="flex items-center gap-2"><Settings2 size={22}/>إعدادات موظفي الطابور</h1>
       <p>القيمة الافتراضية للفريق تنطبق على كل موظفيه ما لم تُخصَّص للموظف. كل تعديل يُسجَّل في سجل التدقيق.</p>
     </div><Link className="btn-ghost" to="/queue/board"><MonitorDot size={16}/>لوحة الفرق</Link></div>
     <SystemCard editable={can(P.SETTINGS_WRITE)}/>
-    {error&&<p role="alert" className="card p-4 text-red-600">{error.message}</p>}
+    {error&&<p role="alert" className="card p-4 text-(--status-danger)">{error.message}</p>}
     {isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
     {data?.teams.map(t=><section key={t.id} className="card p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap"><h2 className="font-bold">{t.name}</h2>
-        {canEdit&&<button className="btn-ghost" onClick={()=>setEditing({kind:'team',id:t.id})}>تعديل الافتراضي للفريق</button>}</div>
+        {canEdit&&<Button variant="ghost" type="submit" onClick={()=>setEditing({kind:'team',id:t.id})}>تعديل الافتراضي للفريق</Button>}</div>
       <EffectiveSummary effective={t.effective} programName={programName} team/>
       <div className="dash-table-wrap"><table className="dash-table wf-table">
         <thead><tr><th>الموظف</th><th>الحالة</th><th>المفتوح / الحد</th><th>الإسناد التلقائي</th><th>المسارات</th><th>البرامج</th><th>الأنواع</th><th>أولوية عالية</th><th><span className="sr-only">تعديل</span></th></tr></thead>
@@ -49,7 +50,7 @@ export default function QueueWorkforceSettings() {
           <td><Val v={listText(a.effective.programIds.value,programName,'كل برامج الفريق')} from={a.effective.programIds.from}/></td>
           <td><Val v={listText(a.effective.intents.value,i=>INTENT_LABELS[i]??i,'كل الأنواع')} from={a.effective.intents.from}/></td>
           <td><Val v={a.effective.acceptsHighPriority.value?'نعم':'لا'} from={a.effective.acceptsHighPriority.from}/></td>
-          <td>{canEdit&&<button className="btn-ghost !px-2 !py-1 text-xs" onClick={()=>setEditing({kind:'agent',id:a.id})}>تخصيص</button>}</td>
+          <td>{canEdit&&<Button variant="ghost" type="submit" className="!px-2 !py-1 text-xs" onClick={()=>setEditing({kind:'agent',id:a.id})}>تخصيص</Button>}</td>
         </tr>)}
         {!data.agents.some(a=>a.team_id===t.id)&&<tr><td colSpan={9} className="muted text-sm">لا يوجد موظفو رصد في هذا الفريق.</td></tr>}</tbody></table></div>
     </section>)}
@@ -107,8 +108,8 @@ function Editor({overview,target,programName,onClose}:{overview:SettingsOverview
           {f.intents!==null&&<div className="wf-checks">{QUEUE_INTENTS.map(i=><label key={i} className="wf-check"><input type="checkbox" checked={f.intents!.includes(i)} onChange={()=>toggle('intents',i)}/>{INTENT_LABELS[i]}</label>)}</div>}
           <p className="text-xs muted mt-1">لا تنطبق على القصص (لا نوع تفاعل للقصة).</p></fieldset>
       </div>
-      {save.error&&<p role="alert" className="text-sm text-red-600 mt-3">{save.error.message}</p>}
-      <div className="flex gap-2 mt-4"><button className="btn-primary" disabled={save.isPending} onClick={()=>save.mutate()}>حفظ</button><ModalCloseButton className="btn-ghost" onClick={discard.close}>إلغاء</ModalCloseButton></div>
+      {save.error&&<p role="alert" className="text-sm text-(--status-danger) mt-3">{save.error.message}</p>}
+      <div className="flex gap-2 mt-4"><Button variant="primary" type="submit" disabled={save.isPending} onClick={()=>save.mutate()}>حفظ</Button><ModalCloseButton className="btn-ghost" onClick={discard.close}>إلغاء</ModalCloseButton></div>
     </ModalSurface>;
 }
 
@@ -142,8 +143,8 @@ function SystemCard({editable}:{editable:boolean}) {
     <div className="queue-field">الحالات المحسوبة وقت عمل تشغيلي
       <span className="wf-checks">{AGENT_STATUSES.filter(s=>s!=='offline').map(s=><label key={s} className="wf-check"><input type="checkbox" disabled={!editable}
         checked={f.operationalStatuses.includes(s)} onChange={()=>setF({...f,operationalStatuses:f.operationalStatuses.includes(s)?f.operationalStatuses.filter(x=>x!==s):[...f.operationalStatuses,s as AgentStatus]})}/>{statusLabel(s)}</label>)}</span></div>
-    {editable?<div className="flex gap-2 items-center"><button className="btn-primary" disabled={save.isPending||!f.operationalStatuses.length} onClick={()=>confirmation.request({title:'تغيير سياسة الإسناد والوقت',description:`الإسناد التلقائي: ${f.autoAssignEnabled?'مفعّل':'معطل'}، الحد الافتراضي: ${f.defaultMaxOpen} تفاعل. يؤثر حفظ السياسة على توزيع العناصر وحساب وقت العمل.`,confirmLabel:'حفظ السياسة',allowed:can=>can(P.SETTINGS_WRITE),execute:()=>save.mutateAsync()})}>حفظ السياسة</button>
-      {save.isSuccess&&<span className="text-sm text-emerald-600">حُفظت</span>}{save.error&&<span role="alert" className="text-sm text-red-600">{save.error.message}</span>}</div>
+    {editable?<div className="flex gap-2 items-center"><Button variant="primary" type="submit" disabled={save.isPending||!f.operationalStatuses.length} onClick={()=>confirmation.request({title:'تغيير سياسة الإسناد والوقت',description:`الإسناد التلقائي: ${f.autoAssignEnabled?'مفعّل':'معطل'}، الحد الافتراضي: ${f.defaultMaxOpen} تفاعل. يؤثر حفظ السياسة على توزيع العناصر وحساب وقت العمل.`,confirmLabel:'حفظ السياسة',allowed:can=>can(P.SETTINGS_WRITE),execute:()=>save.mutateAsync()})}>حفظ السياسة</Button>
+      {save.isSuccess&&<span className="text-sm text-(--status-success)">حُفظت</span>}{save.error&&<span role="alert" className="text-sm text-(--status-danger)">{save.error.message}</span>}</div>
       :<p className="text-xs muted">التعديل لمن يملك صلاحية إعدادات النظام.</p>}
   </section>;
 }

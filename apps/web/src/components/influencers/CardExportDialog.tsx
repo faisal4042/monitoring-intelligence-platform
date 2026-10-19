@@ -24,6 +24,7 @@ import { templatesApi } from '../../lib/influencer-cards/templates-api';
 import { exportLogApi, isTemplateChanged, periodFields, runLoggedExport } from '../../lib/influencer-cards/export-log';
 import type { CardData, CardFormat, CardLayout, CardScope } from '../../lib/influencer-cards/types';
 import { useCardRender } from '../../lib/influencer-cards/useCardRender';
+import { Button } from '../ui/Button';
 import './influencer-card.css';
 
 const LIMITS = [3, 5, 10, 20, 50];
@@ -201,8 +202,8 @@ export default function CardExportDialog({ account, onClose }: { account: { id: 
                 <div><dt>عدد الصفحات</dt><dd className="num">{layout ? fmtNum(layout.pages.length) : '—'}</dd></div>
               </dl>
             )}
-            {render.missingImages.length > 0 && <p className="text-xs text-amber-700" role="status">تعذّر تحميل {render.missingImages.join(' و')}؛ تُرسم البطاقة بدونه.</p>}
-            <p className="text-xs muted">تُبنى البطاقة من البيانات المخزّنة في المنصة فقط، دون أي استدعاء لـ X. ما تراه في المعاينة هو ما يُحفظ في الملف.</p>
+            {render.missingImages.length > 0 && <p className="text-xs text-(--status-warning)" role="status">تعذّر تحميل {render.missingImages.join(' و')}؛ تُرسم البطاقة بدونه.</p>}
+            <p className="text-xs muted">تُبنى البطاقة من البيانات المخزّنة في المنصة فقط، دون أي استدعاء لـ إكس. ما تراه في المعاينة هو ما يُحفظ في الملف.</p>
           </div>
 
           <div className="card-export-preview" aria-busy={card.isFetching || render.loading || resolved.isFetching}>
@@ -214,17 +215,17 @@ export default function CardExportDialog({ account, onClose }: { account: { id: 
 
         <div className="card-export-foot">
           {format === 'png' && layout && pngLimit < scale && (
-            <span className="text-xs text-amber-700" role="status">البطاقة طويلة على صورة واحدة بهذه الدقة — قلّل الدقة أو عدد التفاعلات، أو اختر PDF.</span>
+            <span className="text-xs text-(--status-warning)" role="status">البطاقة طويلة على صورة واحدة بهذه الدقة — قلّل الدقة أو عدد التفاعلات، أو اختر PDF.</span>
           )}
-          {exportError && <span className="text-xs text-red-600" role="alert">{exportError}</span>}
+          {exportError && <span className="text-xs text-(--status-danger)" role="alert">{exportError}</span>}
           {logNote && <span className="text-xs muted" role="status" data-testid="card-export-log">{logNote}</span>}
-          {policy.data && !policy.data.allowed && <span className="text-xs text-amber-700" role="status">التصدير يتطلب صلاحية {policy.data.permission}.</span>}
+          {policy.data && !policy.data.allowed && <span className="text-xs text-(--status-warning)" role="status">التصدير يتطلب صلاحية {policy.data.permission}.</span>}
           <span className="ms-auto" />
           <ModalCloseButton className="btn-ghost" onClick={onClose}>إغلاق</ModalCloseButton>
-          <button className="btn-primary" data-testid="card-export-run" disabled={!layout || busy || !resolved.data || !policy.data || !policy.data.allowed || (format === 'png' && pngLimit < scale)} onClick={run}>
+          <Button variant="primary" type="submit" data-testid="card-export-run" disabled={!layout || busy || !resolved.data || !policy.data || !policy.data.allowed || (format === 'png' && pngLimit < scale)} onClick={run}>
             {format === 'png' ? <ImageDown size={15} /> : <FileDown size={15} />}
             {busy ? 'جارٍ التصدير…' : format === 'png' ? 'تحميل PNG' : 'تحميل PDF'}
-          </button>
+          </Button>
         </div>
     </ModalSurface>
   );

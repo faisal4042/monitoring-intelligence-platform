@@ -3,6 +3,7 @@ import { RefreshCw, SlidersHorizontal, LayoutGrid, X } from 'lucide-react';
 import { ADVANCED_KEYS, INTENT_LABELS, PERIODS, SENTIMENT_GROUP_LABELS, type DashboardMeta, type PeriodKey } from '../../lib/dashboard';
 import { fmtDate, fmtDateTime, fmtRelative } from '../../lib/format';
 
+import { Button } from '../ui/Button';
 interface Props {
   meta?: DashboardMeta; program: string | null; period: PeriodKey; from: string | null; to: string | null;
   advanced: Record<string, string>; topics: Array<{ id: string; name: string }>;
@@ -33,7 +34,7 @@ export default function FiltersBar(p: Props) {
           {p.updatedAt ? `آخر تحديث ${fmtRelative(new Date(p.updatedAt).toISOString())}` : 'جارٍ التحميل…'}</span>
         <button className="icon-button" onClick={p.onRefresh} disabled={p.refreshing} aria-label="تحديث البيانات" title="تحديث البيانات">
           <RefreshCw size={16} className={p.refreshing ? 'animate-spin' : ''} /></button>
-        <button className="btn-ghost" onClick={p.onCustomize}><LayoutGrid size={16} />تخصيص اللوحة</button>
+        <Button variant="ghost" type="submit" onClick={p.onCustomize}><LayoutGrid size={16} />تخصيص اللوحة</Button>
       </div>
     </div>
     <div className="dash-filters-row">
@@ -61,12 +62,12 @@ export default function FiltersBar(p: Props) {
         <option value="">{p.topics.length ? 'كل التصنيفات' : 'لا توجد تصنيفات في هذا النطاق'}</option>
         {p.advanced.topicId && !p.topics.some((t) => t.id === p.advanced.topicId) && <option value={p.advanced.topicId}>التصنيف المحدد</option>}
         {p.topics.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-      <label className="queue-field">نوع المنشور (X)<select className="input" value={p.advanced.postType ?? ''} onChange={(e) => p.set({ postType: e.target.value || null })}>
+      <label className="queue-field">نوع المنشور (إكس)<select className="input" value={p.advanced.postType ?? ''} onChange={(e) => p.set({ postType: e.target.value || null })}>
         <option value="">الكل</option><option value="original">تغريدة أصلية</option><option value="reply">رد</option><option value="quote">اقتباس</option></select></label>
       <label className="dash-check"><input type="checkbox" checked={p.advanced.influencersOnly === 'true'} onChange={(e) => p.set({ influencersOnly: e.target.checked ? 'true' : null })} disabled={!p.meta?.capabilities.influencers} />المؤثرون فقط</label>
       <label className="dash-check"><input type="checkbox" checked={p.advanced.relevantOnly === 'true'} onChange={(e) => p.set({ relevantOnly: e.target.checked ? 'true' : null })} />ذات الصلة فقط</label>
-      <p className="dash-basis w-full">مصدر البيانات: منصة X (المصدر المتاح حاليًا). الفلاتر المتقدمة تخص منشورات X فقط؛ القصص والأخبار وأداء الفريق تتأثر بالبرنامج والفترة فقط.</p>
-      {active > 0 && <button className="btn-ghost" onClick={() => p.set(Object.fromEntries(ADVANCED_KEYS.map((k) => [k, null])))}><X size={14} />مسح الفلاتر المتقدمة</button>}
+      <p className="dash-basis w-full">مصدر البيانات: منصة إكس (المصدر المتاح حاليًا). الفلاتر المتقدمة تخص منشورات إكس فقط؛ القصص والأخبار وأداء الفريق تتأثر بالبرنامج والفترة فقط.</p>
+      {active > 0 && <Button variant="ghost" type="submit" onClick={() => p.set(Object.fromEntries(ADVANCED_KEYS.map((k) => [k, null])))}><X size={14} />مسح الفلاتر المتقدمة</Button>}
     </div>}
   </div>;
 }

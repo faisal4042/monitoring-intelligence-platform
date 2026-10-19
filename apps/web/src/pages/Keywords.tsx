@@ -14,6 +14,7 @@ import { fmtPct } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import { Pencil, Plus, Power, RotateCcw, Tags, X } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface Program { id: string; name_ar: string; color: string }
 interface Group {
   id: string; program_id: string | null; name_ar: string; type: GroupType; description: string | null;
@@ -28,9 +29,9 @@ interface Keyword {
 const TYPE_META: Record<string, { label: string; cls: string; hint: string }> = {
   primary:   { label: GROUP_TYPE_LABELS.primary,   cls: 'bg-brand-500/15 text-brand-600 dark:text-brand-400', hint: 'اسم البرنامج ومشتقاته' },
   service:   { label: GROUP_TYPE_LABELS.service,   cls: 'bg-(--status-info-soft) text-(--status-info)', hint: 'أسماء الخدمات والعبارات الفعلية للجمهور' },
-  related:   { label: GROUP_TYPE_LABELS.related,   cls: 'bg-teal-500/15 text-teal-600 dark:text-teal-400', hint: 'مصطلحات السياق' },
-  negative:  { label: GROUP_TYPE_LABELS.negative,  cls: 'bg-red-500/15 text-red-600 dark:text-red-400', hint: 'أرخص أداة لخفض التكلفة — كل نتيجة غير مرتبطة حصة محروقة' },
-  sensitive: { label: GROUP_TYPE_LABELS.sensitive, cls: 'bg-amber-500/15 text-amber-600 dark:text-amber-400', hint: 'ترفع درجة الخطورة عند ظهورها' },
+  related:   { label: GROUP_TYPE_LABELS.related,   cls: 'bg-(--accent-soft) text-(--accent-ink)', hint: 'مصطلحات السياق' },
+  negative:  { label: GROUP_TYPE_LABELS.negative,  cls: 'bg-(--status-danger-soft) text-(--status-danger)', hint: 'أرخص أداة لخفض التكلفة — كل نتيجة غير مرتبطة حصة محروقة' },
+  sensitive: { label: GROUP_TYPE_LABELS.sensitive, cls: 'bg-(--status-warning-soft) text-(--status-warning)', hint: 'ترفع درجة الخطورة عند ظهورها' },
 };
 
 const MATCH_MODES: Array<[string, string]> = [
@@ -116,7 +117,7 @@ export default function Keywords() {
           <h1 className="flex items-center gap-2.5"><Tags size={22} className="text-brand-600" /> قاموس الكلمات</h1>
           <p>الكلمات تُعدَّل من هنا بلا لمس الكود. الاستعلامات التلقائية تُبنى من مجموعات البرنامج النشطة.</p>
         </div>
-        {write && <button type="button" className="btn-primary" onClick={openNewGroup} disabled={!programs?.items.length}><Plus size={16} /> مجموعة جديدة</button>}
+        {write && <Button variant="primary" type="button" onClick={openNewGroup} disabled={!programs?.items.length}><Plus size={16} /> مجموعة جديدة</Button>}
       </div>
       {notice.element}
 
@@ -145,7 +146,7 @@ export default function Keywords() {
       {groupItems.length === 0 && (
         <div className="card p-8 text-center space-y-3">
           <p className="muted">{selectedProgram ? `لا توجد مجموعات كلمات لبرنامج «${selectedProgram.name_ar}» بعد.` : 'لا توجد مجموعات كلمات.'}</p>
-          {write && <button type="button" className="btn-primary" onClick={openNewGroup}><Plus size={16} /> أنشئ أول مجموعة</button>}
+          {write && <Button variant="primary" type="button" onClick={openNewGroup}><Plus size={16} /> أنشئ أول مجموعة</Button>}
         </div>
       )}
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -173,24 +174,24 @@ export default function Keywords() {
                   return (
                     <span
                       key={k.id}
-                      className={`badge group ${!k.is_active ? 'line-through opacity-60 bg-[var(--surface-3)]' : noisy ? 'bg-red-500/15 text-red-600 dark:text-red-400' : 'bg-[var(--surface-3)]'}`}
+                      className={`badge group ${!k.is_active ? 'line-through opacity-60 bg-[var(--surface-3)]' : noisy ? 'bg-(--status-danger-soft) text-(--status-danger)' : 'bg-[var(--surface-3)]'}`}
                       title={!k.is_active ? 'معطّلة' : k.match_count > 0 ? `طابق ${k.match_count} — ضجيج ${fmtPct(noise)}` : 'لم يُقاس بعد'}
                     >
                       {write && k.is_active
                         ? <button type="button" className="hover:underline" onClick={() => setEditingKeyword(k)} title="تعديل الكلمة">{k.term}</button>
                         : k.term}
-                      {noisy && <span className="num text-[10px]">{fmtPct(noise)}</span>}
-                      {k.alias_count > 0 && <span className="num text-[10px] opacity-60">+{k.alias_count}</span>}
+                      {noisy && <span className="num text-xs">{fmtPct(noise)}</span>}
+                      {k.alias_count > 0 && <span className="num text-xs opacity-60">+{k.alias_count}</span>}
                       {write && k.is_active && (
                         <button
                           type="button"
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition hover:text-red-600"
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition hover:text-(--status-danger)"
                           onClick={() => confirmation.request({ title: 'تعطيل كلمة رصد', description: `ستُعطَّل «${k.term}» في «${g.name_ar}» وتُستبعد من الاستعلامات التلقائية عند المزامنة التالية. يمكن إعادة تفعيلها لاحقًا، ولا يُحذف سجلها.`, confirmLabel: 'تعطيل الكلمة', danger: true, allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setKeywordActive(k, false).catch((e) => { notice.error(e); throw e; }) })}
                           title="تعطيل" aria-label={`تعطيل ${k.term}`}
                         ><X size={11} /></button>
                       )}
                       {write && !k.is_active && (
-                        <button type="button" className="hover:text-emerald-600" title="إعادة التفعيل" aria-label={`إعادة تفعيل ${k.term}`}
+                        <button type="button" className="hover:text-(--status-success)" title="إعادة التفعيل" aria-label={`إعادة تفعيل ${k.term}`}
                           onClick={() => confirmation.request({ title: 'إعادة تفعيل كلمة', description: `ستعود «${k.term}» إلى «${g.name_ar}» وتدخل الاستعلامات التلقائية عند المزامنة التالية.`, confirmLabel: 'إعادة التفعيل', allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setKeywordActive(k, true).catch((e) => { notice.error(e); throw e; }) })}
                         ><RotateCcw size={11} /></button>
                       )}
@@ -202,14 +203,14 @@ export default function Keywords() {
 
               {write && (
                 <div className="flex gap-2">
-                  {g.is_active && <button type="button" className="btn-ghost flex-1 !py-1.5 !text-xs" onClick={() => setAdding(g)}><Plus size={13} /> إضافة كلمة</button>}
-                  <button type="button" className="btn-ghost !py-1.5 !text-xs" onClick={() => openEditGroup(g)} aria-label={`تعديل مجموعة ${g.name_ar}`}><Pencil size={13} /> تعديل</button>
-                  <button type="button" className="btn-ghost !py-1.5 !text-xs" aria-label={`${g.is_active ? 'تعطيل' : 'تفعيل'} مجموعة ${g.name_ar}`}
+                  {g.is_active && <Button variant="ghost" type="button" className="flex-1 !py-1.5 !text-xs" onClick={() => setAdding(g)}><Plus size={13} /> إضافة كلمة</Button>}
+                  <Button variant="ghost" type="button" className="!py-1.5 !text-xs" onClick={() => openEditGroup(g)} aria-label={`تعديل مجموعة ${g.name_ar}`}><Pencil size={13} /> تعديل</Button>
+                  <Button variant="ghost" type="button" className="!py-1.5 !text-xs" aria-label={`${g.is_active ? 'تعطيل' : 'تفعيل'} مجموعة ${g.name_ar}`}
                     onClick={() => confirmation.request(g.is_active
                       ? { title: 'تعطيل مجموعة', description: `ستُستبعد كلمات «${g.name_ar}» (${g.program_name}) من الاستعلامات التلقائية عند المزامنة التالية. الكلمات نفسها لا تُحذف.`, confirmLabel: 'تعطيل المجموعة', danger: true, allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setGroupActive(g, false).catch((e) => { notice.error(e); throw e; }) }
                       : { title: 'تفعيل مجموعة', description: `ستدخل كلمات «${g.name_ar}» (${g.program_name}) الاستعلامات التلقائية عند المزامنة التالية.`, confirmLabel: 'تفعيل المجموعة', allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setGroupActive(g, true).catch((e) => { notice.error(e); throw e; }) })}>
                     <Power size={13} /> {g.is_active ? 'تعطيل' : 'تفعيل'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -231,7 +232,7 @@ export default function Keywords() {
             </FormField>
             <div className="flex gap-2 justify-end">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setAdding(null)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={!term.trim() || add.isPending}>إضافة</button>
+              <Button variant="primary" type="submit" disabled={!term.trim() || add.isPending}>إضافة</Button>
             </div>
           </ModalSurface>
       )}
@@ -293,16 +294,16 @@ function GroupDialog({ group, initial, programs, onClose, onSaved }: {
           {GROUP_TYPES.map((t) => <option key={t} value={t}>{GROUP_TYPE_LABELS[t]}</option>)}
         </FieldSelect>
       </FormField>
-      {typeChanged && <p role="note" className="text-xs text-amber-600">تغيير النوع يغيّر دور كل كلمات المجموعة في الاستعلامات التلقائية عند المزامنة التالية.</p>}
+      {typeChanged && <p role="note" className="text-xs text-(--status-warning)">تغيير النوع يغيّر دور كل كلمات المجموعة في الاستعلامات التلقائية عند المزامنة التالية.</p>}
       <FormField label="الوصف (اختياري)">
         <FieldTextarea className="input w-full" rows={2} maxLength={500} value={draft.description} onChange={(e) => set('description', e.target.value)} />
       </FormField>
-      {save.error && <p role="alert" className="text-sm text-red-600">{(save.error as Error).message}</p>}
+      {save.error && <p role="alert" className="text-sm text-(--status-danger)">{(save.error as Error).message}</p>}
       <div className="flex gap-2 justify-end">
         <ModalCloseButton type="button" className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-        <button className="btn-primary" disabled={save.isPending || !draft.nameAr.trim() || !draft.programId || unchanged}>
+        <Button variant="primary" type="submit" disabled={save.isPending || !draft.nameAr.trim() || !draft.programId || unchanged}>
           {save.isPending ? 'جارٍ الحفظ…' : group ? 'حفظ التعديلات' : 'إنشاء المجموعة'}
-        </button>
+        </Button>
       </div>
     </ModalSurface>
   );
@@ -346,10 +347,10 @@ function KeywordDialog({ keyword, onClose, onSaved }: { keyword: Keyword; onClos
       <FormField label="ملاحظات (اختياري)">
         <FieldTextarea className="input w-full" rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </FormField>
-      {save.error && <p role="alert" className="text-sm text-red-600">{(save.error as Error).message}</p>}
+      {save.error && <p role="alert" className="text-sm text-(--status-danger)">{(save.error as Error).message}</p>}
       <div className="flex gap-2 justify-end">
         <ModalCloseButton type="button" className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-        <button className="btn-primary" disabled={save.isPending || unchanged || !validWeight || !term.trim()}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+        <Button variant="primary" type="submit" disabled={save.isPending || unchanged || !validWeight || !term.trim()}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
       </div>
     </ModalSurface>
   );

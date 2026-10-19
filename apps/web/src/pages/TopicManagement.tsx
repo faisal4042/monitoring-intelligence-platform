@@ -11,6 +11,7 @@ import { BookOpenText, Plus, X } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import SearchLink from '../components/search/SearchLink';
 
+import { Button } from '../components/ui/Button';
 interface Program { id: string; name_ar: string; color: string }
 interface TopicKeyword { id: string; term: string; kind: 'alias' | 'include' | 'exclude' }
 interface ManagedTopic {
@@ -181,14 +182,14 @@ export default function TopicManagement() {
       className={`w-full rounded-lg border p-3 text-start transition ${selectedId === topic.id ? 'border-brand-500 bg-brand-500/10' : 'border-transparent hover:bg-[var(--surface-2)]'} ${child ? 'ms-5 !w-[calc(100%-1.25rem)]' : ''}`}
     >
       <div className="flex items-start gap-2">
-        <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${topic.is_active ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+        <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${topic.is_active ? 'bg-(--status-success)' : 'bg-slate-500'}`} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium">{topic.name_ar}</span>
-            {child && <span className="text-[10px] muted">فرعي</span>}
-            {!topic.is_active && <span className="badge bg-slate-500/15 text-[10px]">مؤرشف</span>}
+            {child && <span className="text-xs muted">فرعي</span>}
+            {!topic.is_active && <span className="badge bg-slate-500/15 text-xs">مؤرشف</span>}
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] muted">
+          <div className="mt-1 flex flex-wrap gap-x-3 text-xs muted">
             <span><span className="num">{fmtNum(topic.post_count)}</span> تفاعل</span>
             <span><span className="num">{fmtNum(topic.human_reviewed_count)}</span> مراجع</span>
             {topic.last_activity_at && <span>{fmtRelative(topic.last_activity_at)}</span>}
@@ -214,15 +215,15 @@ export default function TopicManagement() {
         </div>
         <div className="flex flex-wrap gap-2">
           <SearchLink q={programId ? `program:${programId} linked:topic` : 'linked:topic'} label="بحث في المصنّف" />
-          {canManage && <button className="btn-primary" onClick={() => setShowCreate(true)} disabled={!programId}><Plus size={16} /> موضوع جديد</button>}
+          {canManage && <Button variant="primary" type="submit" onClick={() => setShowCreate(true)} disabled={!programId}><Plus size={16} /> موضوع جديد</Button>}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div className="card p-3"><div className="text-xs muted">المواضيع النشطة</div><div className="num text-xl font-bold">{activeTopics.length}</div></div>
-        <div className="card p-3"><div className="text-xs muted">تحتاج مراجعة</div><div className="num text-xl font-bold text-amber-600">{activeTopics.filter((topic) => topic.post_count < 3).length}</div></div>
+        <div className="card p-3"><div className="text-xs muted">تحتاج مراجعة</div><div className="num text-xl font-bold text-(--status-warning)">{activeTopics.filter((topic) => topic.post_count < 3).length}</div></div>
         <div className="card p-3"><div className="text-xs muted">المؤرشفة</div><div className="num text-xl font-bold">{topics.filter((topic) => !topic.is_active).length}</div></div>
-        <div className="card p-3"><div className="text-xs muted">بلا بصمة دلالية</div><div className="num text-xl font-bold text-red-600">{activeTopics.filter((topic) => !topic.has_centroid).length}</div></div>
+        <div className="card p-3"><div className="text-xs muted">بلا بصمة دلالية</div><div className="num text-xl font-bold text-(--status-danger)">{activeTopics.filter((topic) => !topic.has_centroid).length}</div></div>
       </div>
 
       <div className="card flex flex-wrap items-center gap-2 p-3">
@@ -255,30 +256,30 @@ export default function TopicManagement() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-lg font-bold">{selected.name_ar}</h2>
-                      <span className={`badge ${selected.is_active ? 'bg-emerald-500/15 text-emerald-600' : 'bg-slate-500/15'}`}>{selected.is_active ? 'نشط' : 'مؤرشف'}</span>
+                      <span className={`badge ${selected.is_active ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-slate-500/15'}`}>{selected.is_active ? 'نشط' : 'مؤرشف'}</span>
                       {selected.level === 2 && <span className="badge bg-brand-500/15 text-brand-600">فرعي تحت {selected.parent_name}</span>}
                     </div>
                     <div className="mt-1 text-xs muted">{selected.program_name}{selected.service_name ? ` · ${selected.service_name}` : ''}</div>
-                    {selected.merged_into_name && <div className="mt-2 text-xs text-amber-600">تم دمجه سابقًا في: {selected.merged_into_name}</div>}
+                    {selected.merged_into_name && <div className="mt-2 text-xs text-(--status-warning)">تم دمجه سابقًا في: {selected.merged_into_name}</div>}
                   </div>
                   {canManage && <div className="flex flex-wrap gap-2">
                     {selected.is_active ? (
                       <>
-                        <button className="btn-ghost !text-xs" onClick={() => setShowMerge(true)}>دمج</button>
-                        <button className="btn-ghost !text-xs !text-red-600" onClick={() => {
+                        <Button variant="ghost" type="submit" className="!text-xs" onClick={() => setShowMerge(true)}>دمج</Button>
+                        <Button variant="ghost" type="submit" className="!text-xs !text-(--status-danger)" onClick={() => {
                           confirmation.request({title:'أرشفة الموضوع',description:`أرشفة «${selected.name_ar}»${selected.children_count?' وجميع فروعه':''} ستوقف استخدامه في الرصد. يمكن استعادته لاحقًا.`,confirmLabel:'أرشفة الموضوع',danger:true,allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>archiveTopic.mutateAsync(selected.id)});
-                        }}>أرشفة</button>
+                        }}>أرشفة</Button>
                       </>
                     ) : selected.merged_into_id ? (
                       <span className="text-xs muted">موضوع مدمج — محفوظ للتدقيق</span>
-                    ) : <button className="btn-primary !text-xs" onClick={() => confirmation.request({title:'استعادة الموضوع',description:`استعادة «${selected.name_ar}» تعيد تفعيل الموضوع وأسلافه وفروعه وفق قواعد الخادم.`,confirmLabel:'استعادة الموضوع',allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>restoreTopic.mutateAsync(selected.id)})}>استعادة</button>}
+                    ) : <Button variant="primary" type="submit" className="!text-xs" onClick={() => confirmation.request({title:'استعادة الموضوع',description:`استعادة «${selected.name_ar}» تعيد تفعيل الموضوع وأسلافه وفروعه وفق قواعد الخادم.`,confirmLabel:'استعادة الموضوع',allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>restoreTopic.mutateAsync(selected.id)})}>استعادة</Button>}
                   </div>}
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-[11px] muted">التفاعلات</div><div className="num font-bold">{fmtNum(selected.post_count)}</div></div>
-                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-[11px] muted">مراجعة بشرية</div><div className="num font-bold">{fmtNum(selected.human_reviewed_count)}</div></div>
-                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-[11px] muted">متوسط التشابه</div><div className="num font-bold">{selected.avg_similarity === null ? '—' : fmtPct(selected.avg_similarity)}</div></div>
-                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-[11px] muted">آخر نشاط</div><div className="text-xs font-bold">{selected.last_activity_at ? fmtRelative(selected.last_activity_at) : 'لا يوجد'}</div></div>
+                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-xs muted">التفاعلات</div><div className="num font-bold">{fmtNum(selected.post_count)}</div></div>
+                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-xs muted">مراجعة بشرية</div><div className="num font-bold">{fmtNum(selected.human_reviewed_count)}</div></div>
+                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-xs muted">متوسط التشابه</div><div className="num font-bold">{selected.avg_similarity === null ? '—' : fmtPct(selected.avg_similarity)}</div></div>
+                  <div className="rounded-lg bg-[var(--surface-2)] p-2.5"><div className="text-xs muted">آخر نشاط</div><div className="text-xs font-bold">{selected.last_activity_at ? fmtRelative(selected.last_activity_at) : 'لا يوجد'}</div></div>
                 </div>
               </div>
 
@@ -288,7 +289,7 @@ export default function TopicManagement() {
                 <button className={tab === 'audit' ? 'is-active' : ''} onClick={() => setTab('audit')}>سجل التغييرات</button>
               </div>
 
-              {mutationError && <div className="m-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-600">{(mutationError as ApiError).message}</div>}
+              {mutationError && <div className="m-4 rounded-lg bg-(--status-danger-soft) p-3 text-sm text-(--status-danger)">{(mutationError as ApiError).message}</div>}
 
               {tab === 'details' && <div className="space-y-5 p-5">
                 <div>
@@ -302,17 +303,17 @@ export default function TopicManagement() {
                     <label className="text-xs md:col-span-2">الوصف<textarea className="input mt-1.5" rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} disabled={!canManage || !selected.is_active} /></label>
                   </div>
                   {canManage && selected.is_active && <div className="mt-3 flex flex-wrap justify-end gap-2">
-                    {!selected.has_centroid && <button className="btn-ghost" disabled={computeCentroid.isPending} onClick={() => computeCentroid.mutate()}>{computeCentroid.isPending ? 'جارٍ الحساب…' : 'حساب البصمة الدلالية'}</button>}
-                    <button className="btn-primary" disabled={!editName.trim() || saveTopic.isPending} onClick={() => saveTopic.mutate()}>{saveTopic.isPending ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button>
+                    {!selected.has_centroid && <Button variant="ghost" type="submit" disabled={computeCentroid.isPending} onClick={() => computeCentroid.mutate()}>{computeCentroid.isPending ? 'جارٍ الحساب…' : 'حساب البصمة الدلالية'}</Button>}
+                    <Button variant="primary" type="submit" disabled={!editName.trim() || saveTopic.isPending} onClick={() => saveTopic.mutate()}>{saveTopic.isPending ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</Button>
                   </div>}
-                  {!selected.has_centroid && <div className="mt-2 text-xs text-amber-600">لن يُستخدم الموضوع في المطابقة الآلية حتى تُحسب بصمته الدلالية.</div>}
+                  {!selected.has_centroid && <div className="mt-2 text-xs text-(--status-warning)">لن يُستخدم الموضوع في المطابقة الآلية حتى تُحسب بصمته الدلالية.</div>}
                 </div>
 
                 <div className="border-t border-[var(--border)] pt-5">
                   <h3 className="mb-3 text-sm font-bold">كلمات الموضوع</h3>
                   <div className="flex flex-wrap gap-2">
-                    {selected.keywords.map((keyword) => <span key={keyword.id} className={`badge ${keyword.kind === 'exclude' ? 'bg-red-500/15 text-red-600' : keyword.kind === 'include' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-brand-500/15 text-brand-600'}`}>
-                      <span className="text-[10px] opacity-70">{keywordLabels[keyword.kind]}</span> {keyword.term}
+                    {selected.keywords.map((keyword) => <span key={keyword.id} className={`badge ${keyword.kind === 'exclude' ? 'bg-(--status-danger-soft) text-(--status-danger)' : keyword.kind === 'include' ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-brand-500/15 text-brand-600'}`}>
+                      <span className="text-xs opacity-70">{keywordLabels[keyword.kind]}</span> {keyword.term}
                       {canManage && selected.is_active && <button className="ms-1 opacity-60 hover:opacity-100" onClick={() => confirmation.request({title:'حذف كلمة الموضوع',description:`حذف «${keyword.term}» من «${selected.name_ar}» يغير قواعد مطابقة الموضوع.`,confirmLabel:'حذف الكلمة',danger:true,allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>removeKeyword.mutateAsync(keyword.id)})}><X size={11} /></button>}
                     </span>)}
                     {!selected.keywords.length && <span className="text-xs muted">لا توجد كلمات مرتبطة.</span>}
@@ -322,7 +323,7 @@ export default function TopicManagement() {
                     <select className="input !w-28" value={keywordKind} onChange={(event) => setKeywordKind(event.target.value as TopicKeyword['kind'])}>
                       <option value="alias">مرادف</option><option value="include">تضمين</option><option value="exclude">استبعاد</option>
                     </select>
-                    <button className="btn-ghost" disabled={keywordTerm.trim().length < 2 || addKeyword.isPending} onClick={() => addKeyword.mutate()}>إضافة</button>
+                    <Button variant="ghost" type="submit" disabled={keywordTerm.trim().length < 2 || addKeyword.isPending} onClick={() => addKeyword.mutate()}>إضافة</Button>
                   </div>}
                 </div>
 
@@ -331,7 +332,7 @@ export default function TopicManagement() {
                   <div className="space-y-2">
                     {(similar?.items ?? []).map((topic) => <button key={topic.id} className="flex w-full items-center justify-between rounded-lg bg-[var(--surface-2)] p-2.5 text-start text-xs" onClick={() => setSelectedId(topic.id)}>
                       <span>{topic.name_ar}{!topic.is_active && <span className="ms-2 muted">مؤرشف</span>}</span>
-                      <span className={`num ${topic.similarity >= .82 ? 'text-amber-600' : 'muted'}`}>{fmtPct(topic.similarity)}</span>
+                      <span className={`num ${topic.similarity >= .82 ? 'text-(--status-warning)' : 'muted'}`}>{fmtPct(topic.similarity)}</span>
                     </button>)}
                     {selected.has_centroid && !similar?.items.length && <div className="text-xs muted">لا توجد مواضيع قابلة للمقارنة.</div>}
                   </div>
@@ -352,10 +353,10 @@ export default function TopicManagement() {
                           <option value="">نقل إلى موضوع…</option>
                           {activeTopics.filter((topic) => topic.id !== selected.id && topic.program_id === selected.program_id).map((topic) => <option key={topic.id} value={topic.id}>{topic.name_ar}</option>)}
                         </select>
-                        <button className="btn-ghost !py-1 !text-xs" disabled={!moveTargets[interaction.id] || feedback.isPending} onClick={() => confirmation.request({title:'نقل التفاعل إلى موضوع آخر',description:`سينتقل التفاعل ${interaction.id} إلى «${topics.find(t=>t.id===moveTargets[interaction.id])?.name_ar??moveTargets[interaction.id]}».`,confirmLabel:'نقل التفاعل',allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>feedback.mutateAsync({postId:interaction.id,targetId:moveTargets[interaction.id]})})}>نقل</button>
-                        <button className="btn-ghost !py-1 !text-xs !text-red-600" disabled={feedback.isPending} onClick={() => {
+                        <Button variant="ghost" type="submit" className="!py-1 !text-xs" disabled={!moveTargets[interaction.id] || feedback.isPending} onClick={() => confirmation.request({title:'نقل التفاعل إلى موضوع آخر',description:`سينتقل التفاعل ${interaction.id} إلى «${topics.find(t=>t.id===moveTargets[interaction.id])?.name_ar??moveTargets[interaction.id]}».`,confirmLabel:'نقل التفاعل',allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>feedback.mutateAsync({postId:interaction.id,targetId:moveTargets[interaction.id]})})}>نقل</Button>
+                        <Button variant="ghost" type="submit" className="!py-1 !text-xs !text-(--status-danger)" disabled={feedback.isPending} onClick={() => {
                           confirmation.request({title:'فصل التفاعل عن الموضوع',description:`فصل التفاعل ${interaction.id} سيتركه غير مصنف حسب قواعد التصنيف الحالية.`,confirmLabel:'فصل التفاعل',danger:true,allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>feedback.mutateAsync({postId:interaction.id})});
-                        }}>فصل</button>
+                        }}>فصل</Button>
                       </div>}
                     </div>
                   </div>
@@ -382,8 +383,8 @@ export default function TopicManagement() {
             <option value="">اختر الموضوع الهدف…</option>
             {activeTopics.filter((topic) => topic.id !== selected.id && topic.program_id === selected.program_id && (!selected.children_count || topic.level === 1)).map((topic) => <option key={topic.id} value={topic.id}>{topic.name_ar}</option>)}
           </select>
-          {mergeTopic.error && <div className="mt-3 text-xs text-red-600">{(mergeTopic.error as ApiError).message}</div>}
-          <div className="mt-5 flex justify-end gap-2"><ModalCloseButton className="btn-ghost" onClick={() => setShowMerge(false)}>إلغاء</ModalCloseButton><button className="btn-primary" disabled={!mergeTargetId || mergeTopic.isPending} onClick={() => mergeTopic.mutate()}>{mergeTopic.isPending ? 'جارٍ الدمج…' : 'تأكيد الدمج'}</button></div>
+          {mergeTopic.error && <div className="mt-3 text-xs text-(--status-danger)">{(mergeTopic.error as ApiError).message}</div>}
+          <div className="mt-5 flex justify-end gap-2"><ModalCloseButton className="btn-ghost" onClick={() => setShowMerge(false)}>إلغاء</ModalCloseButton><Button variant="primary" type="submit" disabled={!mergeTargetId || mergeTopic.isPending} onClick={() => mergeTopic.mutate()}>{mergeTopic.isPending ? 'جارٍ الدمج…' : 'تأكيد الدمج'}</Button></div>
         </ModalSurface>}
 
       {showCreate && <ModalSurface label={'إنشاء موضوع'} onClose={() => setShowCreate(false)} busy={createTopic.isPending} overlayClassName="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" panelClassName="card w-full max-w-md p-5" as="div">
@@ -395,8 +396,8 @@ export default function TopicManagement() {
             <option value="">موضوع رئيسي</option>
             {activeTopics.filter((topic) => topic.program_id === programId && topic.level === 1).map((topic) => <option key={topic.id} value={topic.id}>فرعي تحت: {topic.name_ar}</option>)}
           </select>
-          {createTopic.error && <div className="mt-3 text-xs text-red-600">{(createTopic.error as ApiError).message}</div>}
-          <div className="mt-5 flex justify-end gap-2"><ModalCloseButton className="btn-ghost" onClick={() => setShowCreate(false)}>إلغاء</ModalCloseButton><button className="btn-primary" disabled={!createName.trim() || createTopic.isPending} onClick={() => createTopic.mutate()}>{createTopic.isPending ? 'جارٍ الإنشاء…' : 'إنشاء الموضوع'}</button></div>
+          {createTopic.error && <div className="mt-3 text-xs text-(--status-danger)">{(createTopic.error as ApiError).message}</div>}
+          <div className="mt-5 flex justify-end gap-2"><ModalCloseButton className="btn-ghost" onClick={() => setShowCreate(false)}>إلغاء</ModalCloseButton><Button variant="primary" type="submit" disabled={!createName.trim() || createTopic.isPending} onClick={() => createTopic.mutate()}>{createTopic.isPending ? 'جارٍ الإنشاء…' : 'إنشاء الموضوع'}</Button></div>
         </ModalSurface>}
     </div>
   );

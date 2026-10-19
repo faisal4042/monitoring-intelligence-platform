@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { RotateCcw, X } from 'lucide-react';
 import { PERIODS, SECTION_GROUPS, SECTION_LABELS, TREND_LABELS, TREND_SERIES, type DashboardMeta, type Layout, type SectionId } from '../../lib/dashboard';
 
+import { Button } from '../ui/Button';
 /**
  * Choose what the dashboard shows for one scope (all programs, or the selected
  * program). The reading order is fixed; this only hides or shows sections and
@@ -45,11 +46,11 @@ export default function CustomizeDialog({ layout, scopeName, isProgram, meta, sa
           <option value="">جميع البرامج</option>{meta?.programs.map((p) => <option key={p.id} value={p.key}>{p.name_ar}</option>)}</select></label>}
       </div>
 
-      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="text-sm text-(--status-danger)">{error}</p>}
       <footer className="flex flex-wrap gap-2 justify-between">
-        <button className="btn-ghost" onClick={onReset} disabled={saving}><RotateCcw size={15} />استعادة التخطيط الافتراضي</button>
+        <Button variant="ghost" type="submit" onClick={onReset} disabled={saving}><RotateCcw size={15} />استعادة التخطيط الافتراضي</Button>
         <div className="flex gap-2"><ModalCloseButton className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-          <button className="btn-primary" disabled={saving} onClick={() => onSave(draft)}>{saving ? 'جارٍ الحفظ…' : 'حفظ'}</button></div>
+          <Button variant="primary" type="submit" disabled={saving} onClick={() => onSave(draft)}>{saving ? 'جارٍ الحفظ…' : 'حفظ'}</Button></div>
       </footer>
     </ModalSurface>;
 }

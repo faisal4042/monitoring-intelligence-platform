@@ -11,7 +11,7 @@ export const xEmbedUrl = (postId: string) =>
   `https://platform.twitter.com/embed/Tweet.html?id=${encodeURIComponent(postId)}&lang=ar&dnt=true&hideThread=true&theme=light`;
 
 export function XVideoFrame({postId, className = ''}: {postId: string; className?: string}) {
-  return <iframe className={`x-video-frame ${className}`} src={xEmbedUrl(postId)} title="فيديو المنشور على X" loading="lazy"
+  return <iframe className={`x-video-frame ${className}`} src={xEmbedUrl(postId)} title="فيديو المنشور على إكس" loading="lazy"
     allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin"
     sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"/>;
 }

@@ -25,7 +25,7 @@ export function FormField({ id: suppliedId, label, description, error, required,
       <label htmlFor={id} className={labelClassName}>{label}{fieldRequired && <span aria-hidden="true"> *</span>}</label>
       {children}
       {description && <p id={`${id}-description`} className={descriptionClassName}>{description}</p>}
-      {shownError && <p id={`${id}-error`} className="text-xs text-red-600 dark:text-red-400 mt-1" role="alert">{shownError}</p>}
+      {shownError && <p id={`${id}-error`} className="text-xs text-(--status-danger) mt-1" role="alert">{shownError}</p>}
     </div>
   </Context.Provider>;
 }

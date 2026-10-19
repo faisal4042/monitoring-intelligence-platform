@@ -1,6 +1,7 @@
 import { Component, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 
+import { Button } from './ui/Button';
 export function RouteLoading() {
   return <div className="card m-4 p-8 text-center" dir="rtl" role="status" aria-live="polite" aria-busy="true">
     <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent muted" aria-hidden="true" />
@@ -18,7 +19,7 @@ export class RouteErrorBoundary extends Component<{ children: ReactNode }, { fai
       <h1 className="text-lg font-bold">تعذر تحميل الصفحة</h1>
       <p className="text-sm muted">تحقق من اتصالك ثم أعد تحميل الصفحة. ستبقى على الرابط نفسه، ولن تُعاد أي عملية حفظ تلقائيًا.</p>
       <div className="flex flex-wrap justify-center gap-3">
-        <button type="button" className="btn-primary" onClick={() => window.location.reload()}>إعادة تحميل الصفحة</button>
+        <Button variant="primary" type="button" onClick={() => window.location.reload()}>إعادة تحميل الصفحة</Button>
         <Link className="btn-ghost" to="/">العودة للرئيسية</Link>
       </div>
     </div>;

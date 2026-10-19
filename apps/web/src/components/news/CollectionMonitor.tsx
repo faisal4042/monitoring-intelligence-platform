@@ -30,7 +30,7 @@ const pct = (value: number | null) => value === null ? '—' : `${(value * 100).
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
     <div className="text-xs muted">{label}</div><div className="text-lg font-semibold num">{value}</div>
-    {sub && <div className="text-[11px] muted">{sub}</div>}
+    {sub && <div className="text-xs muted">{sub}</div>}
   </div>;
 }
 const statuses = [['pending', 'منتظر'], ['running', 'جارٍ'], ['complete', 'كامل'], ['partial', 'جزئي'],
@@ -71,7 +71,7 @@ export function MonitorView({ m, mode }: { m: ExtractionMetrics; mode: 'shadow' 
           {statuses.map(([key, label]) => <th key={key}>{label}</th>)}
           <th>اكتمال العنوان / التاريخ / المتن</th><th>آخر نتيجة منتهية</th><th>آخر متن مقبول</th><th>آخر إخفاق في الفترة</th></tr></thead>
         <tbody>{sources.map((s) => <tr key={`${s.id}:${s.mode}`} className="border-t" style={{ borderColor: 'var(--border)' }}>
-          <td className="font-medium whitespace-nowrap">{s.name_ar}{s.breakerOpen && <span className="badge text-red-600 ms-2">الاستخراج موقوف مؤقتًا</span>}</td>
+          <td className="font-medium whitespace-nowrap">{s.name_ar}{s.breakerOpen && <span className="badge text-(--status-danger) ms-2">الاستخراج موقوف مؤقتًا</span>}</td>
           <td>{s.mode}<span className="block muted">{s.engine === 'off' ? 'معطل الآن' : s.engine === s.mode ? 'الوضع الحالي' : 'سجلات وضع سابق'}</span></td>
           <td>{fmtNum(s.total)}</td><td>{pct(s.successRate)}</td>
           {statuses.map(([key]) => <td key={key} className="num">{fmtNum(s[key])}</td>)}
@@ -93,11 +93,11 @@ export default function CollectionMonitor() {
     queryFn: () => api.get<ExtractionMetrics>(`/news/extraction/metrics?hours=${hours}`), refetchInterval: 60_000 });
   if (isLoading) return <div className="card p-5">جارٍ تحميل المؤشرات…</div>;
   if (error || !data)
-    return <div className="card p-5 text-red-600">تعذر تحميل مؤشرات الجمع.</div>;
+    return <div className="card p-5 text-(--status-danger)">تعذر تحميل مؤشرات الجمع.</div>;
   if (!data.extraction?.modes || !data.queue?.modes)
     return <div className="card p-5 space-y-2" role="status">
       <h2 className="font-semibold">مراقبة الجمع والاستخراج</h2>
-      <p className="text-sm text-amber-600">نسخة API المتصلة لا تدعم مؤشرات المراقبة الجديدة بعد.</p>
+      <p className="text-sm text-(--status-warning)">نسخة API المتصلة لا تدعم مؤشرات المراقبة الجديدة بعد.</p>
       <p className="text-xs muted">يلزم تحديث جلسة API المحلية لعرض فصل Shadow وLive والمؤشرات المصححة. هذه الرسالة لا تعني فشل جمع الأخبار.</p>
     </div>;
   return <section className="card p-5 space-y-4" aria-labelledby="collection-monitor">

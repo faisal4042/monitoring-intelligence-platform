@@ -15,7 +15,7 @@ export default function RequirePermission({ perm, children }: { perm: string | s
   if (can(...perms)) return <>{children}</>;
   return (
     <div className="card mx-auto mt-10 max-w-md p-8 text-center" role="alert">
-      <ShieldOff size={28} className="mx-auto mb-3 text-amber-500" aria-hidden="true" />
+      <ShieldOff size={28} className="mx-auto mb-3 text-(--status-warning)" aria-hidden="true" />
       <h1 className="text-lg font-bold">لا تملك صلاحية الوصول لهذه الصفحة</h1>
       <p className="mt-2 text-sm muted">إذا كنت تحتاجها في عملك، تواصل مع مدير النظام.</p>
       <Link to={homeRoute(user?.permissions ?? [])} className="btn-ghost mt-5 inline-flex">العودة للرئيسية</Link>

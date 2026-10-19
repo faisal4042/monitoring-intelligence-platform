@@ -14,6 +14,7 @@ import Lightbox from '../Lightbox';
 import DialogSurface from '../queue-board/DialogSurface';
 import { interactionLabel, type DetailSection, type Interaction, type InteractionActions } from './interaction';
 
+import { Button } from '../ui/Button';
 type BulkResult = { preview: boolean; success: number; failed: number; results: { id: string; ok: boolean; error?: string }[]; exported?: unknown };
 
 /** Shared interaction cards and their actions across search and influencer feeds. */
@@ -71,8 +72,8 @@ export default function InteractionList({ posts, renderText, onAccount, syncUrl=
       {bulk.data&&!bulk.data.preview&&<BulkOutcome ids={[operation.id]} results={bulk.data.results} busy={bulk.isPending||!actionAllowed()} onRetry={()=>bulk.reset()}/>}
       {bulk.data && <div aria-live="polite"><p>{bulk.data.preview ? 'نتيجة المعاينة' : 'نتيجة التنفيذ'}: {bulk.data.success} ناجح · {bulk.data.failed} فشل</p>{bulk.data.results.filter(row => !row.ok).map(row => <p key={row.id}>{row.error}</p>)}</div>}
       <div className="flex gap-2 mt-3">
-        {!bulk.data ? <button className="btn-primary" disabled={executionUnknown||!actionAllowed()||bulk.isPending} onClick={() => void runBulk(true)}>معاينة الإجراء</button> : bulk.data.preview && <button className="btn-primary" disabled={executionUnknown || !actionAllowed() || bulk.isPending || !bulk.data.success || (operation.action === 'classify' && !reason.trim())} onClick={() => void runBulk(false)}>تأكيد التنفيذ</button>}
-        <button className="btn-ghost" disabled={bulk.isPending} onClick={() => {if(!running.current)setOperation(null);}}>إغلاق</button>
+        {!bulk.data ? <Button variant="primary" type="submit" disabled={executionUnknown||!actionAllowed()||bulk.isPending} onClick={() => void runBulk(true)}>معاينة الإجراء</Button> : bulk.data.preview && <Button variant="primary" type="submit" disabled={executionUnknown || !actionAllowed() || bulk.isPending || !bulk.data.success || (operation.action === 'classify' && !reason.trim())} onClick={() => void runBulk(false)}>تأكيد التنفيذ</Button>}
+        <Button variant="ghost" type="submit" disabled={bulk.isPending} onClick={() => {if(!running.current)setOperation(null);}}>إغلاق</Button>
       </div>
     </DialogSurface>}
   </div>;

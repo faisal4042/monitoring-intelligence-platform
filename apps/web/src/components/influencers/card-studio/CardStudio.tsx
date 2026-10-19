@@ -28,6 +28,7 @@ import { useDebounced, type AccountPage } from '../../../lib/influencers';
 import { CardPreview, Segmented } from '../CardExportDialog';
 import { Pill } from '../shared';
 import TemplateEditor, { EDITOR_TABS, type EditorTab } from './TemplateEditor';
+import { Button } from '../../ui/Button';
 import '../influencer-card.css';
 import './studio.css';
 
@@ -104,10 +105,10 @@ function Preview({ template, label }: { template: CardTemplateConfig; label: str
         )}
         <span className="ms-auto flex gap-2">
           {/* Sample data only: a real account's card is exported from the export dialog, where the export is logged. */}
-          <button className="btn-ghost" disabled={!render.layout || busy || format !== 'png' || source === 'real'} onClick={() => tryExport('png')}
-            title={source === 'real' ? 'صدّر بطاقات الحسابات الحقيقية من نافذة التصدير ليُسجَّل التصدير' : 'تنزيل المعاينة كصورة'}><ImageDown size={14} /> PNG</button>
-          <button className="btn-ghost" disabled={!render.layout || busy || format === 'png' || source === 'real'} onClick={() => tryExport('pdf')}
-            title={source === 'real' ? 'صدّر بطاقات الحسابات الحقيقية من نافذة التصدير ليُسجَّل التصدير' : 'تنزيل المعاينة كملف PDF'}><FileDown size={14} /> PDF</button>
+          <Button variant="ghost" type="submit" disabled={!render.layout || busy || format !== 'png' || source === 'real'} onClick={() => tryExport('png')}
+            title={source === 'real' ? 'صدّر بطاقات الحسابات الحقيقية من نافذة التصدير ليُسجَّل التصدير' : 'تنزيل المعاينة كصورة'}><ImageDown size={14} /> PNG</Button>
+          <Button variant="ghost" type="submit" disabled={!render.layout || busy || format === 'png' || source === 'real'} onClick={() => tryExport('pdf')}
+            title={source === 'real' ? 'صدّر بطاقات الحسابات الحقيقية من نافذة التصدير ليُسجَّل التصدير' : 'تنزيل المعاينة كملف PDF'}><FileDown size={14} /> PDF</Button>
         </span>
       </div>
       {render.missingImages.length > 0 && <div className="studio-banner studio-banner--warn">تعذّر تحميل {render.missingImages.join(' و')}؛ تُرسم البطاقة بدونه.</div>}
@@ -134,7 +135,7 @@ function NewTemplate({ onCreated, programs }: { onCreated: (t: TemplateDetail) =
         <option value="">عام (كل البرامج)</option>
         {programs.map((p) => <option key={p.id} value={p.id}>{p.name_ar}</option>)}
       </select>
-      <button className="btn-primary" disabled={!name.trim() || create.isPending}>{create.isPending ? 'جارٍ الإنشاء…' : 'إنشاء من القالب المدمج'}</button>
+      <Button variant="primary" type="submit" disabled={!name.trim() || create.isPending}>{create.isPending ? 'جارٍ الإنشاء…' : 'إنشاء من القالب المدمج'}</Button>
       {create.error && <small className="studio-error" role="alert">{errText(create.error)}</small>}
     </form>
   );
@@ -231,7 +232,7 @@ export default function CardStudio() {
         <aside className="card studio-list" aria-label="قائمة القوالب">
           <div className="studio-list-head">
             <strong>القوالب</strong>
-            {canManage && !notActivated && <button className="btn-ghost" onClick={() => leaveGuard() && setCreating((v) => !v)}><Plus size={14} /> قالب جديد</button>}
+            {canManage && !notActivated && <Button variant="ghost" type="submit" onClick={() => leaveGuard() && setCreating((v) => !v)}><Plus size={14} /> قالب جديد</Button>}
           </div>
           {creating && <NewTemplate programs={programs.data?.items ?? []} onCreated={(n) => { setCreating(false); refresh(n); select(n.id); }} />}
           {list.isLoading && <div className="inf-skeleton" style={{ height: 120 }} />}
@@ -257,7 +258,7 @@ export default function CardStudio() {
             <>
               <div className="studio-editor-head">
                 <div className="flex flex-wrap items-center gap-2">
-                  <input className="input" style={{ flex: '1 1 160px', fontWeight: 600 }} value={meta.name} maxLength={120} disabled={!editing}
+                  <input className="input" style={{ flex: '1 1 160px', fontWeight: 400 }} value={meta.name} maxLength={120} disabled={!editing}
                     onChange={(e) => setMeta({ ...meta, name: e.target.value })} aria-label="اسم القالب" />
                   <select className="input" style={{ flex: '1 1 140px' }} value={meta.programId} disabled={!editing || t.is_default}
                     onChange={(e) => setMeta({ ...meta, programId: e.target.value })} aria-label="البرنامج المرتبط"
@@ -272,7 +273,7 @@ export default function CardStudio() {
                 {viewing && (
                   <div className="studio-banner" data-testid="studio-viewing-version">
                     تعرض الإصدار المنشور <span className="num">{viewing.version}</span> للقراءة فقط.{' '}
-                    <button className="btn-ghost" onClick={() => setViewing(null)}>العودة إلى المسودة</button>
+                    <Button variant="ghost" type="submit" onClick={() => setViewing(null)}>العودة إلى المسودة</Button>
                   </div>
                 )}
               </div>
@@ -292,9 +293,9 @@ export default function CardStudio() {
                         <span className="muted">{fmtDateTime(v.published_at)}{v.published_by_name ? ` — ${v.published_by_name}` : ''}</span>
                         {v.note && <span>«{v.note}»</span>}
                         <span className="ms-auto flex gap-1">
-                          <button className="btn-ghost" onClick={async () => { const full = await templatesApi.version(t.id, v.version); setViewing({ version: v.version, config: full.config }); }}><Eye size={14} /> معاينة</button>
-                          {canManage && <button className="btn-ghost" disabled={act.isPending} onClick={() => leaveGuard() && act.mutate(() => templatesApi.restore(t.id, t.draft_revision, v.version))}>
-                            <RotateCcw size={14} /> استعادة إلى المسودة</button>}
+                          <Button variant="ghost" type="submit" onClick={async () => { const full = await templatesApi.version(t.id, v.version); setViewing({ version: v.version, config: full.config }); }}><Eye size={14} /> معاينة</Button>
+                          {canManage && <Button variant="ghost" type="submit" disabled={act.isPending} onClick={() => leaveGuard() && act.mutate(() => templatesApi.restore(t.id, t.draft_revision, v.version))}>
+                            <RotateCcw size={14} /> استعادة إلى المسودة</Button>}
                         </span>
                       </div>
                     ))}
@@ -308,20 +309,20 @@ export default function CardStudio() {
               {canManage && (
                 <div className="studio-actions">
                   <span role="status" data-testid="studio-dirty">{dirty ? 'تعديلات غير محفوظة' : 'المسودة مطابقة لآخر حفظ مؤكد'}</span>
-                  <button className="btn-ghost" onClick={() => document.querySelector('.studio-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Eye size={14} /> معاينة</button>
-                  <button className="btn-primary" data-testid="studio-save" disabled={!dirty || !valid || act.isPending} onClick={save}><Save size={14} /> حفظ المسودة</button>
-                  <button className="btn-ghost" data-testid="studio-reset" disabled={!dirty || act.isPending}
+                  <Button variant="ghost" type="submit" onClick={() => document.querySelector('.studio-preview')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Eye size={14} /> معاينة</Button>
+                  <Button variant="primary" type="submit" data-testid="studio-save" disabled={!dirty || !valid || act.isPending} onClick={save}><Save size={14} /> حفظ المسودة</Button>
+                  <Button variant="ghost" type="submit" data-testid="studio-reset" disabled={!dirty || act.isPending}
                     onClick={() => { setDraft(cardTemplateConfigSchema.parse(t.draft_config)); setMeta({ name: t.name, description: t.description ?? '', programId: t.program_id ?? '' }); }}>
-                    <RotateCcw size={14} /> تجاهل التعديلات</button>
+                    <RotateCcw size={14} /> تجاهل التعديلات</Button>
                   <input className="input" style={{ flex: '1 1 140px' }} placeholder="ملاحظة الإصدار (اختياري)" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} aria-label="ملاحظة الإصدار" />
-                  <button className="btn-primary" data-testid="studio-publish" disabled={dirty || act.isPending || !valid || (t.published_version !== null && !t.has_unpublished_changes)}
-                    title={dirty ? 'احفظ المسودة أولاً' : undefined} onClick={publish}><Send size={14} /> نشر</button>
-                  <button className="btn-ghost" data-testid="studio-duplicate" disabled={act.isPending} onClick={() => leaveGuard() && act.mutate(() => templatesApi.duplicate(t.id))}><Copy size={14} /> استنساخ</button>
-                  <button className="btn-ghost" data-testid="studio-default" disabled={act.isPending || (!t.is_default && (t.status !== 'active' || !t.published_version))}
+                  <Button variant="primary" type="submit" data-testid="studio-publish" disabled={dirty || act.isPending || !valid || (t.published_version !== null && !t.has_unpublished_changes)}
+                    title={dirty ? 'احفظ المسودة أولاً' : undefined} onClick={publish}><Send size={14} /> نشر</Button>
+                  <Button variant="ghost" type="submit" data-testid="studio-duplicate" disabled={act.isPending} onClick={() => leaveGuard() && act.mutate(() => templatesApi.duplicate(t.id))}><Copy size={14} /> استنساخ</Button>
+                  <Button variant="ghost" type="submit" data-testid="studio-default" disabled={act.isPending || (!t.is_default && (t.status !== 'active' || !t.published_version))}
                     onClick={() => act.mutate(() => templatesApi.setDefault(t.id, !t.is_default))}>
-                    {t.is_default ? <><StarOff size={14} /> إلغاء الافتراضي</> : <><Star size={14} /> تعيين افتراضياً{t.program_name ? ` لـ${t.program_name}` : ' عاماً'}</>}</button>
-                  <button className="btn-ghost" data-testid="studio-status" disabled={act.isPending} onClick={() => act.mutate(() => templatesApi.setStatus(t.id, t.status === 'active' ? 'disabled' : 'active'))}>
-                    {t.status === 'active' ? <><ToggleLeft size={14} /> إيقاف</> : <><ToggleRight size={14} /> تفعيل</>}</button>
+                    {t.is_default ? <><StarOff size={14} /> إلغاء الافتراضي</> : <><Star size={14} /> تعيين افتراضياً{t.program_name ? ` لـ${t.program_name}` : ' عاماً'}</>}</Button>
+                  <Button variant="ghost" type="submit" data-testid="studio-status" disabled={act.isPending} onClick={() => act.mutate(() => templatesApi.setStatus(t.id, t.status === 'active' ? 'disabled' : 'active'))}>
+                    {t.status === 'active' ? <><ToggleLeft size={14} /> إيقاف</> : <><ToggleRight size={14} /> تفعيل</>}</Button>
                   {actionError && <small className="studio-error" role="alert" style={{ width: '100%' }}>{actionError}</small>}
                   {actionSuccess && <small role="status" style={{ width: '100%' }}>{actionSuccess}</small>}
                   {!valid && <small className="studio-error" style={{ width: '100%' }}>صحّح الحقول المعلّمة قبل الحفظ.</small>}

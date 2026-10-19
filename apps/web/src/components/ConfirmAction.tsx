@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react';
 import ModalSurface from './ModalSurface';
 import { useAuth } from '../lib/auth';
 
+import { Button } from './ui/Button';
 export interface Confirmation {
   title: string;
   description: string;
@@ -30,12 +31,12 @@ export default function ConfirmAction({ action, onClose }: { action: Confirmatio
     finally { running.current = false; setBusy(false); }
   };
   return <ModalSurface labelledBy={id} onClose={close} busy={busy} overlayClassName="modal-overlay fixed inset-0 bg-black/50 grid place-items-center p-4" panelClassName="card modal-card p-5 w-full max-w-md">
-    <h2 id={id} className={`font-bold mb-3 ${action.danger ? 'text-red-600' : ''}`}>{action.title}</h2>
+    <h2 id={id} className={`font-bold mb-3 ${action.danger ? 'text-(--status-danger)' : ''}`}>{action.title}</h2>
     <p className="text-sm mb-4" id={`${id}-description`}>{action.description}</p>
-    {error && <p role="alert" className="text-red-600 text-sm mb-4">{error}</p>}
+    {error && <p role="alert" className="text-(--status-danger) text-sm mb-4">{error}</p>}
     <div className="flex gap-2 justify-end">
-      <button className="btn-ghost" data-dialog-initial-focus disabled={busy} onClick={close}>إلغاء</button>
-      <button className={`btn-primary ${action.danger ? '!bg-red-600' : ''}`} aria-describedby={`${id}-description`} disabled={busy || !allowed()} onClick={confirm}>{busy ? 'جارٍ التنفيذ…' : action.confirmLabel}</button>
+      <Button variant="ghost" type="submit" data-dialog-initial-focus disabled={busy} onClick={close}>إلغاء</Button>
+      <button className={`${action.danger ? "btn-danger" : "btn-primary"}`} aria-describedby={`${id}-description`} disabled={busy || !allowed()} onClick={confirm}>{busy ? 'جارٍ التنفيذ…' : action.confirmLabel}</button>
     </div>
   </ModalSurface>;
 }

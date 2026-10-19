@@ -6,6 +6,7 @@ import { fmtDateTime, fmtNum } from '../../lib/format';
 import { EXPORT_STATUS, EXPORTS_OFF_TEXT, FORMAT_LABELS, SCHEDULES_OFF_TEXT, tablesReady, type Catalog, type ExportRow, type ScheduleRow, type TemplateRow } from '../../lib/reports';
 import { exportActions, exportDuration } from '../../lib/report-insights';
 import AsyncState from '../AsyncState';
+import { Button } from '../ui/Button';
 const fmtBytes=(b:number|string|null)=>{const n=Number(b??0);return n>1e6?`${(n/1e6).toFixed(1)} م.ب`:`${Math.max(1,Math.round(n/1e3))} ك.ب`;};
 
 export function ExportsView({ c }: { c: Catalog }) {
@@ -30,7 +31,7 @@ export function ExportsView({ c }: { c: Catalog }) {
       <p className="rc-desc">الملفات تُنشأ في الخلفية وتنتهي صلاحيتها تلقائيًا. رابط التنزيل مؤقت ومرتبط بحسابك، ويُسجَّل كل تنزيل.</p>
       {!c.exportsActivated && <p className="rc-note" role="status"><Info size={14} aria-hidden="true" /> {EXPORTS_OFF_TEXT} الطلبات المسجلة سابقًا لن تُعالَج ما دام التصدير معطلًا.</p>}
       {err && <p className="rc-error" role="alert">{err.message}</p>}
-      <div className="rc-history-tools"><label><span className="sr-only">تصفية سجل التصدير حسب الحالة</span><select className="input" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}><option value="all">جميع الحالات</option>{Object.entries(EXPORT_STATUS).map(([key,s])=><option key={key} value={key}>{s.label}</option>)}</select></label><button className="btn-ghost" disabled={list.isFetching} onClick={()=>list.refetch()}>تحديث السجل</button><span className="rc-meta">سجلك الشخصي · آخر 100 عملية كحد أقصى</span></div>
+      <div className="rc-history-tools"><label><span className="sr-only">تصفية سجل التصدير حسب الحالة</span><select className="input" value={status} onChange={e=>{setStatus(e.target.value);setPage(1);}}><option value="all">جميع الحالات</option>{Object.entries(EXPORT_STATUS).map(([key,s])=><option key={key} value={key}>{s.label}</option>)}</select></label><Button variant="ghost" type="submit" disabled={list.isFetching} onClick={()=>list.refetch()}>تحديث السجل</Button><span className="rc-meta">سجلك الشخصي · آخر 100 عملية كحد أقصى</span></div>
       {act.isSuccess && <p className="rc-ok" role="status">تم تسجيل الإجراء وتحديث سجل التصدير.</p>}
 
       {list.error ? <AsyncState error={list.error} errorMessage="تعذر تحميل سجل التصدير." onRetry={()=>list.refetch()} /> : list.isLoading ? <div className="rc-skeleton" aria-label="جارٍ تحميل سجل التصدير" aria-busy="true" /> : !filtered.length ? <div className="rc-state"><p>لا توجد عمليات تصدير ضمن الحالة المحددة.</p></div> : (
@@ -55,9 +56,9 @@ export function ExportsView({ c }: { c: Catalog }) {
                   <td>{fmtDateTime(e.created_at)}</td>
                   <td>{e.expires_at ? fmtDateTime(e.expires_at) : '—'}</td>
                   <td className="rc-row-actions">
-                    {allowed.download && <button type="button" className="btn-ghost" onClick={() => download.mutate(e.id)} disabled={download.isPending}><FileDown size={15} aria-hidden="true" /> تنزيل</button>}
-                    {allowed.cancel && <button type="button" className="btn-ghost" disabled={act.isPending} onClick={() => act.mutate({id: e.id, action: 'cancel'})}><X size={15} aria-hidden="true" /> إلغاء</button>}
-                    {allowed.retry && <button type="button" className="btn-ghost" disabled={act.isPending} onClick={() => act.mutate({id: e.id, action: 'retry'})}><RotateCcw size={15} aria-hidden="true" /> إعادة</button>}
+                    {allowed.download && <Button variant="ghost" type="button" onClick={() => download.mutate(e.id)} disabled={download.isPending}><FileDown size={15} aria-hidden="true" /> تنزيل</Button>}
+                    {allowed.cancel && <Button variant="ghost" type="button" disabled={act.isPending} onClick={() => act.mutate({id: e.id, action: 'cancel'})}><X size={15} aria-hidden="true" /> إلغاء</Button>}
+                    {allowed.retry && <Button variant="ghost" type="button" disabled={act.isPending} onClick={() => act.mutate({id: e.id, action: 'retry'})}><RotateCcw size={15} aria-hidden="true" /> إعادة</Button>}
                   </td>
                 </tr>
               );
@@ -65,7 +66,7 @@ export function ExportsView({ c }: { c: Catalog }) {
           </table>
         </div>
       )}
-      {!list.error && filtered.length>0 && <div className="rc-pagination"><span>{fmtNum(filtered.length)} عملية · الصفحة {fmtNum(current)} من {fmtNum(pages)}</span><div><button className="btn-ghost" disabled={current===1} onClick={()=>setPage(current-1)}>السابق</button><button className="btn-ghost" disabled={current===pages} onClick={()=>setPage(current+1)}>التالي</button></div></div>}
+      {!list.error && filtered.length>0 && <div className="rc-pagination"><span>{fmtNum(filtered.length)} عملية · الصفحة {fmtNum(current)} من {fmtNum(pages)}</span><div><Button variant="ghost" type="submit" disabled={current===1} onClick={()=>setPage(current-1)}>السابق</Button><Button variant="ghost" type="submit" disabled={current===pages} onClick={()=>setPage(current+1)}>التالي</Button></div></div>}
     </>
   );
 }
@@ -87,8 +88,8 @@ export function TemplatesView({ c, onUse }: { c: Catalog; onUse: (t: TemplateRow
             <p>{c.types.find((x) => x.key === t.report_type)?.ar ?? t.report_type} · {t.definition.request.columns.length} عمودًا · {FORMAT_LABELS[t.definition.options.format]}</p>
             <div className="rc-card-foot"><span className="rc-meta">{t.owner_name} · {fmtDateTime(t.updated_at)}</span>
               <span className="rc-row-actions">
-                <button type="button" className="btn-primary rc-open" disabled={!c.types.some(x=>x.key===t.report_type&&x.available)} onClick={() => onUse(t)}>استخدام القالب</button>
-                {t.is_owner && <button type="button" className="btn-ghost" disabled={del.isPending} onClick={() => {if(window.confirm(`حذف القالب «${t.name}»؟`))del.mutate(t.id);}}>حذف</button>}
+                <Button variant="primary" type="button" className="rc-open" disabled={!c.types.some(x=>x.key===t.report_type&&x.available)} onClick={() => onUse(t)}>استخدام القالب</Button>
+                {t.is_owner && <Button variant="ghost" type="button" disabled={del.isPending} onClick={() => {if(window.confirm(`حذف القالب «${t.name}»؟`))del.mutate(t.id);}}>حذف</Button>}
               </span></div>
           </article>
         ))}</div>
@@ -124,7 +125,7 @@ export function SchedulesView({ c }: { c: Catalog }) {
         {form.cadence === 'monthly' && <label className="rc-field"><span>يوم الشهر</span><input type="number" min={1} max={28} className="input num" value={form.monthday} onChange={(e) => setForm({...form, monthday: Number(e.target.value)})} /></label>}
         <label className="rc-field"><span>الوقت (الرياض)</span><input type="time" className="input num" value={form.runAtLocal} onChange={(e) => setForm({...form, runAtLocal: e.target.value})} /></label>
         <label className="rc-field"><span>الصيغة</span><select className="input" value={form.format} onChange={(e) => setForm({...form, format: e.target.value})}>{c.formats.map((f) => <option key={f} value={f}>{FORMAT_LABELS[f]}</option>)}</select></label>
-        <button className="btn-primary" disabled={!form.templateId || !form.name.trim() || create.isPending}>إضافة الجدولة</button>
+        <Button variant="primary" type="submit" disabled={!form.templateId || !form.name.trim() || create.isPending}>إضافة الجدولة</Button>
       </form>}
       {(create.error ?? toggle.error) && <p className="rc-error" role="alert">{((create.error ?? toggle.error) as ApiError).message}</p>}
       {!list.data?.items.length ? <div className="rc-state"><p>لا توجد جدولة بعد.</p></div> : (
@@ -135,7 +136,7 @@ export function SchedulesView({ c }: { c: Catalog }) {
                 <td>{s.cadence === 'daily' ? 'يومي' : s.cadence === 'weekly' ? `أسبوعي · ${WEEKDAYS[s.weekday ?? 0]}` : `شهري · ${s.monthday}`} <span className="num">{s.run_at_local.slice(0, 5)}</span></td>
                 <td>{fmtDateTime(s.next_run_at)}</td><td className="num">{s.runs}</td>
                 <td><span className={`rc-status-pill tone-${s.is_active ? 'ok' : 'muted'}`}>{s.is_active ? 'نشطة' : 'موقوفة'}</span>{s.failure_count > 0 && <small className="num"> · {s.failure_count} فشل</small>}</td>
-                <td className="rc-row-actions">{(s.is_active || c.schedulesActivated) && <button type="button" className="btn-ghost" onClick={() => toggle.mutate({id: s.id, on: !s.is_active})}>{s.is_active ? <><Pause size={14} aria-hidden="true" /> إيقاف</> : <><Play size={14} aria-hidden="true" /> تفعيل</>}</button>}</td></tr>
+                <td className="rc-row-actions">{(s.is_active || c.schedulesActivated) && <Button variant="ghost" type="button" onClick={() => toggle.mutate({id: s.id, on: !s.is_active})}>{s.is_active ? <><Pause size={14} aria-hidden="true" /> إيقاف</> : <><Play size={14} aria-hidden="true" /> تفعيل</>}</Button>}</td></tr>
             ))}</tbody></table>
         </div>
       )}

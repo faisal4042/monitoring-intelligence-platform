@@ -9,6 +9,7 @@ import { fmtPct, fmtMoney, fmtNum, fmtDateTime } from '../lib/format';
 import { PERMISSIONS } from '@mip/shared';
 import { ArrowRight, FlaskConical, ListChecks, Lightbulb, Rocket } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface TestPost {
   id: string; text: string; author?: string; authorName?: string; followers?: number;
   label: string; confidence: number; reasonAr: string; matchedTerms: string[];
@@ -27,11 +28,11 @@ interface TestResult {
 }
 
 const LABEL_META: Record<string, { text: string; cls: string }> = {
-  relevant:      { text: 'مرتبط',   cls: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' },
+  relevant:      { text: 'مرتبط',   cls: 'bg-(--status-success-soft) text-(--status-success)' },
   irrelevant:    { text: 'غير مرتبط', cls: 'bg-slate-500/15 text-slate-600 dark:text-slate-400' },
-  advertisement: { text: 'إعلان',   cls: 'bg-orange-500/15 text-orange-600 dark:text-orange-400' },
-  spam:          { text: 'spam',    cls: 'bg-red-500/15 text-red-600 dark:text-red-400' },
-  unknown:       { text: 'غير محدد', cls: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  advertisement: { text: 'إعلان',   cls: 'bg-(--status-warning-soft) text-(--status-warning)' },
+  spam:          { text: 'spam',    cls: 'bg-(--status-danger-soft) text-(--status-danger)' },
+  unknown:       { text: 'غير محدد', cls: 'bg-(--status-warning-soft) text-(--status-warning)' },
 };
 
 export default function QuerySandbox() {
@@ -84,7 +85,7 @@ export default function QuerySandbox() {
           <h1 className="flex items-center gap-2.5 text-xl font-bold mt-1"><FlaskConical size={20} className="text-brand-600" /> اختبار الاستعلام — {query?.name}</h1>
           <p className="text-sm muted">{query?.program_name} · الإصدار {query?.version}</p>
         </div>
-        <span className={`badge ${query?.status === 'active' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-[var(--surface-3)]'}`}>
+        <span className={`badge ${query?.status === 'active' ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-[var(--surface-3)]'}`}>
           {{ draft: 'مسودة', tested: 'مُختبَر', approved: 'معتمد', active: 'نشط', paused: 'موقوف' }[query?.status ?? ''] ?? query?.status}
         </span>
       </div>
@@ -114,16 +115,14 @@ export default function QuerySandbox() {
               ))}
             </div>
           </div>
-          <button
-            className="btn-primary"
+          <Button variant="primary" type="submit"
             hidden={!can(PERMISSIONS.QUERY_TEST)} disabled={!can(PERMISSIONS.QUERY_TEST) || runTest.isPending}
-            onClick={() => confirmation.request({title:'تشغيل اختبار الاستعلام',description:`اختبار «${query?.name}» بعينة ${sampleSize} قد يجمع بيانات من X ويستهلك الميزانية حسب وضع التشغيل.`,confirmLabel:'تشغيل الاختبار',allowed:can=>can(PERMISSIONS.QUERY_TEST),execute:()=>runTest.mutateAsync()})}
-          >
+            onClick={() => confirmation.request({title:'تشغيل اختبار الاستعلام',description:`اختبار «${query?.name}» بعينة ${sampleSize} قد يجمع بيانات من إكس ويستهلك الميزانية حسب وضع التشغيل.`,confirmLabel:'تشغيل الاختبار',allowed:can=>can(PERMISSIONS.QUERY_TEST),execute:()=>runTest.mutateAsync()})}>
             {runTest.isPending ? 'جارٍ الاختبار…' : 'تشغيل الاختبار'}
-          </button>
+          </Button>
         </div>
         {runTest.error && (
-          <div className="mt-3 text-sm p-3 rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+          <div className="mt-3 text-sm p-3 rounded-lg bg-(--status-danger-soft) text-(--status-danger)">
             {(runTest.error as Error).message}
           </div>
         )}
@@ -134,24 +133,24 @@ export default function QuerySandbox() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <div className="card p-4">
               <div className="text-xs muted mb-1">الدقة</div>
-              <div className={`text-2xl font-bold num ${precision !== null && precision >= 0.7 ? 'text-emerald-600' : 'text-red-600'}`}>
+              <div className={`text-2xl font-bold num ${precision !== null && precision >= 0.7 ? 'text-(--status-success)' : 'text-(--status-danger)'}`}>
                 {fmtPct(precision)}
               </div>
               <div className="text-xs muted mt-1">الحد الأدنى للترقية 70%</div>
             </div>
             <div className="card p-4">
               <div className="text-xs muted mb-1">مرتبط</div>
-              <div className="text-2xl font-bold num text-emerald-600">{result.test.count_relevant}</div>
+              <div className="text-2xl font-bold num text-(--status-success)">{result.test.count_relevant}</div>
             </div>
             <div className="card p-4">
-              <div className="text-xs muted mb-1">إعلانات + spam</div>
-              <div className="text-2xl font-bold num text-orange-600">
+              <div className="text-xs muted mb-1">إعلانات ومحتوى مزعج</div>
+              <div className="text-2xl font-bold num text-(--status-warning)">
                 {result.test.count_advertisement + result.test.count_spam}
               </div>
             </div>
             <div className="card p-4">
               <div className="text-xs muted mb-1">غير محدد</div>
-              <div className="text-2xl font-bold num text-amber-600">{result.test.count_unknown}</div>
+              <div className="text-2xl font-bold num text-(--status-warning)">{result.test.count_unknown}</div>
             </div>
             <div className="card p-4">
               <div className="text-xs muted mb-1">التكلفة</div>
@@ -168,9 +167,9 @@ export default function QuerySandbox() {
                   <div
                     key={i}
                     className={`text-sm p-3 rounded-lg leading-relaxed ${
-                      r.severity === 'critical' ? 'bg-red-500/10 text-red-700 dark:text-red-400'
-                        : r.severity === 'warning' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                        : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                      r.severity === 'critical' ? 'bg-(--status-danger-soft) text-(--status-danger)'
+                        : r.severity === 'warning' ? 'bg-(--status-warning-soft) text-(--status-warning)'
+                        : 'bg-(--status-success-soft) text-(--status-success)'
                     }`}
                   >{r.messageAr}</div>
                 ))}
@@ -190,11 +189,11 @@ export default function QuerySandbox() {
                 </thead>
                 <tbody>
                   {noisyTerms.map(([term, s]) => (
-                    <tr key={term} className={`border-t ${s.noiseRate > 0.5 ? 'bg-red-500/5' : ''}`} style={{ borderColor: 'var(--border)' }}>
+                    <tr key={term} className={`border-t ${s.noiseRate > 0.5 ? 'bg-(--status-danger)/5' : ''}`} style={{ borderColor: 'var(--border)' }}>
                       <td className="td font-medium">{term}</td>
                       <td className="td num">{s.matched}</td>
                       <td className="td num">{s.noise}</td>
-                      <td className={`td num ${s.noiseRate > 0.5 ? 'text-red-600 font-semibold' : ''}`}>{fmtPct(s.noiseRate)}</td>
+                      <td className={`td num ${s.noiseRate > 0.5 ? 'text-(--status-danger) font-semibold' : ''}`}>{fmtPct(s.noiseRate)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -225,7 +224,7 @@ export default function QuerySandbox() {
                     {p.matchedTerms.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {p.matchedTerms.map((t) => (
-                          <span key={t} className="badge bg-[var(--surface-3)] text-[10px]">{t}</span>
+                          <span key={t} className="badge bg-[var(--surface-3)] text-xs">{t}</span>
                         ))}
                       </div>
                     )}
@@ -244,16 +243,15 @@ export default function QuerySandbox() {
                   : 'الترقية محجوبة — الدقة أقل من 70%. عدّل الاستعلام وأعد الاختبار.'}
               </p>
             </div>
-            <button
-              className="btn-primary shrink-0"
+            <Button variant="primary" type="submit"
+              className="shrink-0"
               hidden={!can(PERMISSIONS.QUERY_PROMOTE)} disabled={!can(PERMISSIONS.QUERY_PROMOTE) || precision === null || precision < 0.7 || promote.isPending}
-              onClick={() => confirmation.request({title:'ترقية الاستعلام',description:`سيتم ترقية «${query?.name}» وفق نتيجة الاختبار وسياسة الخادم الحالية. يؤثر ذلك على قواعد الرصد.`,confirmLabel:'ترقية الاستعلام',allowed:can=>can(PERMISSIONS.QUERY_PROMOTE),execute:()=>promote.mutateAsync()})}
-            >
+              onClick={() => confirmation.request({title:'ترقية الاستعلام',description:`سيتم ترقية «${query?.name}» وفق نتيجة الاختبار وسياسة الخادم الحالية. يؤثر ذلك على قواعد الرصد.`,confirmLabel:'ترقية الاستعلام',allowed:can=>can(PERMISSIONS.QUERY_PROMOTE),execute:()=>promote.mutateAsync()})}>
               <Rocket size={16} /> ترقية للإنتاج
-            </button>
+            </Button>
           </div>
           {promote.error && (
-            <div className="text-sm p-3 rounded-lg bg-red-500/10 text-red-600">{(promote.error as Error).message}</div>
+            <div className="text-sm p-3 rounded-lg bg-(--status-danger-soft) text-(--status-danger)">{(promote.error as Error).message}</div>
           )}
         </>
       )}
@@ -279,7 +277,7 @@ export default function QuerySandbox() {
                   <td className="td num">{fmtPct(t.precision_score === null ? null : Number(t.precision_score))}</td>
                   <td className="td num">{t.units_consumed}</td>
                   <td className="td">
-                    <span className={`badge ${t.passed ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600'}`}>
+                    <span className={`badge ${t.passed ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-(--status-danger-soft) text-(--status-danger)'}`}>
                       {t.passed ? 'اجتاز' : 'لم يجتز'}
                     </span>
                   </td>

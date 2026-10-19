@@ -13,6 +13,7 @@ import Avatar from '../Avatar';
 import { Pill, StateBox } from './shared';
 import { CardExportButton } from './CardExportDialog';
 
+import { Button } from '../ui/Button';
 const PAGE_SIZES = [25, 50, 100];
 
 /** Invalidates everything derived from the roster after a change. */
@@ -107,7 +108,7 @@ export default function AccountsTab({ date, canWrite, onShowPosts }: {
                         <div className="min-w-0">
                           <span className="inf-account-name" title={a.author_bio ?? undefined}>{a.display_name ?? a.username}</span>
                           <a className="text-xs muted num hover:underline" href={`https://x.com/${encodeURIComponent(a.username)}`} target="_blank" rel="noreferrer"
-                            aria-label={`فتح حساب ${a.username} على X`}>@{a.username}</a>
+                            aria-label={`فتح حساب ${a.username} على إكس`}>@{a.username}</a>
                           {!a.x_author_id && <> <Pill tone="warn" title="لم يُجمع أي منشور من هذا الحساب بعد، لذا لا تتوفر بيانات ملفه">لم يُرصد بعد</Pill></>}
                         </div>
                       </div>
@@ -124,7 +125,7 @@ export default function AccountsTab({ date, canWrite, onShowPosts }: {
                         <button className="icon-button" title="عرض منشورات الحساب" aria-label={`عرض منشورات ${a.username}`} onClick={() => onShowPosts(a.username)}
                           disabled={a.total_posts === 0}><ListFilter size={15} /></button>
                         <CardExportButton account={a} />
-                        <a className="icon-button" title="فتح الحساب على X" aria-label={`فتح ${a.username} على X`} href={`https://x.com/${encodeURIComponent(a.username)}`}
+                        <a className="icon-button" title="فتح الحساب على إكس" aria-label={`فتح ${a.username} على إكس`} href={`https://x.com/${encodeURIComponent(a.username)}`}
                           target="_blank" rel="noreferrer"><ExternalLink size={15} /></a>
                         {canWrite && <>
                           <button className="icon-button" title="تعديل الملاحظة" aria-label={`تعديل ملاحظة ${a.username}`} onClick={() => setEditing(a)}><NotebookPen size={15} /></button>
@@ -186,12 +187,12 @@ function NoteDialog({ account, onClose, onSaved }: { account: Account; onClose: 
         <p className="text-xs muted mb-3">تظهر للفريق فقط ولا تؤثر على الرصد أو الجمع.</p>
         <textarea className="input mb-1 text-sm" rows={4} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} autoFocus data-dialog-initial-focus
           placeholder="مثال: حساب إعلامي، يغطي أخبار البرنامج" />
-        <div className="text-[11px] muted mb-4 num">{notes.length}/500</div>
+        <div className="text-xs muted mb-4 num">{notes.length}/500</div>
         <div className="flex gap-2 justify-end">
           <ModalCloseButton type="button" className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-          <button className="btn-primary" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+          <Button variant="primary" type="submit" disabled={save.isPending}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
         </div>
-        {save.error && <div className="text-xs text-red-600 mt-3" role="alert">{(save.error as ApiError).message}</div>}
+        {save.error && <div className="text-xs text-(--status-danger) mt-3" role="alert">{(save.error as ApiError).message}</div>}
       </form>
     </Dialog>
   );
@@ -205,9 +206,9 @@ function RemoveDialog({ account, onClose, onDone }: { account: Account; onClose:
       <p className="text-xs muted mb-4">لا يُحذف أي منشور سابق، ويمكن إعادة الحساب لاحقاً بإضافته من جديد.</p>
       <div className="flex gap-2 justify-end">
         <ModalCloseButton type="button" className="btn-ghost" onClick={onClose} autoFocus data-dialog-initial-focus>إلغاء</ModalCloseButton>
-        <button className="btn-danger" disabled={remove.isPending} onClick={() => remove.mutate()}>{remove.isPending ? 'جارٍ التنفيذ…' : 'إيقاف المتابعة'}</button>
+        <Button variant="danger" type="submit" disabled={remove.isPending} onClick={() => remove.mutate()}>{remove.isPending ? 'جارٍ التنفيذ…' : 'إيقاف المتابعة'}</Button>
       </div>
-      {remove.error && <div className="text-xs text-red-600 mt-3" role="alert">{(remove.error as ApiError).message}</div>}
+      {remove.error && <div className="text-xs text-(--status-danger) mt-3" role="alert">{(remove.error as ApiError).message}</div>}
     </Dialog>
   );
 }
@@ -229,9 +230,9 @@ export function AddAccountsDialog({ onClose }: { onClose: () => void }) {
         <div className="text-xs muted mb-4"><span className="num">{parsed.length}</span> حساب سيُضاف{parsed.length > 200 && ' — الحد الأقصى 200 في المرة الواحدة'}</div>
         <div className="flex gap-2 justify-end">
           <ModalCloseButton type="button" className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-          <button className="btn-primary" disabled={parsed.length === 0 || parsed.length > 200 || add.isPending}>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة'}</button>
+          <Button variant="primary" type="submit" disabled={parsed.length === 0 || parsed.length > 200 || add.isPending}>{add.isPending ? 'جارٍ الإضافة…' : 'إضافة'}</Button>
         </div>
-        {add.error && <div className="text-xs text-red-600 mt-3" role="alert">{(add.error as ApiError).message}</div>}
+        {add.error && <div className="text-xs text-(--status-danger) mt-3" role="alert">{(add.error as ApiError).message}</div>}
       </form>
     </Dialog>
   );

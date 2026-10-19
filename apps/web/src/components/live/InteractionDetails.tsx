@@ -12,13 +12,14 @@ import Avatar from '../Avatar';
 import { AnalysisDetails, EngagementMetrics, InteractionActionBar, InteractionMedia, InteractionText } from './InteractionCard';
 import { queueLabel, type DetailSection, type Interaction, type InteractionActions, type InteractionDetail } from './interaction';
 import { ProcessingHistory } from './ProcessingHistory';
+import { Button } from '../ui/Button';
 import '../queue-board/queue-board.css';
 
 
 function AccountInfo({ post }: { post: Interaction }) {
   return <><div className="ic-account-profile"><Avatar src={post.profile_image_url} name={post.display_name} username={post.username} size={44} ring={!!post.is_verified}/><div><strong>{post.display_name ?? post.username ?? 'حساب غير معروف'}</strong><bdi>@{post.username ?? '—'}</bdi></div></div>
     {post.author_bio && <p className="ic-account-bio" dir="auto">{post.author_bio}</p>}
-    <dl className="ic-facts"><div><dt>المتابعون</dt><dd>{fmtNum(post.followers_count)}</dd></div><div><dt>يتابع</dt><dd>{fmtNum(post.following_count)}</dd></div><div><dt>حساب موثق</dt><dd>{post.is_verified == null ? 'غير متوفر' : post.is_verified ? 'نعم' : 'لا'}</dd></div><div><dt>حساب مؤثر متابَع</dt><dd>{post.is_influencer ? 'نعم' : 'لا'}</dd></div><div><dt>معرف الحساب في X</dt><dd><bdi>{post.x_author_id}</bdi></dd></div></dl>
+    <dl className="ic-facts"><div><dt>المتابعون</dt><dd>{fmtNum(post.followers_count)}</dd></div><div><dt>يتابع</dt><dd>{fmtNum(post.following_count)}</dd></div><div><dt>حساب موثق</dt><dd>{post.is_verified == null ? 'غير متوفر' : post.is_verified ? 'نعم' : 'لا'}</dd></div><div><dt>حساب مؤثر متابَع</dt><dd>{post.is_influencer ? 'نعم' : 'لا'}</dd></div><div><dt>معرف الحساب في إكس</dt><dd><bdi>{post.x_author_id}</bdi></dd></div></dl>
   </>;
 }
 
@@ -57,7 +58,7 @@ export default function InteractionDetails({ id, initialSection, actions, onClos
   const post = detail.data?.post;
   return <div className="ic-drawer-host"><DialogSurface className="ic-drawer-host" title="تفاصيل التفاعل" drawer onClose={onClose}>
     {detail.isPending && <div className="ic-loading" role="status"><RefreshCw size={20} className="ic-spin"/>جارٍ تحميل تفاصيل التفاعل…</div>}
-    {detail.error && <div role="alert" className="ic-error"><strong>تعذر تحميل التفاصيل</strong><p>{detail.error.message}</p><button className="btn-ghost" onClick={() => detail.refetch()}>إعادة المحاولة</button></div>}
+    {detail.error && <div role="alert" className="ic-error"><strong>تعذر تحميل التفاصيل</strong><p>{detail.error.message}</p><Button variant="ghost" type="submit" onClick={() => detail.refetch()}>إعادة المحاولة</Button></div>}
     {detail.data && post && <div className="ic-detail" ref={ref}>
       <nav className="ic-detail-nav" aria-label="أقسام تفاصيل التفاعل">{sections.map(section => <button key={section.id} onClick={() => jump(section.id)}><section.icon size={14} aria-hidden="true"/>{section.title}</button>)}</nav>
       <section data-section="interaction"><h3 tabIndex={-1}><FileText size={17}/>التفاعل كاملًا</h3><InteractionText text={post.text} full/><InteractionMedia post={post} onLightbox={onLightbox} full/><EngagementMetrics post={post}/><dl className="ic-facts"><div><dt>نُشر</dt><dd>{fmtDateTime(post.posted_at)}</dd></div><div><dt>جُمع</dt><dd>{fmtDateTime(post.collected_at)}</dd></div><div><dt>حالة المحتوى</dt><dd>{post.status === 'duplicate' ? `مكرر${post.duplicate_type ? ` · ${post.duplicate_type}` : ''}` : post.status === 'filtered_out' ? 'مستبعد' : post.status}</dd></div><div><dt>معرف المنشور</dt><dd><bdi>{post.x_post_id}</bdi></dd></div></dl></section>

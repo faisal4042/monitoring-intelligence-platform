@@ -40,7 +40,7 @@ export const KPI_KEYS = ['total', 'relevant', 'excluded', 'inquiries', 'complain
 export type KpiKey = typeof KPI_KEYS[number];
 /** `up` says which direction needs attention; neutral metrics colour no direction. */
 export const KPI_META: Record<KpiKey, { label: string; hint: string; attention?: 'up' | 'down' }> = {
-  total: { label: 'إجمالي المنشورات المجمعة', hint: 'كل منشورات X المجمعة في الفترة (دون المكرر والمحجوب)، حسب تاريخ النشر' },
+  total: { label: 'إجمالي المنشورات المجمعة', hint: 'كل منشورات إكس المجمعة في الفترة (دون المكرر والمحجوب)، حسب تاريخ النشر' },
   relevant: { label: 'المنشورات ذات الصلة', hint: 'المنشورات المصنفة ذات صلة بالبرنامج (التصنيف الفعّال)' },
   excluded: { label: 'المنشورات المستبعدة', hint: 'استبعدها الفلتر المسبق أو صُنفت غير ذات صلة / إعلان / مزعج' },
   inquiries: { label: 'الاستفسارات', hint: 'منشورات ذات صلة نوعها الفعّال «استفسار»' },

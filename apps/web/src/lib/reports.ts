@@ -50,7 +50,7 @@ export const PERIOD_PRESETS: Array<{key: string; ar: string}> = [
   {key: 'this_month', ar: 'هذا الشهر'}, {key: 'last_month', ar: 'الشهر الماضي'}, {key: 'all', ar: 'كل الفترات'}, {key: 'custom', ar: 'فترة مخصصة'},
 ];
 export const FILTER_OPTIONS: Record<string, Array<{value: string; ar: string}>> = {
-  channel: [['x_dm', 'رسائل X الخاصة'], ['x_mention', 'منشور X عام'], ['x_reply', 'رد على X'], ['facebook_inbox', 'رسائل فيسبوك'], ['facebook_comment', 'تعليق فيسبوك']].map(([value, ar]) => ({value, ar})),
+  channel: [['x_dm', 'رسائل إكس الخاصة'], ['x_mention', 'منشور إكس عام'], ['x_reply', 'رد على إكس'], ['facebook_inbox', 'رسائل فيسبوك'], ['facebook_comment', 'تعليق فيسبوك']].map(([value, ar]) => ({value, ar})),
   ticketStatus: [['open', 'مفتوحة'], ['assigned', 'مسندة'], ['in_progress', 'قيد المعالجة'], ['pending', 'معلقة'], ['escalated', 'مصعّدة'], ['resolved', 'محلولة'], ['closed', 'مغلقة']].map(([value, ar]) => ({value, ar})),
   queueStatus: [['new', 'غير مسندة'], ['assigned', 'مسندة'], ['in_progress', 'قيد المعالجة'], ['escalated', 'مصعّدة'], ['completed', 'مكتملة']].map(([value, ar]) => ({value, ar})),
   intent: [['complaint', 'شكوى'], ['inquiry', 'استفسار'], ['suggestion', 'اقتراح'], ['praise', 'إشادة'], ['request', 'طلب'], ['issue', 'مشكلة'], ['experience', 'تجربة'], ['news', 'خبر'], ['warning', 'تحذير'], ['other', 'أخرى']].map(([value, ar]) => ({value, ar})),

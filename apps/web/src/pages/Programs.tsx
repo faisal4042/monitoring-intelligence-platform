@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth';
 import { useConfirmAction } from '../components/ConfirmAction';
 import { useActionNotice } from '../components/ActionNotice';
 
+import { Button } from '../components/ui/Button';
 interface Program {
   id: string; key: string; name_ar: string; name_en: string; color: string | null;
   is_active: boolean; service_count: number; keyword_count: number; query_count: number;
@@ -38,7 +39,7 @@ export default function Programs() {
     {confirmation.dialog}
     <div className="page-heading flex flex-wrap items-center justify-between gap-3">
       <div><h1>إدارة البرامج</h1><p>برامج الرصد والكلمات المفتاحية والاستعلامات المرتبطة بها.</p></div>
-      {can(P.ADMIN_SYSTEM) && <button className="btn-primary" onClick={() => { create.reset(); setOpen(!open); }}>{open ? 'إغلاق' : 'برنامج جديد'}</button>}
+      {can(P.ADMIN_SYSTEM) && <Button variant="primary" type="submit" onClick={() => { create.reset(); setOpen(!open); }}>{open ? 'إغلاق' : 'برنامج جديد'}</Button>}
     </div>
     {notice.element}
     {created && <div role="status" className="card p-4 space-y-2">
@@ -60,11 +61,11 @@ export default function Programs() {
       <label className="block space-y-2"><span>الوصف (اختياري)</span><textarea className="input w-full" maxLength={1000} value={form.description} onChange={e => field('description', e.target.value)} /></label>
       <label className="inline-flex items-center gap-2"><input type="checkbox" checked={form.isActive} onChange={e => setForm(old => ({ ...old, isActive: e.target.checked }))} /><span>البرنامج مفعّل</span></label>
       <p className="text-sm muted">إنشاء البرنامج لا يشغّل جمع البيانات ولا ينشئ استعلامات نشطة. أعدّ القاموس أولًا، ثم استأنف استعلامه التلقائي يدويًا عندما تريد بدء الجمع.</p>
-      {create.error && <p role="alert" className="text-red-600">{create.error.message}</p>}
-      <button className="btn-primary" disabled={create.isPending || !form.nameAr.trim() || !form.key}>{create.isPending ? 'جارٍ الحفظ…' : 'حفظ البرنامج'}</button>
+      {create.error && <p role="alert" className="text-(--status-danger)">{create.error.message}</p>}
+      <Button variant="primary" type="submit" disabled={create.isPending || !form.nameAr.trim() || !form.key}>{create.isPending ? 'جارٍ الحفظ…' : 'حفظ البرنامج'}</Button>
     </form>}
     {programs.isPending && <p role="status" className="card p-5">جارٍ تحميل البرامج…</p>}
-    {programs.error && <div role="alert" className="card p-5 space-y-3"><p className="text-red-600">{programs.error.message}</p><button className="btn-ghost" onClick={() => programs.refetch()}>إعادة المحاولة</button></div>}
+    {programs.error && <div role="alert" className="card p-5 space-y-3"><p className="text-(--status-danger)">{programs.error.message}</p><Button variant="ghost" type="submit" onClick={() => programs.refetch()}>إعادة المحاولة</Button></div>}
     {programs.data && <section className="card overflow-x-auto">
       <table className="w-full text-sm text-start">
         <thead><tr>{['البرنامج', 'المعرّف', 'الحالة', 'الخدمات', 'الكلمات', 'الاستعلامات', ''].map((title, i) => <th key={i} scope="col" className="p-4 text-start whitespace-nowrap">{title}</th>)}</tr></thead>
@@ -75,12 +76,12 @@ export default function Programs() {
           <td className="p-4 whitespace-nowrap"><div className="flex gap-2">
             {can(P.KEYWORDS_READ) && <Link className="btn-ghost" to={`/keywords?programId=${p.id}`}>القاموس</Link>}
             {can(P.QUERIES_WRITE) && <Link className="btn-ghost" to={`/queries/new?programId=${p.id}`}>بناء استعلام</Link>}
-            {can(P.PROGRAMS_WRITE) && <button type="button" className="btn-ghost" aria-label={`${p.is_active ? 'إيقاف' : 'تفعيل'} برنامج ${p.name_ar}`}
+            {can(P.PROGRAMS_WRITE) && <Button variant="ghost" type="button" aria-label={`${p.is_active ? 'إيقاف' : 'تفعيل'} برنامج ${p.name_ar}`}
               onClick={() => confirmation.request(p.is_active
                 ? { title: 'إيقاف البرنامج', description: `لن تُنشأ أو تُحدَّث استعلامات تلقائية لبرنامج «${p.name_ar}». الاستعلامات القائمة لا تتوقف بهذا الإجراء؛ أوقفها من صفحة الاستعلامات إن أردت إيقاف الجمع.`, confirmLabel: 'إيقاف البرنامج', danger: true, allowed: can => can(P.PROGRAMS_WRITE), execute: () => setActive(p, false) }
                 : { title: 'تفعيل البرنامج', description: `سيُعاد إدراج «${p.name_ar}» في مزامنة القاموس. الاستعلامات الموقوفة تبقى موقوفة حتى تستأنفها.`, confirmLabel: 'تفعيل البرنامج', allowed: can => can(P.PROGRAMS_WRITE), execute: () => setActive(p, true) })}>
               {p.is_active ? 'إيقاف' : 'تفعيل'}
-            </button>}
+            </Button>}
           </div></td>
         </tr>)}</tbody>
       </table>

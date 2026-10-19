@@ -61,7 +61,7 @@ export function availableMetrics(post: Interaction) {
     { key: 'reposts', label: 'إعادة نشر', value: post.repost_count },
     { key: 'replies', label: 'ردود', value: post.reply_count },
     { key: 'views', label: 'مشاهدات', value: post.impression_count },
-  ] as const).filter(metric => typeof metric.value === 'number' && Number.isFinite(metric.value) && metric.value >= 0);
+  ] as const).filter(metric => typeof metric.value === 'number' && Number.isFinite(metric.value) && metric.value > 0);
 }
 export function safeExternalUrl(value: string | null | undefined): string | undefined {
   if (!value) return undefined;

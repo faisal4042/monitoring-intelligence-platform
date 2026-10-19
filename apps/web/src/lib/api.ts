@@ -26,6 +26,16 @@ export function refreshSession(): Promise<string | null> {
   return refreshInFlight;
 }
 
+/**
+ * The server's message, except a missing-permission message that names raw permission codes
+ * («تتطلب هذه العملية صلاحية: youtube:read»): users get plain Arabic with the next step instead.
+ */
+function readableError(status: number, error?: string): string {
+  if (!error) return `HTTP ${status}`;
+  if (status === 403 && /صلاحية:s*[a-z_]+:[a-z_]+/i.test(error)) return 'لا تملك صلاحية لهذا الإجراء. إذا كنت تحتاجه في عملك، تواصل مع مدير النظام.';
+  return error;
+}
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const res = await fetch(`/api/v1${path}`, {
     ...init,
@@ -45,7 +55,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
-    throw new ApiError(res.status, body.error ?? `HTTP ${res.status}`, body.code);
+    throw new ApiError(res.status, readableError(res.status, body.error), body.code);
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

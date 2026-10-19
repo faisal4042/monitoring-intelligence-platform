@@ -28,7 +28,7 @@ export default function SentimentPanel({ q, programMode, onDrill, panel }: { q: 
   const drill = (g: string) => onDrill({ title: `مشاعر ${SENTIMENT_GROUP_LABELS[g]}`, params: { sentiment: g, series: 'relevant' } });
 
   return <Panel id="sentiment" title="تحليل المشاعر" eyebrow="ذكاء المشاعر" {...panel}
-    info="منشورات X ذات الصلة فقط. النسب من المنشورات المصنفة المشاعر؛ غير المصنف يُعرض منفصلًا ولا يُحتسب محايدًا. الأخبار غير مشمولة.">
+    info="منشورات إكس ذات الصلة فقط. النسب من المنشورات المصنفة المشاعر؛ غير المصنف يُعرض منفصلًا ولا يُحتسب محايدًا. الأخبار غير مشمولة.">
     <State loading={q.isLoading} error={q.error} empty={!d || classified + d.current.unclassified === 0} height={300}>
       {d && <div className="dash-sent">
         <div className="dash-sent-overall">

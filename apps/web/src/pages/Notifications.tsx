@@ -12,6 +12,7 @@ import {
   Bell, Check, Copy, ExternalLink, Link2, MailPlus, Pencil, Play, Plus, Send, Trash2, X,
 } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface Channel {
   id: string; type: 'email' | 'telegram'; name: string; is_active: boolean; is_linked: boolean; linked_count: number | null;
   last_test_at: string | null; last_test_ok: boolean | null; created_at: string;
@@ -176,14 +177,14 @@ export default function Notifications() {
           <h1 className="flex items-center gap-2.5"><Bell size={22} className="text-brand-600" /> الإشعارات والتنبيهات</h1>
           <p>راقب البريد أو تيليجرام تلقائياً عند نشاط عميل مؤثر، ارتفاع قصة، كلمات محدّدة، أو عدد متابعين معيّن.</p>
         </div>
-        {canWrite && (<button className="btn-ghost" disabled={runNow.isPending} onClick={() => confirmation.request({ title: 'فحص قواعد التنبيه الآن', description: 'قد يرسل الفحص إشعارات فعلية عبر القنوات النشطة. لا يمكن سحب الرسائل بعد إرسالها.', confirmLabel: 'فحص وإرسال التنبيهات', allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => runNow.mutateAsync() })}>
+        {canWrite && (<Button variant="ghost" type="submit" disabled={runNow.isPending} onClick={() => confirmation.request({ title: 'فحص قواعد التنبيه الآن', description: 'قد يرسل الفحص إشعارات فعلية عبر القنوات النشطة. لا يمكن سحب الرسائل بعد إرسالها.', confirmLabel: 'فحص وإرسال التنبيهات', allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => runNow.mutateAsync() })}>
           <Play size={16} /> {runNow.isPending ? 'جارٍ الفحص…' : 'فحص الآن'}
-        </button>)}
+        </Button>)}
       </div>
 
       {runNow.data && (
-        <div className="card p-3 text-sm bg-emerald-500/5">
-          فُحصت <span className="num font-medium">{runNow.data.evaluated}</span> قاعدة نشطة، وأُرسل <span className="num font-medium text-emerald-600">{runNow.data.sent}</span> إشعار جديد.
+        <div className="card p-3 text-sm bg-(--status-success)/5">
+          فُحصت <span className="num font-medium">{runNow.data.evaluated}</span> قاعدة نشطة، وأُرسل <span className="num font-medium text-(--status-success)">{runNow.data.sent}</span> إشعار جديد.
         </div>
       )}
 
@@ -198,7 +199,7 @@ export default function Notifications() {
       {tab === 'channels' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            {canWrite && (<button className="btn-primary" onClick={() => setAddingChannel(true)}><Plus size={16} /> قناة جديدة</button>)}
+            {canWrite && (<Button variant="primary" type="submit" onClick={() => setAddingChannel(true)}><Plus size={16} /> قناة جديدة</Button>)}
           </div>
           <div className="grid md:grid-cols-2 gap-3">
             {(channels?.items ?? []).map((c) => (
@@ -210,37 +211,37 @@ export default function Notifications() {
                   </div>
                   <div className="flex items-center gap-1.5">
                     {c.type === 'telegram' && (
-                      <span className={`badge ${c.is_linked ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/15 text-amber-600'}`}>
+                      <span className={`badge ${c.is_linked ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-(--status-warning-soft) text-(--status-warning)'}`}>
                         {c.is_linked ? `مربوط (${c.linked_count})` : 'غير مربوط'}
                       </span>
                     )}
                     {canWrite ? (<button
-                      className={`badge ${c.is_active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/15 text-slate-500'}`}
+                      className={`badge ${c.is_active ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-slate-500/15 text-slate-500'}`}
                       onClick={() => confirmation.request({ title: c.is_active ? 'تعطيل قناة الإشعار' : 'تفعيل قناة الإشعار', description: `سيتم ${c.is_active ? 'إيقاف' : 'استئناف'} الإرسال عبر «${c.name}».`, confirmLabel: c.is_active ? 'تعطيل القناة' : 'تفعيل القناة', danger: c.is_active, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => toggleChannel.mutateAsync({ id: c.id, isActive: !c.is_active }) })}
                     >{c.is_active ? 'مفعّلة' : 'معطّلة'}</button>) : <span className="badge">{c.is_active ? 'مفعّلة' : 'معطّلة'}</span>}
                   </div>
                 </div>
                 <div className="text-xs muted mb-3">
                   {c.last_test_at
-                    ? <span className={c.last_test_ok ? 'text-emerald-600' : 'text-red-600'}>
+                    ? <span className={c.last_test_ok ? 'text-(--status-success)' : 'text-(--status-danger)'}>
                         {c.last_test_ok ? <Check size={12} className="inline" /> : <X size={12} className="inline" />} آخر اختبار {fmtRelative(c.last_test_at)}
                       </span>
                     : 'لم يُختبر بعد'}
                 </div>
                 <div className="flex gap-2">
                   {canWrite && c.type === 'telegram' && (
-                    <button className="btn-ghost !text-xs flex-1" disabled={startLink.isPending} onClick={() => startLink.mutate(c)}>
+                    <Button variant="ghost" type="submit" className="!text-xs flex-1" disabled={startLink.isPending} onClick={() => startLink.mutate(c)}>
                       <Link2 size={13} /> ربط شخص
-                    </button>
+                    </Button>
                   )}
-                  {canWrite && (<button className="btn-ghost !text-xs flex-1" disabled={testChannel.isPending} onClick={() => confirmation.request({title:'إرسال رسالة اختبار',description:`اختبار «${c.name}» يرسل رسالة فعلية عبر القناة. لا يمكن سحب الرسالة بعد إرسالها.`,confirmLabel:'إرسال الاختبار',allowed:can=>can(PERMISSIONS.ALERTS_WRITE),execute:()=>testChannel.mutateAsync(c.id)})}>اختبار الاتصال</button>)}
-                  {canWrite && (<button className="icon-button !w-9 !h-9 !text-red-600" title="حذف" onClick={() => confirmation.request({ title: 'حذف قناة الإشعار', description: `سيتم حذف «${c.name}» وربطها بقواعد التنبيه. لا يتوفر تراجع من هذه الشاشة.`, confirmLabel: 'حذف القناة', danger: true, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => deleteChannel.mutateAsync(c.id) })}><Trash2 size={14} /></button>)}
+                  {canWrite && (<Button variant="ghost" type="submit" className="!text-xs flex-1" disabled={testChannel.isPending} onClick={() => confirmation.request({title:'إرسال رسالة اختبار',description:`اختبار «${c.name}» يرسل رسالة فعلية عبر القناة. لا يمكن سحب الرسالة بعد إرسالها.`,confirmLabel:'إرسال الاختبار',allowed:can=>can(PERMISSIONS.ALERTS_WRITE),execute:()=>testChannel.mutateAsync(c.id)})}>اختبار الاتصال</Button>)}
+                  {canWrite && (<button className="icon-button !w-9 !h-9 !text-(--status-danger)" title="حذف" onClick={() => confirmation.request({ title: 'حذف قناة الإشعار', description: `سيتم حذف «${c.name}» وربطها بقواعد التنبيه. لا يتوفر تراجع من هذه الشاشة.`, confirmLabel: 'حذف القناة', danger: true, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => deleteChannel.mutateAsync(c.id) })}><Trash2 size={14} /></button>)}
                 </div>
                 {testChannel.isError && testChannel.variables === c.id && (
-                  <div className="text-xs text-red-600 mt-2">{(testChannel.error as ApiError).message}</div>
+                  <div className="text-xs text-(--status-danger) mt-2">{(testChannel.error as ApiError).message}</div>
                 )}
                 {startLink.isError && startLink.variables?.id === c.id && (
-                  <div className="text-xs text-red-600 mt-2">{(startLink.error as ApiError).message}</div>
+                  <div className="text-xs text-(--status-danger) mt-2">{(startLink.error as ApiError).message}</div>
                 )}
               </div>
             ))}
@@ -252,7 +253,7 @@ export default function Notifications() {
       {tab === 'rules' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            {canWrite && (<button className="btn-primary" onClick={() => { setRuleForm(emptyRuleForm); setEditingRuleId(null); setAddingRule(true); }}><Plus size={16} /> قاعدة جديدة</button>)}
+            {canWrite && (<Button variant="primary" type="submit" onClick={() => { setRuleForm(emptyRuleForm); setEditingRuleId(null); setAddingRule(true); }}><Plus size={16} /> قاعدة جديدة</Button>)}
           </div>
           <div className="space-y-2">
             {(rules?.items ?? []).map((r) => (
@@ -269,11 +270,11 @@ export default function Notifications() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {canWrite ? (<button
-                      className={`badge ${r.is_active ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/15 text-slate-500'}`}
+                      className={`badge ${r.is_active ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-slate-500/15 text-slate-500'}`}
                       onClick={() => confirmation.request({ title: r.is_active ? 'تعطيل قاعدة التنبيه' : 'تفعيل قاعدة التنبيه', description: `سيتم ${r.is_active ? 'إيقاف' : 'استئناف'} التنبيهات الخاصة بـ«${r.name}».`, confirmLabel: r.is_active ? 'تعطيل القاعدة' : 'تفعيل القاعدة', danger: r.is_active, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => toggleRule.mutateAsync({ id: r.id, isActive: !r.is_active }) })}
                     >{r.is_active ? 'نشطة' : 'موقوفة'}</button>) : <span className="badge">{r.is_active ? 'نشطة' : 'موقوفة'}</span>}
                     {canWrite && (<button className="icon-button !w-8 !h-8" title="تعديل" onClick={() => openEditRule(r)}><Pencil size={14} /></button>)}
-                    {canWrite && (<button className="icon-button !w-8 !h-8 !text-red-600" title="حذف" onClick={() => confirmation.request({ title: 'حذف قاعدة التنبيه', description: `سيتم حذف «${r.name}» وإيقاف تنبيهاتها. لا يتوفر تراجع من هذه الشاشة.`, confirmLabel: 'حذف القاعدة', danger: true, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => deleteRule.mutateAsync(r.id) })}><Trash2 size={14} /></button>)}
+                    {canWrite && (<button className="icon-button !w-8 !h-8 !text-(--status-danger)" title="حذف" onClick={() => confirmation.request({ title: 'حذف قاعدة التنبيه', description: `سيتم حذف «${r.name}» وإيقاف تنبيهاتها. لا يتوفر تراجع من هذه الشاشة.`, confirmLabel: 'حذف القاعدة', danger: true, allowed: can => can(PERMISSIONS.ALERTS_WRITE), execute: () => deleteRule.mutateAsync(r.id) })}><Trash2 size={14} /></button>)}
                   </div>
                 </div>
               </div>
@@ -300,7 +301,7 @@ export default function Notifications() {
                   <td className="td">
                     <div className="flex gap-1">
                       {d.channel_results.map((r, i) => (
-                        <span key={i} className={`badge ${r.ok ? 'bg-emerald-500/15 text-emerald-600' : 'bg-red-500/15 text-red-600'}`} title={r.error}>
+                        <span key={i} className={`badge ${r.ok ? 'bg-(--status-success-soft) text-(--status-success)' : 'bg-(--status-danger-soft) text-(--status-danger)'}`} title={r.error}>
                           {r.ok ? <Check size={11} /> : <X size={11} />}
                         </span>
                       ))}
@@ -362,9 +363,9 @@ export default function Notifications() {
 
             <div className="flex gap-2 justify-end">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setAddingChannel(false)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={createChannel.isPending}>{createChannel.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+              <Button variant="primary" type="submit" disabled={createChannel.isPending}>{createChannel.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
             </div>
-            {createChannel.error && <div className="text-xs text-red-600 mt-3">{(createChannel.error as ApiError).message}</div>}
+            {createChannel.error && <div className="text-xs text-(--status-danger) mt-3">{(createChannel.error as ApiError).message}</div>}
           </ModalSurface>
       )}
 
@@ -453,9 +454,9 @@ export default function Notifications() {
 
             <div className="flex gap-2 justify-end">
               <ModalCloseButton type="button" className="btn-ghost" onClick={closeRuleForm}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={saveRule.isPending || !ruleForm.channelIds.length}>{saveRule.isPending ? 'جارٍ الحفظ…' : editingRuleId ? 'حفظ التعديلات' : 'حفظ'}</button>
+              <Button variant="primary" type="submit" disabled={saveRule.isPending || !ruleForm.channelIds.length}>{saveRule.isPending ? 'جارٍ الحفظ…' : editingRuleId ? 'حفظ التعديلات' : 'حفظ'}</Button>
             </div>
-            {saveRule.error && <div className="text-xs text-red-600 mt-3">{(saveRule.error as ApiError).message}</div>}
+            {saveRule.error && <div className="text-xs text-(--status-danger) mt-3">{(saveRule.error as ApiError).message}</div>}
           </ModalSurface>
       )}
 
@@ -469,14 +470,13 @@ export default function Notifications() {
             <a href={linking.deepLink} target="_blank" rel="noreferrer" className="btn-primary w-full mb-2">
               <ExternalLink size={16} /> افتح تيليجرام واضغط Start
             </a>
-            <button
+            <Button variant="ghost"
               type="button"
-              className="btn-ghost w-full mb-3"
-              onClick={() => { navigator.clipboard.writeText(linking!.deepLink); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }}
-            >
+              className="w-full mb-3"
+              onClick={() => { navigator.clipboard?.writeText(linking!.deepLink).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000); }).catch(() => { /* clipboard blocked: the link above stays openable */ }); }}>
               {linkCopied ? <><Check size={16} /> تم النسخ</> : <><Copy size={16} /> نسخ الرابط لإرساله لشخص آخر</>}
-            </button>
-            <button className="btn-ghost w-full" onClick={() => { setLinking(null); qc.invalidateQueries({ queryKey: ['notify-channels'] }); }}>تم — أغلق</button>
+            </Button>
+            <Button variant="ghost" type="submit" className="w-full" onClick={() => { setLinking(null); qc.invalidateQueries({ queryKey: ['notify-channels'] }); }}>تم — أغلق</Button>
           </ModalSurface>
       )}
     </div>

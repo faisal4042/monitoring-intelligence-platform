@@ -5,6 +5,7 @@ import {useLocation} from 'react-router-dom';
 import { PERMISSIONS as P } from '@mip/shared';
 import { useAuth } from '../lib/auth';
 
+import { Button } from './ui/Button';
 export function hasQueueDraft(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const draft = value as Record<string, unknown>;
@@ -22,5 +23,5 @@ export default function QueueDraftNotice() {
   if(!ids||!can(P.QUEUE_WORK,P.QUEUE_SUPERVISE,P.QUEUE_VIEW_ALL))return null;
   const pending=ids.split('|').filter(id=>id!==params.get('item'));
   if(!pending.length)return null;
-  return <aside className="card p-3 text-sm" aria-label="مسودات الطابور غير المحفوظة"><p>لديك {pending.length} مسودة غير محفوظة في هذه الجلسة. لا تُرسل للخادم قبل تنفيذ الحفظ.</p>{pending.map(id=><button key={id} className="btn-ghost" onClick={()=>setParams(old=>{const next=new URLSearchParams(old);next.set('item',id);return next;},{state:location.state})}>استكمال مسودة #{id.slice(0,8)}</button>)}</aside>;
+  return <aside className="card p-3 text-sm" aria-label="مسودات الطابور غير المحفوظة"><p>لديك {pending.length} مسودة غير محفوظة في هذه الجلسة. لا تُرسل للخادم قبل تنفيذ الحفظ.</p>{pending.map(id=><Button variant="ghost" type="submit" key={id} onClick={()=>setParams(old=>{const next=new URLSearchParams(old);next.set('item',id);return next;},{state:location.state})}>استكمال مسودة #{id.slice(0,8)}</Button>)}</aside>;
 }

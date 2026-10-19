@@ -114,7 +114,7 @@ function AccountItem({ r, needles, onSearch }: ItemProps) {
         </dl>
         <div className="as-item-foot">
           <button type="button" className="as-action as-action--primary" onClick={() => onSearch(`user:@${r.username}`, 'posts')}><Search size={14} aria-hidden="true" /> عرض منشوراته</button>
-          <a className="as-action" href={`https://x.com/${encodeURIComponent(r.username)}`} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" /> الحساب على X</a>
+          <a className="as-action" href={`https://x.com/${encodeURIComponent(r.username)}`} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" /> الحساب على إكس</a>
         </div>
       </div>
     </article>
@@ -141,7 +141,7 @@ function TicketItem({ r, needles, onTicket }: ItemProps) {
         </div>
         <div className="as-item-foot">
           <button type="button" className="as-action as-action--primary" onClick={onTicket}><PanelLeftOpen size={14} aria-hidden="true" /> فتح تفاصيل التذكرة</button>
-          {r.url && <a className="as-action" href={r.url} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" /> المنشور على X</a>}
+          {r.url && <a className="as-action" href={r.url} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" /> المنشور على إكس</a>}
         </div>
       </div>
     </article>

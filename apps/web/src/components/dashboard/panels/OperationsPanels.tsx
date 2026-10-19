@@ -28,18 +28,18 @@ export function SystemHealthPanel({ health, sources, newsAllowed, unclassified, 
   const ageH = latest ? (Date.now() - (parseInstant(latest)?.getTime() ?? Date.now())) / 3_600_000 : null;
   const src = newsSourceHealth(sources.data?.items);
   const x = !h ? null
-    : h.mode !== 'live' ? { value: 'وضع تجريبي', tone: 'muted' as const, sub: 'لا اتصال بواجهة X في هذا الوضع' }
+    : h.mode !== 'live' ? { value: 'وضع تجريبي', tone: 'muted' as const, sub: 'لا اتصال بواجهة إكس في هذا الوضع' }
     : h.xStream.state === 'connected' ? { value: 'متصل', tone: 'ok' as const, sub: `${fmtNum(h.xStream.rules)} قواعد · آخر حدث ${h.xStream.lastEventAt ? fmtRelative(h.xStream.lastEventAt) : '—'}` }
     : { value: h.xStream.hasError ? 'منقطع مع خطأ' : 'غير متصل', tone: (h.xStream.hasError ? 'bad' : 'warn') as 'bad' | 'warn', sub: `البث المباشر · ${fmtNum(h.xStream.rules)} قواعد` };
   return <Panel id="operations" title="صحة منظومة الرصد" eyebrow="الجمع والمعالجة" {...panel}
-    info="مؤشرات تشغيلية منفصلة عن مؤشرات الرأي العام: حالة الجمع من X، آخر منشور مجمع، صحة مصادر الأخبار، والمنشورات التي لم تُصنف بعد. لا تتأثر بفلاتر البرنامج والفترة إلا «بانتظار التصنيف».">
+    info="مؤشرات تشغيلية منفصلة عن مؤشرات الرأي العام: حالة الجمع من إكس، آخر منشور مجمع، صحة مصادر الأخبار، والمنشورات التي لم تُصنف بعد. لا تتأثر بفلاتر البرنامج والفترة إلا «بانتظار التصنيف».">
     <div className="dash-health">
       {health.isLoading ? <div className="dash-skeleton" style={{ height: 84 }} />
-        : !h ? <Stat label="جمع X" value="غير متاح" tone="muted" sub="تعذر قراءة حالة الخادم" />
-        : <Stat label="جمع X (البث المباشر)" value={x!.value} tone={x!.tone} sub={x!.sub} />}
+        : !h ? <Stat label="جمع إكس" value="غير متاح" tone="muted" sub="تعذر قراءة حالة الخادم" />
+        : <Stat label="جمع إكس (البث المباشر)" value={x!.value} tone={x!.tone} sub={x!.sub} />}
       {health.isLoading ? <div className="dash-skeleton" style={{ height: 84 }} />
         : <Stat label="آخر منشور مجمّع" value={latest ? fmtRelative(latest) : 'غير متاح'} tone={ageH === null ? 'muted' : ageH > STALE_HOURS ? 'warn' : 'ok'}
-          sub={latest ? fmtDateTime(latest) : 'لا توجد منشورات مجمعة'} info={`يُميَّز إذا مضى أكثر من ${STALE_HOURS} ساعة على آخر منشور مجمّع من أي مصدر على X.`} />}
+          sub={latest ? fmtDateTime(latest) : 'لا توجد منشورات مجمعة'} info={`يُميَّز إذا مضى أكثر من ${STALE_HOURS} ساعة على آخر منشور مجمّع من أي مصدر على إكس.`} />}
       {!newsAllowed ? <Stat label="مصادر الأخبار" value="غير متاح" tone="muted" sub="يتطلب صلاحية عرض الأخبار" />
         : sources.isLoading ? <div className="dash-skeleton" style={{ height: 84 }} />
         : !src ? <Stat label="مصادر الأخبار" value="غير متاح" tone="muted" sub="تعذر قراءة حالة المصادر" />
@@ -47,7 +47,7 @@ export function SystemHealthPanel({ health, sources, newsAllowed, unclassified, 
           sub={`${fmtNum(src.degraded)} متعثرة · ${fmtNum(src.failed)} متوقفة${src.lastChecked ? ` · آخر فحص ${fmtRelative(src.lastChecked)}` : ''}`}
           info="حالة كل مصدر كما يسجلها جامع الأخبار بعد آخر محاولة جلب: سليم، متعثر (أخطاء متتالية)، متوقف." />}
       <Stat label="بانتظار التصنيف" value={unclassified === null ? 'غير متاح' : fmtNum(unclassified)} tone={unclassified ? 'warn' : 'ok'}
-        sub="منشورات الفترة التي لم يُحدد لها تصنيف بعد" info="منشورات X في الفترة والفلاتر الحالية بلا تصنيف فعّال (لا ذكاء اصطناعي ولا مراجعة بشرية)." />
+        sub="منشورات الفترة التي لم يُحدد لها تصنيف بعد" info="منشورات إكس في الفترة والفلاتر الحالية بلا تصنيف فعّال (لا ذكاء اصطناعي ولا مراجعة بشرية)." />
     </div>
     <p className="dash-footnote">{h ? `حالة الخادم كما في ${fmtDateTime(h.time)}.` : ''} <Link className="dash-link" to="/news/sources">إدارة مصادر الأخبار<ChevronLeft size={13} /></Link></p>
   </Panel>;

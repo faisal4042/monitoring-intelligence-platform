@@ -9,6 +9,7 @@ import ReportBuilder, { initialBuilder, type BuilderState } from './ReportBuilde
 import { ExportsView, TemplatesView, SchedulesView } from './ReportManagement';
 import ReportOverview from './ReportOverview';
 import AsyncState from '../AsyncState';
+import { Button } from '../ui/Button';
 import './reports.css';
 import './reports-center.css';
 
@@ -46,7 +47,7 @@ export default function ReportsCenter() {
           <span className={`rc-pill ${c.exportsActivated?'is-ok':''}`}><span className="rc-status-dot" />التصدير {c.exportsActivated?'مفعّل':'معطّل'}</span>
           <span className={`rc-pill ${c.schedulesActivated?'is-ok':''}`}><CalendarClock size={13} aria-hidden="true" />الجدولة {c.schedulesActivated?'مفعّلة':'معطّلة'}</span>
         </div>}
-        {c?.canExport && c.exportsActivated && <button className="btn-primary" onClick={choose}><FileDown size={17} aria-hidden="true" />إنشاء تصدير</button>}
+        {c?.canExport && c.exportsActivated && <Button variant="primary" type="submit" onClick={choose}><FileDown size={17} aria-hidden="true" />إنشاء تصدير</Button>}
       </div>
     </header>
 
@@ -62,7 +63,7 @@ export default function ReportsCenter() {
           <CatalogView c={c} category={category} setCategory={setCategory} search={search} setSearch={setSearch} searchRef={searchRef} onOpen={open} />
         </>}
         {view==='catalog' && (builder ? <>
-          <div className="rc-builder-heading"><button type="button" className="btn-ghost" onClick={()=>setBuilder(null)}>العودة إلى الكتالوج</button><div><span className="rc-eyebrow">{SECTIONS.find(s=>s.key===builder.type.section)?.ar}</span><h2 className="rc-h2">{builder.type.ar}</h2><p className="rc-desc">{builder.type.descriptionAr}</p></div><span className="rc-tag">{builder.type.aggregated?'ملخص مجمّع':'تفاصيل السجلات'}</span></div>
+          <div className="rc-builder-heading"><Button variant="ghost" type="button" onClick={()=>setBuilder(null)}>العودة إلى الكتالوج</Button><div><span className="rc-eyebrow">{SECTIONS.find(s=>s.key===builder.type.section)?.ar}</span><h2 className="rc-h2">{builder.type.ar}</h2><p className="rc-desc">{builder.type.descriptionAr}</p></div><span className="rc-tag">{builder.type.aggregated?'ملخص مجمّع':'تفاصيل السجلات'}</span></div>
           <ReportBuilder key={builder.type.key} catalog={c} type={builder.type} state={builder.state} setState={state=>setBuilder({...builder,state})}
             onExported={()=>{void qc.invalidateQueries({queryKey:['report-exports']});}}
             onTemplateSaved={()=>{void qc.invalidateQueries({queryKey:['report-templates']});}} />
@@ -92,9 +93,9 @@ function CatalogView({c,category,setCategory,search,setSearch,searchRef,onOpen}:
     <div className="rc-catalog-list">{types.map(t=><article className={`rc-catalog-row ${t.available?'':'is-off'}`} key={t.key}>
       <span className="rc-report-icon"><FileBarChart size={22} aria-hidden="true" /></span>
       <div className="rc-report-copy"><div className="rc-report-title"><h3>{t.ar}</h3><span className="rc-tag">{t.aggregated?'ملخص':'تفصيلي'}</span></div><p>{t.descriptionAr}</p><div className="rc-report-meta"><span>{SECTIONS.find(s=>s.key===t.section)?.ar}</span><span>{fmtNum(t.columns.filter(col=>col.allowed).length)} عمود متاح</span><span>{t.available?'معاينة متاحة':t.reason}</span></div></div>
-      <div className="rc-catalog-actions">{t.available?<><button className="btn-ghost" type="button" aria-label={`معاينة ${t.ar}`} onClick={()=>onOpen(t)}>معاينة<ArrowUpLeft size={15} aria-hidden="true" /></button>{c.canExport&&c.exportsActivated&&<button className="rc-export-action" type="button" onClick={()=>onOpen(t)} aria-label={`تصدير ${t.ar}`}><FileDown size={15} aria-hidden="true" />تصدير</button>}</>:<span className="rc-tag"><LockKeyhole size={13} aria-hidden="true" />غير متاح</span>}</div>
+      <div className="rc-catalog-actions">{t.available?<><Button variant="ghost" type="button" aria-label={`معاينة ${t.ar}`} onClick={()=>onOpen(t)}>معاينة<ArrowUpLeft size={15} aria-hidden="true" /></Button>{c.canExport&&c.exportsActivated&&<button className="rc-export-action" type="button" onClick={()=>onOpen(t)} aria-label={`تصدير ${t.ar}`}><FileDown size={15} aria-hidden="true" />تصدير</button>}</>:<span className="rc-tag"><LockKeyhole size={13} aria-hidden="true" />غير متاح</span>}</div>
     </article>)}</div>
     {unavailable.length>0&&<details className="rc-unavailable"><summary>تقارير غير متاحة حاليًا ({fmtNum(unavailable.length)})</summary>{unavailable.map(u=><div key={u.key}><LockKeyhole size={16} aria-hidden="true" /><div><b>{u.ar}</b><p>{u.reasonAr}</p></div></div>)}</details>}
-    {!types.length&&!unavailable.length&&<div className="rc-state"><Search size={28} aria-hidden="true" /><h3>لا توجد تقارير مطابقة</h3><p>جرّب كلمة أخرى أو أعد ضبط فئة التقرير.</p><button className="btn-ghost" onClick={()=>{setSearch('');setCategory('all');}}>إعادة ضبط البحث</button></div>}
+    {!types.length&&!unavailable.length&&<div className="rc-state"><Search size={28} aria-hidden="true" /><h3>لا توجد تقارير مطابقة</h3><p>جرّب كلمة أخرى أو أعد ضبط فئة التقرير.</p><Button variant="ghost" type="submit" onClick={()=>{setSearch('');setCategory('all');}}>إعادة ضبط البحث</Button></div>}
   </section>;
 }

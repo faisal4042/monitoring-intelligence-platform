@@ -9,6 +9,7 @@ import {fmtDateTime} from '../lib/format';
 import QueueBoardOverview, {type BoardAction} from '../components/queue-board/QueueBoardOverview';
 import Dialog from '../components/queue-board/DialogSurface';
 
+import { Button } from '../components/ui/Button';
 export default function QueueBoard() {
   const {can}=useAuth();
   const [action,setAction]=useState<{agent:BoardAgent;kind:BoardAction;range:string}|null>(null);
@@ -30,8 +31,8 @@ function StatusDialog({agent,onClose}:{agent:BoardAgent;onClose:()=>void}) {
       <select aria-label="الحالة الجديدة" className="input w-full" value={status} onChange={e=>setStatus(e.target.value as AgentStatus)}>
         {AGENT_STATUSES.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>
       <input aria-label="السبب" className="input w-full" placeholder="السبب (إلزامي، يُسجل في سجل التدقيق)" maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/>
-      {save.error&&<p role="alert" className="text-sm text-red-600">{save.error.message}</p>}
-      <div className="flex gap-2"><button className="btn-primary" disabled={!reason.trim()||save.isPending||status===agent.status} onClick={()=>save.mutate()}>حفظ</button>
+      {save.error&&<p role="alert" className="text-sm text-(--status-danger)">{save.error.message}</p>}
+      <div className="flex gap-2"><Button variant="primary" type="submit" disabled={!reason.trim()||save.isPending||status===agent.status} onClick={()=>save.mutate()}>حفظ</Button>
         <ModalCloseButton className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton></div>
     </div></Dialog>;
 }
@@ -45,10 +46,10 @@ function ReleaseDialog({agent,onClose}:{agent:BoardAgent;onClose:()=>void}) {
       <ModalCloseButton className="btn-primary" onClick={onClose}>تم</ModalCloseButton></div>:
     <div className="space-y-3">
       <p className="text-sm">يُعاد {agent.open} تفاعل (غير المصعّد) إلى الطابور ثم يُوزَّع على الموظفين المتاحين. يبقى كل شيء في سجل العنصر.
-        {agent.status==='available'&&<strong className="block mt-1 text-amber-600">الموظف «متاح» الآن وقد يستلم بعضها مجدداً؛ غيّر حالته أولاً إن لزم.</strong>}</p>
+        {agent.status==='available'&&<strong className="block mt-1 text-(--status-warning)">الموظف «متاح» الآن وقد يستلم بعضها مجدداً؛ غيّر حالته أولاً إن لزم.</strong>}</p>
       <input aria-label="السبب" className="input w-full" placeholder="السبب (إلزامي)" maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/>
-      {run.error&&<p role="alert" className="text-sm text-red-600">{run.error.message}</p>}
-      <div className="flex gap-2"><button className="btn-primary" disabled={!reason.trim()||run.isPending} onClick={()=>run.mutate()}>إعادة التوزيع</button>
+      {run.error&&<p role="alert" className="text-sm text-(--status-danger)">{run.error.message}</p>}
+      <div className="flex gap-2"><Button variant="primary" type="submit" disabled={!reason.trim()||run.isPending} onClick={()=>run.mutate()}>إعادة التوزيع</Button>
         <ModalCloseButton className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton></div>
     </div>}</Dialog>;
 }
@@ -71,7 +72,7 @@ function PeriodsDialog({agent,range,onClose}:{agent:BoardAgent;range:string;onCl
     onSuccess:()=>{setEdit(null);qc.invalidateQueries({queryKey:['workforce']});}});
   return <Dialog title={`سجل حالات ${agent.full_name}`} onClose={onClose} busy={save.isPending}>
     {isLoading&&<p className="muted">جارٍ التحميل…</p>}
-    {error&&<p role="alert" className="text-red-600">{error.message} <button className="underline" onClick={()=>refetch()}>إعادة المحاولة</button></p>}
+    {error&&<p role="alert" className="text-(--status-danger)">{error.message} <button className="underline" onClick={()=>refetch()}>إعادة المحاولة</button></p>}
     {!isLoading&&!error&&!data?.items.length&&<p className="muted text-sm">لا توجد سجلات في هذه الفترة.</p>}
     <ol className="space-y-2 max-h-[60vh] overflow-y-auto">{data?.items.map(p=><li key={p.id} className="rounded-lg border border-slate-200 dark:border-slate-700 p-2.5 text-sm">
       <div className="flex items-center gap-2 flex-wrap"><span className={`wf-status-chip agent-status--${p.status}`}><span className="agent-status-dot" aria-hidden="true"/>{statusLabel(p.status)}</span>
@@ -80,14 +81,14 @@ function PeriodsDialog({agent,range,onClose}:{agent:BoardAgent;range:string;onCl
       <p className="text-xs muted mt-1">{fmtDateTime(p.started_at)} ← {p.ended_at?fmtDateTime(p.ended_at):'جارية'}</p>
       <p className="text-xs muted">بدأها: {STATUS_SOURCE_LABELS[p.source as keyof typeof STATUS_SOURCE_LABELS]}{p.actor_name&&p.source==='supervisor'?` (${p.actor_name})`:''}{p.reason?` — ${p.reason}`:''}
         {p.end_source?` · أنهاها: ${STATUS_SOURCE_LABELS[p.end_source as keyof typeof STATUS_SOURCE_LABELS]}${p.end_reason?` — ${p.end_reason}`:''}`:''}</p>
-      {p.corrections.map((c,i)=><p key={i} className="text-xs text-amber-600">تصحيح {c.by} ({fmtDateTime(c.at)}): {statusLabel(c.old.status)} ← {statusLabel(c.new.status)} — {c.reason}</p>)}
+      {p.corrections.map((c,i)=><p key={i} className="text-xs text-(--status-warning)">تصحيح {c.by} ({fmtDateTime(c.at)}): {statusLabel(c.old.status)} ← {statusLabel(c.new.status)} — {c.reason}</p>)}
       {edit?.id===p.id&&<div className="mt-2 space-y-2">
         <select aria-label="الحالة" className="input w-full" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>{AGENT_STATUSES.map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>
         <div className="grid grid-cols-2 gap-2"><label className="queue-field">البداية (الرياض)<input type="datetime-local" className="input" value={form.startedAt} onChange={e=>setForm(f=>({...f,startedAt:e.target.value}))}/></label>
           <label className="queue-field">النهاية (الرياض)<input type="datetime-local" className="input" value={form.endedAt} onChange={e=>setForm(f=>({...f,endedAt:e.target.value}))}/></label></div>
         <input aria-label="سبب التصحيح" className="input w-full" placeholder="سبب التصحيح (إلزامي)" value={form.reason} maxLength={2000} onChange={e=>setForm(f=>({...f,reason:e.target.value}))}/>
-        {save.error&&<p role="alert" className="text-xs text-red-600">{save.error.message}</p>}
-        <div className="flex gap-2"><button className="btn-primary" disabled={!form.reason.trim()||save.isPending} onClick={()=>save.mutate()}>حفظ التصحيح</button><button disabled={save.isPending} className="btn-ghost" onClick={()=>setEdit(null)}>إلغاء</button></div>
+        {save.error&&<p role="alert" className="text-xs text-(--status-danger)">{save.error.message}</p>}
+        <div className="flex gap-2"><Button variant="primary" type="submit" disabled={!form.reason.trim()||save.isPending} onClick={()=>save.mutate()}>حفظ التصحيح</Button><Button variant="ghost" type="submit" disabled={save.isPending} onClick={()=>setEdit(null)}>إلغاء</Button></div>
       </div>}
     </li>)}</ol>
   </Dialog>;

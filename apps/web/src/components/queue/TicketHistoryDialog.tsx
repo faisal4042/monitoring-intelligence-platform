@@ -24,8 +24,8 @@ export default function TicketHistoryDialog({id, ticket, onClose}: {id: string; 
           {e.event_type==='section_changed'&&e.metadata?.from&&e.metadata.to&&<p>{e.metadata.from===e.metadata.to?'انتقل مع قصته المدمجة':`${QUEUE_SECTION_LABELS[e.metadata.from as QueueSection]?.ar} ← ${QUEUE_SECTION_LABELS[e.metadata.to as QueueSection]?.ar}`}</p>}
           {e.event_type==='transferred'&&<p>{e.metadata?.fromTeamName??'—'} ← {e.metadata?.toTeamName??'—'}</p>}
           {e.event_type==='assigned'&&e.metadata?.auto&&<p className="muted">إسناد تلقائي</p>}
-          {e.metadata?.override?.includes('not_available')&&<p className="text-amber-600">أُسند يدوياً لموظف غير متاح</p>}
-          {e.metadata?.override?.includes('box_full')&&<p className="text-amber-600">أُسند يدوياً رغم امتلاء الصندوق</p>}
+          {e.metadata?.override?.includes('not_available')&&<p className="text-(--status-warning)">أُسند يدوياً لموظف غير متاح</p>}
+          {e.metadata?.override?.includes('box_full')&&<p className="text-(--status-warning)">أُسند يدوياً رغم امتلاء الصندوق</p>}
           {e.event_type==='priority_changed'&&<p>{e.metadata?.to==='high'?'رُفعت إلى أولوية عالية':'أُعيدت إلى أولوية عادية'}</p>}
           {e.event_type==='section_review'&&<p>{e.metadata?.hold?'التفاعل ضمن قصة يملكها فريق آخر؛ لم يُنقل تلقائياً.':'انتهت حالة المراجعة.'}</p>}
           {e.reason&&<p>{e.reason}</p>}{e.metadata?.outcome?<p>{QUEUE_REVIEW_OUTCOME_LABELS[e.metadata.outcome]}</p>:e.resolution&&<p>{QUEUE_RESOLUTION_LABELS[e.resolution as keyof typeof QUEUE_RESOLUTION_LABELS]} (سجل سابق)</p>}</li>)}</ol></div>}

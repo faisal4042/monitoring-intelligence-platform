@@ -77,7 +77,7 @@ export function HashtagsPanel({ q, onDrill, panel }: { q: Q<TagData>; onDrill: O
 export function InfluencersPanel({ q, allowed, onDrill, panel }: { q: Q<InfData>; allowed: boolean; onDrill: OnDrill; panel: object }) {
   const d = q.data;
   return <Panel id="influencers" title="المؤثرون النشطون" {...panel}
-    info="حسابات متابَعة ظهر لها منشور في الفترة بالفلاتر الحالية (كل حساب مرة واحدة). المتابعون من ملف X المخزن؛ لا تُعرض مؤشرات وصول غير متوفرة."
+    info="حسابات متابَعة ظهر لها منشور في الفترة بالفلاتر الحالية (كل حساب مرة واحدة). المتابعون من ملف إكس المخزن؛ لا تُعرض مؤشرات وصول غير متوفرة."
     footer={allowed && <Link className="dash-link" to="/influencers">كل المؤثرين<ChevronLeft size={14} /></Link>}>
     {!allowed ? <Unavailable reason="يتطلب هذا القسم صلاحية عرض المؤثرين." /> :
     <State loading={q.isLoading} error={q.error} height={260}>

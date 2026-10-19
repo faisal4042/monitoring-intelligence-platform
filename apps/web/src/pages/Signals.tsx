@@ -6,6 +6,8 @@ import { fmtNum, fmtRelative } from '../lib/format';
 import { Clock3, MessageCircle, Share2, Sparkles, TrendingUp } from 'lucide-react';
 import Avatar from '../components/Avatar';
 
+import { Button } from '../components/ui/Button';
+import { ProgramChip } from '../components/ui/ProgramChip';
 interface Program { id: string; name_ar: string; color: string }
 interface SignalMember {
   id: string; text: string; url: string | null; postedAt: string;
@@ -29,11 +31,11 @@ interface SignalResponse {
 type FeedMode = 'top' | 'latest' | 'influencers';
 
 const STATE: Record<SignalStory['state'], { label: string; color: string }> = {
-  candidate: { label: 'إشارة أولية', color: '#8e9db1' },
-  new: { label: 'جديد', color: '#18a8d8' },
-  rising: { label: 'يتصاعد', color: '#d03b3b' },
-  steady: { label: 'مستقر', color: '#1fb5b5' },
-  fading: { label: 'يتراجع', color: '#d97706' },
+  candidate: { label: 'إشارة أولية', color: 'var(--text-muted)' },
+  new: { label: 'جديد', color: 'var(--status-info)' },
+  rising: { label: 'يتصاعد', color: 'var(--status-danger)' },
+  steady: { label: 'مستقر', color: 'var(--accent-ink)' },
+  fading: { label: 'يتراجع', color: 'var(--status-success)' },
 };
 
 function SourceFaces({ story }: { story: SignalStory }) {
@@ -45,15 +47,16 @@ function SourceFaces({ story }: { story: SignalStory }) {
           <Avatar src={member.profileImageUrl} name={member.displayName} username={member.username} size={28} ring={member.sourceRole === 'influencer'} />
         </span>
       ))}
-      {remaining > 0 && <span className="num z-10 grid h-8 min-w-8 place-items-center rounded-full border px-1 text-[10px] font-bold text-brand-600" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>+{remaining}</span>}
+      {remaining > 0 && <span className="num z-10 grid h-8 min-w-8 place-items-center rounded-full border px-1 text-xs font-bold text-brand-600" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>+{remaining}</span>}
     </div>
   );
 }
 
 function shareStory(story: SignalStory) {
   const text = `${story.title_ar}\n${story.why_ar}`;
-  if (navigator.share) void navigator.share({ title: story.title_ar, text });
-  else void navigator.clipboard.writeText(text);
+  // Both can reject (share cancelled, clipboard blocked by the browser); neither is an error for the user.
+  if (navigator.share) navigator.share({ title: story.title_ar, text }).catch(() => {});
+  else navigator.clipboard?.writeText(text).catch(() => {});
 }
 
 export default function Signals() {
@@ -123,11 +126,11 @@ export default function Signals() {
               <div className="flex min-h-[240px] flex-col items-center justify-center border-b px-8 py-10 text-center lg:min-h-[300px]" style={{ borderColor: 'var(--border)' }}>
                 <div className="mb-7 flex w-full items-center justify-center gap-4 text-xs text-brand-600">
                   <span>{fmtRelative(selected.last_seen_at)}</span>
-                  <button className="btn-primary !rounded-full" onClick={() => shareStory(selected)}><Share2 size={15} /> مشاركة</button>
+                  <Button variant="primary" type="submit" className="!rounded-full" onClick={() => shareStory(selected)}><Share2 size={15} /> مشاركة</Button>
                 </div>
-                <h1 className="max-w-4xl text-3xl font-black leading-tight tracking-tight lg:text-5xl">{selected.title_ar}</h1>
+                <h1 className="max-w-4xl text-(length:--fs-page-title) leading-snug lg:text-(length:--fs-display)">{selected.title_ar}</h1>
                 <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
-                  <span className="rounded-full px-3 py-1" style={{ color: selected.program_color, background: `${selected.program_color}18` }}>{selected.program_name}</span>
+                  <ProgramChip name={selected.program_name} color={selected.program_color} />
                   <span className="rounded-full px-3 py-1 muted" style={{ background: 'var(--surface-2)' }}>{selected.parent_topic_name ? `${selected.parent_topic_name} / ` : ''}{selected.topic_name}</span>
                 </div>
               </div>
@@ -135,8 +138,8 @@ export default function Signals() {
                 <div className="mb-2 text-sm font-bold">آخر التحديثات</div>
                 <div className="space-y-2 text-sm leading-6">
                   <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-brand-500/15 text-brand-600"><MessageCircle size={12} /></span>{selected.why_ar}</p>
-                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-emerald-500/15 text-emerald-600"><TrendingUp size={12} /></span>أكد القصة {fmtNum(selected.family_count)} مصادر مستقلة، عبر {fmtNum(selected.author_count)} حسابات.</p>
-                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-amber-500/15 text-amber-600"><Clock3 size={12} /></span>أضيف {fmtNum(selected.posts_added_1h)} تفاعل خلال الساعة الأخيرة، وآخر نشاط {fmtRelative(selected.last_seen_at)}.</p>
+                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-(--status-success-soft) text-(--status-success)"><TrendingUp size={12} /></span>أكد القصة {fmtNum(selected.family_count)} مصادر مستقلة، عبر {fmtNum(selected.author_count)} حسابات.</p>
+                  <p><span className="ms-2 inline-grid h-5 w-5 place-items-center rounded-md bg-(--status-warning-soft) text-(--status-warning)"><Clock3 size={12} /></span>أضيف {fmtNum(selected.posts_added_1h)} تفاعل خلال الساعة الأخيرة، وآخر نشاط {fmtRelative(selected.last_seen_at)}.</p>
                 </div>
               </div>
               <div className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b px-6 py-2 backdrop-blur lg:px-10" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--surface) 90%, transparent)' }}>
@@ -153,7 +156,7 @@ export default function Signals() {
                     <div className="flex gap-3">
                       <Avatar src={lead.profileImageUrl} name={lead.displayName} username={lead.username} size={42} ring={lead.sourceRole === 'influencer'} />
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2 text-xs muted"><strong className="text-sm text-[var(--text)]">{lead.displayName ?? lead.username ?? 'حساب'}</strong>{lead.username && <span dir="ltr">@{lead.username}</span>}{lead.sourceRole === 'influencer' && <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-600">مؤثر</span>}</div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs muted"><strong className="text-sm text-[var(--text)]">{lead.displayName ?? lead.username ?? 'حساب'}</strong>{lead.username && <span dir="ltr">@{lead.username}</span>}{lead.sourceRole === 'influencer' && <span className="rounded-full bg-(--status-warning-soft) px-2 py-0.5 text-(--status-warning)">مؤثر</span>}</div>
                         <div className="mt-2 flex gap-4"><p className="min-w-0 flex-1 text-[15px] leading-7">{lead.text}</p>{lead.mediaImage && <img src={lead.mediaImage} alt="" loading="lazy" className="h-24 w-28 shrink-0 rounded-xl object-cover" />}</div>
                         <div className="mt-3 flex items-center gap-3 text-xs muted"><span>{fmtRelative(lead.postedAt)}</span><span className="num rounded-full border px-2 py-0.5" style={{ borderColor: 'var(--border)' }}>تفاعل {fmtNum(lead.engagement)}</span>{count > 1 && <span className="num rounded-full border px-2 py-0.5 text-brand-600" style={{ borderColor: 'var(--border)' }}>+{count - 1}</span>}</div>
                       </div>
@@ -167,8 +170,8 @@ export default function Signals() {
 
         <aside className="order-1 flex min-h-0 flex-col lg:order-2" dir="rtl" style={{ background: 'var(--surface-2)' }}>
           <div className="shrink-0 border-b p-3" style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}>
-            <div className="mb-3 flex items-center justify-between"><div><h2 className="flex items-center gap-1.5 font-bold"><Sparkles size={16} className="text-brand-600" /> أهم القصص الآن</h2><p className="text-xs muted">{fmtNum(data?.stats.signals)} قصة مؤكدة · {fmtNum(data?.stats.families)} مصادر</p></div><span className="rounded-full bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-600">تحديث كل 5 دقائق</span></div>
-            <div className="flex gap-2"><select className="input min-w-0 flex-1 !py-1.5 !text-xs" value={programId} onChange={(event) => setProgramId(event.target.value)}><option value="">كل البرامج</option>{(programs?.items ?? []).map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}</select><label className="flex shrink-0 items-center gap-1.5 rounded-lg border px-2 text-[11px]" style={{ borderColor: 'var(--border)' }}><input type="checkbox" checked={includeCandidates} onChange={(event) => setIncludeCandidates(event.target.checked)} />الأولية</label></div>
+            <div className="mb-3 flex items-center justify-between"><div><h2 className="flex items-center gap-1.5 font-bold"><Sparkles size={16} className="text-brand-600" /> أهم القصص الآن</h2><p className="text-xs muted">{fmtNum(data?.stats.signals)} قصة مؤكدة · {fmtNum(data?.stats.families)} مصادر</p></div><span className="rounded-full bg-(--status-success-soft) px-2.5 py-1 text-xs font-semibold text-(--status-success)">تحديث كل 5 دقائق</span></div>
+            <div className="flex gap-2"><select className="input min-w-0 flex-1 !py-1.5 !text-xs" value={programId} onChange={(event) => setProgramId(event.target.value)}><option value="">كل البرامج</option>{(programs?.items ?? []).map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}</select><label className="flex shrink-0 items-center gap-1.5 rounded-lg border px-2 text-xs" style={{ borderColor: 'var(--border)' }}><input type="checkbox" checked={includeCandidates} onChange={(event) => setIncludeCandidates(event.target.checked)} />الأولية</label></div>
           </div>
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
             {isLoading && <div className="p-8 text-center text-sm muted">جارٍ تحديث الترتيب…</div>}
@@ -180,10 +183,10 @@ export default function Signals() {
                 <button key={story.id} onClick={() => setSelectedId(story.id)} className={`relative w-full overflow-hidden rounded-xl border p-3 text-start transition ${active ? 'ring-2 ring-brand-500' : 'hover:border-brand-300'}`} style={{ borderColor: active ? 'var(--accent)' : 'var(--border)', background: 'var(--surface)' }}>
                   <div className="flex min-h-[126px] gap-3">
                     <div className="num w-7 shrink-0 text-right text-sm font-black text-brand-600">{String(index + 1).padStart(2, '0')}</div>
-                    <div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2 text-[10px] font-semibold text-brand-600"><span>{fmtRelative(story.last_seen_at)}</span><span className="rounded-full px-1.5 py-0.5" style={{ color: state.color, background: `${state.color}18` }}>{state.label}</span></div><h3 className="line-clamp-2 text-base font-black leading-6">{story.title_ar}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 muted">{story.topic_name} · {story.why_ar}</p><div className="mt-3 flex items-center gap-2"><SourceFaces story={story} /><span className="text-[10px] muted">يتحدث عنها {fmtNum(story.family_count)}</span></div></div>
+                    <div className="min-w-0 flex-1"><div className="mb-2 flex items-center gap-2 text-xs font-semibold text-brand-600"><span>{fmtRelative(story.last_seen_at)}</span><span className="rounded-full px-1.5 py-0.5" style={{ color: state.color, background: `color-mix(in srgb, ${state.color} 12%, transparent)` }}>{state.label}</span></div><h3 className="line-clamp-2 text-base font-black leading-6">{story.title_ar}</h3><p className="mt-1 line-clamp-2 text-xs leading-5 muted">{story.topic_name} · {story.why_ar}</p><div className="mt-3 flex items-center gap-2"><SourceFaces story={story} /><span className="text-xs muted">يتحدث عنها {fmtNum(story.family_count)}</span></div></div>
                     {image && <img src={image} alt="" loading="lazy" className="h-20 w-20 shrink-0 self-center rounded-xl object-cover" />}
                   </div>
-                  <span className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--surface-3)]"><span className="block h-full bg-emerald-400" style={{ width: `${Math.max(8, (story.live_score / maxScore) * 100)}%` }} /></span>
+                  <span className="absolute inset-x-0 bottom-0 h-[3px] bg-[var(--surface-3)]"><span className="block h-full bg-(--status-success)" style={{ width: `${Math.max(8, (story.live_score / maxScore) * 100)}%` }} /></span>
                 </button>
               );
             })}

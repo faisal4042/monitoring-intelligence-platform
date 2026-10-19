@@ -56,7 +56,7 @@ export default function TrendPanel({ q, initial, onDrill, panel }: { q: Q<TrendD
   const unit = g === 'hour' ? 'ساعة' : g === 'week' ? 'أسبوع' : 'يوم';
   const delta = summary && summary.prevSum !== null ? change(summary.sum, summary.prevSum) : null;
   return <Panel id="trend" title="اتجاه النشاط" eyebrow="الاتجاهات والنشاط" className="dash-panel--hero" {...panel}
-    info={`منشورات X حسب تاريخ النشر، تجميع ${granularityText(g)} بتوقيت الرياض. اضغط على أي نقطة لعرض منشوراتها. الأخبار لا تدخل في هذا الرسم.`}
+    info={`منشورات إكس حسب تاريخ النشر، تجميع ${granularityText(g)} بتوقيت الرياض. اضغط على أي نقطة لعرض منشوراتها. الأخبار لا تدخل في هذا الرسم.`}
     actions={<button className="icon-button" onClick={() => setTable((t) => !t)} aria-pressed={table} aria-label={table ? 'عرض كرسم' : 'عرض كجدول'} title={table ? 'عرض كرسم' : 'عرض كجدول'}>
       {table ? <LineChart size={16} /> : <Table2 size={16} />}</button>}>
     <div className="dash-trend-bar">

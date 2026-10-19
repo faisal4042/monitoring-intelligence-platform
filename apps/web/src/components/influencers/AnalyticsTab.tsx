@@ -26,7 +26,7 @@ export default function AnalyticsTab({ date, onShowPosts }: { date: DateRangeSta
 
   return (
     <div className="space-y-3" role="tabpanel" id="inf-panel-analytics" aria-labelledby="inf-tab-analytics">
-      <Panel title="اتجاه نشاط المؤثرين" basis={d ? `منشورات الحسابات المتابَعة وعدد الحسابات النشطة ${GRANULARITY[d.granularity]}، حسب وقت النشر على X. لا تشمل المكرر.` : undefined}>
+      <Panel title="اتجاه نشاط المؤثرين" basis={d ? `منشورات الحسابات المتابَعة وعدد الحسابات النشطة ${GRANULARITY[d.granularity]}، حسب وقت النشر على إكس. لا تشمل المكرر.` : undefined}>
         <StateBox {...box} height={300} empty={noActivity} emptyText="لا يوجد نشاط من الحسابات المتابَعة في هذه الفترة.">
           {d && <TrendChart d={d} c={c} />}
         </StateBox>
@@ -113,7 +113,7 @@ function Bars({ rows }: { rows: Array<{ key: string; value: number; color: strin
             <span className="inf-bar" aria-hidden="true"><span style={{ width: `${(r.value / max) * 100}%`, background: r.color }} /></span>
             <span className="inf-bar-value">{fmtNum(r.value)}</span>
           </div>
-          {r.hint && <div className="text-[11px] muted mt-0.5">{r.hint}</div>}
+          {r.hint && <div className="text-xs muted mt-0.5">{r.hint}</div>}
         </li>
       ))}
     </ul>

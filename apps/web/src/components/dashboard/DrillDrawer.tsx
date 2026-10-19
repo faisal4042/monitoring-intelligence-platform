@@ -8,6 +8,7 @@ import { fmtDateTime, fmtNum } from '../../lib/format';
 import Avatar from '../Avatar';
 import type { Drill } from './types';
 
+import { Button } from '../ui/Button';
 interface Item { id: string; posted_at: string; text: string | null; url: string | null; intent: string | null; relevance?: string; sentiment_group?: string | null;
   human_reviewed?: boolean; username: string | null; display_name: string | null; profile_image_url: string | null; program_name: string | null }
 interface Page { total: number; items: Item[]; nextCursor: string | null; story?: { title: string; postCount: number } }
@@ -36,14 +37,14 @@ export default function DrillDrawer({ drill, baseQuery, onClose }: { drill: Dril
         <button  className="icon-button" aria-label="إغلاق" onClick={onClose}><X size={18} /></button>
       </header>
       {list.isLoading && <div className="dash-skeleton" style={{ height: 160 }} aria-busy="true" />}
-      {list.error && <p role="alert" className="text-red-600">{(list.error as Error).message}</p>}
+      {list.error && <p role="alert" className="text-(--status-danger)">{(list.error as Error).message}</p>}
       {first && !items.length && <p className="dash-state">لا توجد منشورات.</p>}
       <ul className="space-y-2">{items.map((i) => <li key={i.id} className="rounded-lg border p-3 space-y-1.5" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-2 text-sm">
           <Avatar src={i.profile_image_url} name={i.display_name} username={i.username} size={28} />
           <span className="min-w-0 flex-1"><strong className="block truncate">{i.display_name ?? i.username ?? 'حساب غير متاح'}</strong>
             {i.username && <span className="text-xs muted" dir="ltr">@{i.username}</span>}</span>
-          {i.url && <a className="icon-button" href={i.url} target="_blank" rel="noreferrer" aria-label="فتح في X"><ExternalLink size={14} /></a>}
+          {i.url && <a className="icon-button" href={i.url} target="_blank" rel="noreferrer" aria-label="فتح في إكس"><ExternalLink size={14} /></a>}
         </div>
         <p className="text-sm leading-7 whitespace-pre-wrap" dir="auto">{i.text ?? 'النص غير متاح'}</p>
         <p className="text-xs muted flex flex-wrap gap-x-3">
@@ -54,6 +55,6 @@ export default function DrillDrawer({ drill, baseQuery, onClose }: { drill: Dril
           {i.human_reviewed && <span>معتمد بمراجعة بشرية</span>}
         </p>
       </li>)}</ul>
-      {list.hasNextPage && <button className="btn-ghost w-full" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>تحميل المزيد</button>}
+      {list.hasNextPage && <Button variant="ghost" type="submit" className="w-full" disabled={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>تحميل المزيد</Button>}
     </ModalSurface>;
 }

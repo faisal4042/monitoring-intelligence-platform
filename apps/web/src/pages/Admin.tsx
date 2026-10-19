@@ -3,7 +3,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { fmtDateTime } from '../lib/format';
-import { ChevronDown, ScrollText, Settings2 } from 'lucide-react';
+import { ChevronDown, ScrollText, ServerCog } from 'lucide-react';
+import { collectionModeBadge } from '../lib/collection-mode';
+import { Badge, type BadgeTone } from '../components/ui/Badge';
+
+const SEVERITY: Record<string, { label: string; tone: BadgeTone }> = {
+  info: { label: 'معلومة', tone: 'neutral' }, warning: { label: 'تحذير', tone: 'warning' }, critical: { label: 'حرج', tone: 'danger' },
+};
+const onOff = (v?: boolean) => (v ? 'مفعّل' : 'غير مفعّل');
 
 const AUDIT_PAGE_SIZE = 10;
 
@@ -25,7 +32,7 @@ interface Health {
 const COUNT_LABELS: Record<string, string> = {
   posts: 'المنشورات', authors: 'الحسابات', queries: 'الاستعلامات',
   active_queries: 'استعلامات نشطة', keywords: 'الكلمات',
-  api_calls: 'طلبات API', denials: 'طلبات مرفوضة', active_kills: 'إيقافات نشطة',
+  api_calls: 'طلبات إكس', denials: 'طلبات مرفوضة', active_kills: 'إيقافات نشطة',
 };
 
 export default function Admin() {
@@ -43,7 +50,7 @@ export default function Admin() {
   const [auditVisible, setAuditVisible] = useState(AUDIT_PAGE_SIZE);
 
   const Dot = ({ ok }: { ok: boolean }) => (
-    <span className={`inline-block w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+    <span className={`inline-block w-2 h-2 rounded-full ${ok ? 'bg-(--status-success)' : 'bg-slate-400'}`} />
   );
 
   // Non-null means an active, hard-limit budget is exceeded right now (not
@@ -59,7 +66,7 @@ export default function Admin() {
     <div className="space-y-5">
       <div className="page-heading">
         <div>
-          <h1 className="flex items-center gap-2.5"><Settings2 size={22} className="text-brand-600" /> لوحة النظام</h1>
+          <h1 className="flex items-center gap-2.5"><ServerCog size={22} className="text-brand-600" /> لوحة النظام</h1>
           <p>حالة الخدمات والاستهلاك وسجل التدقيق</p>
         </div>
       </div>
@@ -75,16 +82,16 @@ export default function Admin() {
               <span className="num muted">{h?.database.latencyMs}ms</span>
             </div>
             <div className="flex justify-between">
-              <span className="flex items-center gap-2"><Dot ok /> واجهة API</span>
+              <span className="flex items-center gap-2"><Dot ok /> الواجهة البرمجية</span>
               <span className="muted text-xs">تعمل</span>
             </div>
             <div className="flex justify-between">
-              <span className="flex items-center gap-2"><Dot ok={false} /> Worker والطوابير</span>
-              <span className="muted text-xs">{import.meta.env.VITE_UNIFIED_STAGING === 'true' ? 'العمال معطلون في التجربة' : 'Phase 1.D'}</span>
+              <span className="flex items-center gap-2"><Dot ok={false} /> المعالجة الخلفية والطوابير</span>
+              <span className="muted text-xs">{import.meta.env.VITE_UNIFIED_STAGING === 'true' ? 'العمال معطلون في التجربة' : <>مخطط له في المرحلة <bdi dir="ltr">1.D</bdi></>}</span>
             </div>
             <div className="flex justify-between">
               <span className="flex items-center gap-2"><Dot ok={false} /> خدمة الذكاء</span>
-              <span className="muted text-xs">{import.meta.env.VITE_UNIFIED_STAGING === 'true' ? 'الاتصال الخارجي معطل' : 'Phase 2'}</span>
+              <span className="muted text-xs">{import.meta.env.VITE_UNIFIED_STAGING === 'true' ? 'الاتصال الخارجي معطل' : 'مخطط لها في المرحلة 2'}</span>
             </div>
           </div>
         </div>
@@ -92,14 +99,14 @@ export default function Admin() {
         <div className="card p-4">
           <div className="text-sm font-medium mb-3">وضع الجمع</div>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>الوضع</span><span className="num font-medium">{h?.collection.mode}</span></div>
-            <div className="flex justify-between"><span>LIVE_X_API</span><span className="num">{String(h?.collection.liveXApi)}</span></div>
-            <div className="flex justify-between"><span>X Filtered Stream</span><span className="num">{h?.collection.filteredStream ? 'لحظي' : 'متوقف'}</span></div>
-            <div className="flex justify-between"><span>X_DRY_RUN</span><span className="num">{String(h?.collection.dryRun)}</span></div>
-            <div className="flex justify-between"><span>مفتاح X</span><span className="num">{h?.collection.hasToken ? 'موجود' : 'غير موجود'}</span></div>
+            <div className="flex justify-between"><span>الوضع</span><span title={h?.collection.mode}>{h ? collectionModeBadge(h.collection.mode).text : '—'}</span></div>
+            <div className="flex justify-between"><span title="LIVE_X_API">الاتصال الفعلي بإكس</span><span>{onOff(h?.collection.liveXApi)}</span></div>
+            <div className="flex justify-between"><span>البث المرشّح من إكس</span><span>{h?.collection.filteredStream ? 'لحظي' : 'متوقف'}</span></div>
+            <div className="flex justify-between"><span title="X_DRY_RUN">التشغيل الجاف</span><span>{onOff(h?.collection.dryRun)}</span></div>
+            <div className="flex justify-between"><span>مفتاح إكس</span><span>{h?.collection.hasToken ? 'موجود' : 'غير موجود'}</span></div>
             <div className="flex justify-between text-xs pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
               <span className="muted">بيانات داخلية لمزود خارجي</span>
-              <span className={`num ${h?.ai.allowInternalToExternal ? 'text-red-600' : 'text-emerald-600'}`}>
+              <span className={`num ${h?.ai.allowInternalToExternal ? 'text-(--status-danger)' : 'text-(--status-success)'}`}>
                 {h?.ai.allowInternalToExternal ? 'مسموح' : 'ممنوع'}
               </span>
             </div>
@@ -107,24 +114,24 @@ export default function Admin() {
         </div>
 
         <div className="card p-4">
-          <div className="text-sm font-medium mb-3">آخر طلبات X</div>
+          <div className="text-sm font-medium mb-3">آخر طلبات إكس</div>
           <div className="text-sm space-y-3">
             <div>
               <div className="text-xs muted">آخر نجاح</div>
               <div className="text-xs">
                 {h?.lastSuccessfulRequest
-                  ? `${fmtDateTime(h.lastSuccessfulRequest.occurred_at)} · ${h.lastSuccessfulRequest.mode}`
+                  ? `${fmtDateTime(h.lastSuccessfulRequest.occurred_at)} · ${collectionModeBadge(h.lastSuccessfulRequest.mode).text}`
                   : '—'}
               </div>
             </div>
             <div>
               <div className="text-xs muted">آخر فشل</div>
-              <div className="text-xs text-red-600">{h?.lastFailedRequest?.error_code ?? '—'}</div>
+              <div className="text-xs text-(--status-danger)">{h?.lastFailedRequest?.error_code ? <>رمز الخطأ <bdi dir="ltr">{h.lastFailedRequest.error_code}</bdi></> : '—'}</div>
             </div>
             {denial && (
-              <div className="rounded-lg bg-amber-500/15 px-2.5 py-2">
-                <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                  ⏸ الجمع متوقف الآن — {REASON_AR[denial.reason] ?? denial.reason} ممتلئة
+              <div className="rounded-lg bg-(--status-warning-soft) px-2.5 py-2">
+                <div className="text-xs font-medium text-(--status-warning)">
+                  الجمع متوقف الآن — {REASON_AR[denial.reason] ?? denial.reason} ممتلئة
                 </div>
                 <div className="text-xs muted mt-0.5 num">
                   {denial.current_usage}/{denial.limit_value}
@@ -182,14 +189,10 @@ export default function Admin() {
                 <tr key={a.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
                   <td className="td text-xs muted">{fmtDateTime(a.occurred_at)}</td>
                   <td className="td text-xs">{a.user_email ?? '—'}</td>
-                  <td className="td"><span className="num text-xs">{a.action}</span></td>
+                  <td className="td"><bdi dir="ltr" className="num text-xs">{a.action}</bdi></td>
                   <td className="td text-xs">{a.entity_label ?? a.entity_type}</td>
                   <td className="td">
-                    <span className={`badge ${
-                      a.severity === 'critical' ? 'bg-red-500/15 text-red-600'
-                        : a.severity === 'warning' ? 'bg-amber-500/15 text-amber-600'
-                        : 'bg-[var(--surface-3)]'
-                    }`}>{a.severity}</span>
+                    <Badge tone={SEVERITY[a.severity]?.tone ?? 'neutral'} title={a.severity}>{SEVERITY[a.severity]?.label ?? a.severity}</Badge>
                   </td>
                 </tr>
               ))}

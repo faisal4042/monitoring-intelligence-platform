@@ -12,15 +12,15 @@ const LIGHT = {
   // Categorical order: official teal leads; never the logo indigo (#4A54AE).
   series: ['#1fb5b5', '#e07b39', '#2a6fd1', '#c24d7a'],
   primary: '#1fb5b5', primaryFill: 'rgba(31,181,181,0.16)', compare: '#8e9db1',
-  // Semantic sentiment colours, fixed across every chart.
-  positive: '#0f9d8a', neutral: '#9aa9bb', negative: '#d64545', unclassified: '#e3e9f0',
+  // Semantic sentiment colours, fixed across every chart: blue positive ↔ red negative (DESIGN.md → Charts).
+  positive: '#2a6fd1', neutral: '#9aa9bb', negative: '#d03b3b', unclassified: '#e3e9f0',
   ink: '#0e2a47', muted: '#52637a', grid: '#eaf0f5', axis: '#c2cedb', surface: '#ffffff', track: '#eaf0f5',
 };
 const DARK: typeof LIGHT = {
   dark: true,
   series: ['#18a2a2', '#d17a2e', '#4c82db', '#cc5888'],
   primary: '#1fb5b5', primaryFill: 'rgba(31,181,181,0.22)', compare: '#7f93ab',
-  positive: '#34c7b0', neutral: '#6c84a1', negative: '#ef6b6b', unclassified: '#23466f',
+  positive: '#4c82db', neutral: '#6c84a1', negative: '#e66767', unclassified: '#23466f',
   ink: '#ffffff', muted: '#c5d1de', grid: '#1d3d61', axis: '#2f5a86', surface: '#12304f', track: '#1a3c66',
 };
 export type ChartColors = typeof LIGHT;
@@ -61,10 +61,10 @@ export function base(c: ChartColors) {
     tooltip: {
       confine: true, backgroundColor: c.surface, borderColor: c.axis, borderWidth: 1, padding: [8, 10],
       textStyle: { color: c.ink, fontFamily: 'inherit', fontSize: 12 },
-      extraCssText: 'border-radius:10px;box-shadow:0 8px 24px rgba(14,42,71,.14);',
+      extraCssText: 'border-radius:12px;box-shadow:0 8px 24px rgba(14,42,71,.14);',
     },
   };
 }
 
-export const axisLabel = (c: ChartColors, extra: object = {}) => ({ color: c.muted, fontSize: 11, fontFamily: 'inherit', ...extra });
+export const axisLabel = (c: ChartColors, extra: object = {}) => ({ color: c.muted, fontSize: 12, fontFamily: 'inherit', ...extra });
 export const splitLine = (c: ChartColors) => ({ lineStyle: { color: c.grid } });

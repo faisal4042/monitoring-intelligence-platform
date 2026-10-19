@@ -17,11 +17,11 @@
 .studio-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: .7rem; }
 /* Sliders need the whole row for the bar and its number. */
 .studio-field:has(.studio-range) { grid-column: 1 / -1; }
-.studio-group-title { grid-column: 1 / -1; font-size: .75rem; font-weight: 600; color: var(--text-muted); margin-top: .25rem; }
+.studio-group-title { grid-column: 1 / -1; font-size: .75rem; font-weight: 400; color: var(--text-muted); margin-top: .25rem; }
 .studio-field { display: flex; flex-direction: column; gap: .3rem; font-size: .8125rem; min-width: 0; }
-.studio-field > label { font-weight: 600; }
-.studio-field[data-invalid='true'] .input { border-color: #d03b3b; }
-.studio-error { color: #b52f2f; }
+.studio-field > label { font-weight: 400; }
+.studio-field[data-invalid='true'] .input { border-color: var(--status-danger); }
+.studio-error { color: var(--status-danger); }
 .studio-color { display: flex; gap: .4rem; align-items: center; }
 .studio-color input[type='color'] { width: 2.25rem; height: 2.25rem; flex: 0 0 auto; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); cursor: pointer; }
 .studio-color .input { min-width: 0; }
@@ -37,11 +37,11 @@
 .studio-preview-stage { padding: 1rem; background: var(--surface-3); border-radius: var(--radius); min-height: 420px; overflow: auto; }
 .studio-preview-stage[data-view='mobile'] .card-export-pages { max-width: 390px; margin-inline: auto; }
 .studio-banner { padding: .55rem .75rem; border-radius: var(--radius); font-size: .8125rem; background: var(--accent-soft); border: 1px solid var(--accent); }
-.studio-banner--warn { background: #fbf3e3; border-color: #e0b866; color: #6b4a0c; }
+.studio-banner--warn { background: var(--status-warning-soft); border-color: color-mix(in srgb, var(--status-warning) 35%, var(--border)); color: var(--status-warning); }
 .studio-versions { display: flex; flex-direction: column; gap: .4rem; }
 .studio-version { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: var(--radius); font-size: .8125rem; }
 .studio-assets { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: .4rem; grid-column: 1 / -1; }
-.studio-asset { padding: .3rem; border: 1px solid var(--border); border-radius: var(--radius); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 50% / 12px 12px; cursor: pointer; }
+.studio-asset { padding: .3rem; border: 1px solid var(--border); border-radius: var(--radius); background: repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 50% / 12px 12px; cursor: pointer; }
 .studio-asset[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .studio-asset canvas { display: block; max-width: 100%; height: 48px; margin-inline: auto; object-fit: contain; }
 @media (max-width: 1280px) { .studio { grid-template-columns: 240px minmax(0, 1fr); } .studio-preview { grid-column: 1 / -1; } }

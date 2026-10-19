@@ -12,8 +12,8 @@ export type SourceCardKind = (typeof SOURCE_CARD_KINDS)[number];
 export const isSourceCard = (item: Pick<QueueItem, 'interaction_type'>): item is QueueItem & {interaction_type: SourceCardKind} =>
   (SOURCE_CARD_KINDS as readonly string[]).includes(item.interaction_type);
 
-export const SOURCE_KIND_LABELS: Record<SourceCardKind, string> = {news: 'خبر', youtube_video: 'فيديو YouTube', youtube_comment: 'تعليق YouTube'};
-export const SOURCE_OPEN_LABELS: Record<SourceCardKind, string> = {news: 'فتح الخبر', youtube_video: 'مشاهدة على YouTube', youtube_comment: 'فتح التعليق على YouTube'};
+export const SOURCE_KIND_LABELS: Record<SourceCardKind, string> = {news: 'خبر', youtube_video: 'فيديو يوتيوب', youtube_comment: 'تعليق يوتيوب'};
+export const SOURCE_OPEN_LABELS: Record<SourceCardKind, string> = {news: 'فتح الخبر', youtube_video: 'مشاهدة على يوتيوب', youtube_comment: 'فتح التعليق على يوتيوب'};
 
 export function SourceIcon({kind, size = 18}: {kind: SourceCardKind; size?: number}) {
   const Icon = kind === 'news' ? Newspaper : kind === 'youtube_video' ? Youtube : MessageSquare;
@@ -25,7 +25,7 @@ export type SourceKey = 'x' | 'story' | 'news' | 'youtube_video' | 'youtube_comm
 export const sourceKeyOf = (item: Pick<QueueItem, 'interaction_type'>): SourceKey => (item.interaction_type === 'post' ? 'x' : item.interaction_type);
 const XLogo = ({size = 12}: {size?: number}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>;
-export const SOURCE_BADGE_LABELS: Record<SourceKey, string> = {x: 'منشور', story: 'قصة X', news: 'خبر', youtube_video: 'YouTube · فيديو', youtube_comment: 'YouTube · تعليق'};
+export const SOURCE_BADGE_LABELS: Record<SourceKey, string> = {x: 'منشور', story: 'قصة إكس', news: 'خبر', youtube_video: 'يوتيوب · فيديو', youtube_comment: 'يوتيوب · تعليق'};
 /** The coloured source badge shown first on every card. */
 export function SourceBadge({item, iconOnly = false}: {item: Pick<QueueItem, 'interaction_type'>; iconOnly?: boolean}) {
   const key = sourceKeyOf(item);
@@ -34,8 +34,8 @@ export function SourceBadge({item, iconOnly = false}: {item: Pick<QueueItem, 'in
 }
 /** Source filter chips: the `kind` query value of each (YouTube = videos and comments). */
 export const SOURCE_FILTERS: Array<{label: string; kinds: string}> = [
-  {label: 'كل المصادر', kinds: ''}, {label: 'X', kinds: 'post'}, {label: 'الأخبار', kinds: 'news'},
-  {label: 'YouTube', kinds: 'youtube_video,youtube_comment'}, {label: 'القصص', kinds: 'story'},
+  {label: 'كل المصادر', kinds: ''}, {label: 'إكس', kinds: 'post'}, {label: 'الأخبار', kinds: 'news'},
+  {label: 'يوتيوب', kinds: 'youtube_video,youtube_comment'}, {label: 'القصص', kinds: 'story'},
 ];
 export function SourceFilter({value, onChange, withStories = true}: {value: string; onChange: (kinds: string) => void; withStories?: boolean}) {
   return <div className="queue-source-filter" role="group" aria-label="مصدر التفاعل">

@@ -14,6 +14,7 @@ import Lightbox from '../Lightbox';
 import AuthorHistoryModal from '../AuthorHistoryModal';
 import { Pill } from './shared';
 
+import { Button } from '../ui/Button';
 interface WhyCollected {
   matched_keywords: string[] | null; filter_reason: string | null; status: string;
   query_id: string | null; query_name: string | null; version: number | null; compiled: string | null;
@@ -68,9 +69,9 @@ export default function PostDrawer({ post: p, onClose, onFilterAccount }: {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <a className="btn-primary" href={p.url} target="_blank" rel="noreferrer"><ExternalLink size={15} /> فتح المنشور على X</a>
-          {canHistory && <button className="btn-ghost" onClick={() => setHistory(true)}><History size={15} /> سجل العميل</button>}
-          {onFilterAccount && <button className="btn-ghost" onClick={onFilterAccount}><Filter size={15} /> كل منشورات هذا الحساب</button>}
+          <a className="btn-primary" href={p.url} target="_blank" rel="noreferrer"><ExternalLink size={15} /> فتح المنشور على إكس</a>
+          {canHistory && <Button variant="ghost" type="submit" onClick={() => setHistory(true)}><History size={15} /> سجل العميل</Button>}
+          {onFilterAccount && <Button variant="ghost" type="submit" onClick={onFilterAccount}><Filter size={15} /> كل منشورات هذا الحساب</Button>}
         </div>
 
         <p className="inf-full-text">{p.text}</p>
@@ -107,7 +108,7 @@ export default function PostDrawer({ post: p, onClose, onFilterAccount }: {
         <div className="inf-why">
           <h3 className="mb-2 font-bold text-sm">لماذا جمعنا هذا المنشور؟</h3>
           {why.isLoading && <p className="muted">جارٍ التحميل…</p>}
-          {why.error && <p role="alert" className="text-red-600">{(why.error as Error).message}</p>}
+          {why.error && <p role="alert" className="text-(--status-danger)">{(why.error as Error).message}</p>}
           {why.data && (
             <dl className="inf-dl">
               <dt>الاستعلام</dt><dd>{why.data.query_name ?? <span className="muted">غير محدد</span>}{why.data.version ? <span className="muted num"> · v{why.data.version}</span> : null}</dd>
@@ -117,7 +118,7 @@ export default function PostDrawer({ post: p, onClose, onFilterAccount }: {
                 : <span className="muted">لا توجد</span>}</dd>
               {why.data.reason_ar && <><dt>سبب التصنيف</dt><dd>{why.data.reason_ar}</dd></>}
               {why.data.filter_reason && <><dt>سبب الاستبعاد</dt><dd className="num">{why.data.filter_reason}</dd></>}
-              {why.data.compiled && <><dt>نص الاستعلام</dt><dd><code className="block text-[11px] leading-5 num" style={{ direction: 'ltr', textAlign: 'left', whiteSpace: 'pre-wrap' }}>{why.data.compiled}</code></dd></>}
+              {why.data.compiled && <><dt>نص الاستعلام</dt><dd><code className="block text-xs leading-5 num" style={{ direction: 'ltr', textAlign: 'left', whiteSpace: 'pre-wrap' }}>{why.data.compiled}</code></dd></>}
             </dl>
           )}
         </div>

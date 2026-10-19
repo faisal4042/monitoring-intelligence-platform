@@ -21,6 +21,7 @@ import Avatar from '../components/Avatar';
 import AuthorHistoryModal from '../components/AuthorHistoryModal';
 import SearchLink from '../components/search/SearchLink';
 
+import { Button } from '../components/ui/Button';
 interface Program { id: string; name_ar: string; color: string }
 interface Topic {
   id: string; program_id: string; name_ar: string; description: string | null;
@@ -68,9 +69,9 @@ type ReviewAction = {
 };
 
 const supportTier = (count: number) => {
-  if (count >= 3) return { label: 'جاهز للاعتماد', className: 'bg-emerald-500/15 text-emerald-600' };
-  if (count === 2) return { label: 'مراجعة سريعة', className: 'bg-amber-500/15 text-amber-600' };
-  return { label: 'اعتماد استثنائي', className: 'bg-red-500/15 text-red-600' };
+  if (count >= 3) return { label: 'جاهز للاعتماد', className: 'bg-(--status-success-soft) text-(--status-success)' };
+  if (count === 2) return { label: 'مراجعة سريعة', className: 'bg-(--status-warning-soft) text-(--status-warning)' };
+  return { label: 'اعتماد استثنائي', className: 'bg-(--status-danger-soft) text-(--status-danger)' };
 };
 
 const evidenceTerms = (suggestion: TopicSuggestion) => {
@@ -291,7 +292,7 @@ export default function InteractionClassification() {
       </div>
 
       {view === 'approved' && !dateRange.error && <>
-        <button className="btn-ghost" onClick={restart} disabled={interactionsRead.isFetching}>تحديث العرض</button>
+        <Button variant="ghost" type="submit" onClick={restart} disabled={interactionsRead.isFetching}>تحديث العرض</Button>
         <V1BrowsingStatus error={interactionsRead.error} hasMore={interactions?.hasMore} busy={interactionsRead.isFetching} onRestart={restart} onRetry={() => void interactionsRead.refetch()} />
         <CursorPager shown={interactionsRead.isError ? 0 : (interactions?.items ?? []).length} page={navigation.page} pageKnown={navigation.pageKnown}
           cursor={navigation.cursor} nextCursor={interactions?.hasMore === true ? interactions.nextCursor : null} canPrevious={navigation.canPrevious}
@@ -307,15 +308,15 @@ export default function InteractionClassification() {
           </div>
           <div className="card p-3">
             <div className="text-xs muted">مرتبطة (تشابه)</div>
-            <div className="text-xl font-bold num text-emerald-600">{fmtNum(stats.linkedStage2)}</div>
+            <div className="text-xl font-bold num text-(--status-success)">{fmtNum(stats.linkedStage2)}</div>
           </div>
           <div className="card p-3">
-            <div className="text-xs muted">مرتبطة (LLM)</div>
-            <div className="text-xl font-bold num text-emerald-600">{fmtNum(stats.linkedStage3)}</div>
+            <div className="text-xs muted">مرتبطة (نموذج لغوي)</div>
+            <div className="text-xl font-bold num text-(--status-success)">{fmtNum(stats.linkedStage3)}</div>
           </div>
           <div className="card p-3">
             <div className="text-xs muted" title="لم تُفحص بعد">قيد الانتظار</div>
-            <div className="text-xl font-bold num text-amber-600">{fmtNum(stats.pending)}</div>
+            <div className="text-xl font-bold num text-(--status-warning)">{fmtNum(stats.pending)}</div>
           </div>
           <div className="card p-3">
             <div className="text-xs muted" title="فُحصت ولم تطابق أي موضوع بثقة كافية">مستبعدة</div>
@@ -355,9 +356,9 @@ export default function InteractionClassification() {
                 title={t.description ?? undefined}
               >
                 {t.name_ar}
-                <span className="num text-[10px] opacity-70">{t.post_count}</span>
-                <span className="text-[10px] opacity-70">✓ {t.human_reviewed_count}</span>
-                {t.avg_similarity !== null && <span className="num text-[10px] opacity-70">{fmtPct(t.avg_similarity)}</span>}
+                <span className="num text-xs opacity-70">{t.post_count}</span>
+                <span className="text-xs opacity-70">✓ {t.human_reviewed_count}</span>
+                {t.avg_similarity !== null && <span className="num text-xs opacity-70">{fmtPct(t.avg_similarity)}</span>}
               </button>
             ))}
           </div>
@@ -387,16 +388,14 @@ export default function InteractionClassification() {
 
         {canManage && (
           <>
-            {view === 'approved' && <button className="btn-ghost" onClick={openCreateTopic} disabled={!programs?.items.length}>
+            {view === 'approved' && <Button variant="ghost" type="submit" onClick={openCreateTopic} disabled={!programs?.items.length}>
               <Plus size={15} /> موضوع جديد
-            </button>}
-            <button
-              className="btn-primary"
+            </Button>}
+            <Button variant="primary" type="submit"
               disabled={runClassification.isPending}
-              onClick={() => confirmation.request({title:'تشغيل التصنيف',description:'سيُشغّل التصنيف على التفاعلات وفق النطاق الحالي وقد يغير ارتباطها بالمواضيع ويستهلك موارد التضمين.',confirmLabel:'تشغيل التصنيف',allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>runClassification.mutateAsync()})}
-            >
+              onClick={() => confirmation.request({title:'تشغيل التصنيف',description:'سيُشغّل التصنيف على التفاعلات وفق النطاق الحالي وقد يغير ارتباطها بالمواضيع ويستهلك موارد التضمين.',confirmLabel:'تشغيل التصنيف',allowed:can=>can(PERMISSIONS.TOPICS_MANAGE),execute:()=>runClassification.mutateAsync()})}>
               <Zap size={15} /> {runClassification.isPending ? 'جارٍ التصنيف…' : 'تشغيل التصنيف'}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -405,24 +404,24 @@ export default function InteractionClassification() {
         <div className="card p-3 text-sm">
           فُحص <span className="num font-medium">{runClassification.data.considered}</span> منشوراً
           ({runClassification.data.embedded} منها تم تضمينه حديثاً)،
-          {' '}ورُبط <span className="num font-medium text-emerald-600">{runClassification.data.linked}</span> منها بموضوع بثقة عالية،
+          {' '}ورُبط <span className="num font-medium text-(--status-success)">{runClassification.data.linked}</span> منها بموضوع بثقة عالية،
           {' '}وتُرك <span className="num font-medium">{runClassification.data.skipped}</span> بلا ربط لعدم بلوغ الحد الأدنى.
         </div>
       )}
       {runClassification.error && (
-        <div className="card p-3 text-sm text-red-600">
+        <div className="card p-3 text-sm text-(--status-danger)">
           {(runClassification.error as ApiError).message}
         </div>
       )}
 
       {view === 'approved' && canManage && topicsWithoutCentroid.length > 0 && (
         <div className="card p-3">
-          <div className="text-sm font-medium mb-2">مواضيع بلا centroid — لن تُستخدم في المطابقة حتى تُحسب:</div>
+          <div className="text-sm font-medium mb-2">مواضيع بلا متجه مركزي — لن تُستخدم في المطابقة حتى تُحسب:</div>
           <div className="flex flex-wrap gap-2">
             {topicsWithoutCentroid.map((t) => (
               <button
                 key={t.id}
-                className="badge bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                className="badge bg-(--status-warning-soft) text-(--status-warning)"
                 onClick={() => computeCentroid.mutate(t.id)}
                 disabled={computeCentroid.isPending}
               >
@@ -431,7 +430,7 @@ export default function InteractionClassification() {
             ))}
           </div>
           {computeCentroid.error && (
-            <div className="text-xs text-red-600 mt-2">{(computeCentroid.error as ApiError).message}</div>
+            <div className="text-xs text-(--status-danger) mt-2">{(computeCentroid.error as ApiError).message}</div>
           )}
         </div>
       )}
@@ -479,7 +478,7 @@ export default function InteractionClassification() {
                       {suggestion.program_name}{suggestion.service_name ? ` · ${suggestion.service_name}` : ''}
                     </div>
                   </div>
-                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: suggestion.program_color ?? '#888' }} />
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: suggestion.program_color ?? 'var(--text-subtle)' }} />
                 </div>
                 {suggestion.description && <p className="mt-3 text-sm leading-6 muted">{suggestion.description}</p>}
                 {evidenceTerms(suggestion).length > 0 && (
@@ -498,7 +497,7 @@ export default function InteractionClassification() {
                         <button
                           type="button"
                           key={topic.id}
-                          className={`badge ${topic.similarity >= 0.82 ? 'bg-amber-500/15 text-amber-600' : 'bg-[var(--surface-2)]'}`}
+                          className={`badge ${topic.similarity >= 0.82 ? 'bg-(--status-warning-soft) text-(--status-warning)' : 'bg-[var(--surface-2)]'}`}
                           onClick={() => setMergeTargets((current) => ({ ...current, [suggestion.id]: topic.id }))}
                         >
                           {topic.name_ar} · <span className="num">{fmtPct(topic.similarity)}</span>
@@ -520,14 +519,13 @@ export default function InteractionClassification() {
               {canManage && (
                 <div className="border-t border-[var(--border)] bg-[var(--surface-2)] p-3">
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      className="btn-primary !py-1.5 !text-xs"
+                    <Button variant="primary" type="submit"
+                      className="!py-1.5 !text-xs"
                       disabled={reviewSuggestion.isPending}
                       title={!suggestion.eligible ? 'سيُسجل كاعتماد يدوي استثنائي لعدم اكتمال عدد التفاعلات الداعمة' : ''}
-                      onClick={() => openReview(suggestion, 'approve')}
-                    >
+                      onClick={() => openReview(suggestion, 'approve')}>
                       {suggestion.eligible ? 'اعتماد الموضوع' : 'اعتماد يدوي'}
-                    </button>
+                    </Button>
                     <select
                       className="input !w-48 !py-1.5 !text-xs"
                       value={mergeTargets[suggestion.id] ?? ''}
@@ -538,16 +536,14 @@ export default function InteractionClassification() {
                         <option key={t.id} value={t.id}>{t.name_ar}</option>
                       ))}
                     </select>
-                    <button
-                      className="btn-ghost !py-1.5 !text-xs"
+                    <Button variant="ghost" type="submit"
+                      className="!py-1.5 !text-xs"
                       disabled={!mergeTargets[suggestion.id] || reviewSuggestion.isPending}
-                      onClick={() => openReview(suggestion, 'merge', mergeTargets[suggestion.id])}
-                    >دمج</button>
-                    <button
-                      className="btn-ghost !py-1.5 !text-xs !text-red-600"
+                      onClick={() => openReview(suggestion, 'merge', mergeTargets[suggestion.id])}>دمج</Button>
+                    <Button variant="ghost" type="submit"
+                      className="!py-1.5 !text-xs !text-(--status-danger)"
                       disabled={reviewSuggestion.isPending}
-                      onClick={() => openReview(suggestion, 'reject')}
-                    >رفض</button>
+                      onClick={() => openReview(suggestion, 'reject')}>رفض</Button>
                   </div>
                 </div>
               )}
@@ -572,7 +568,7 @@ export default function InteractionClassification() {
                   <div className="flex flex-wrap items-center gap-2 text-xs muted">
                     <span className="font-medium text-[var(--text)]">{it.display_name ?? it.username ?? 'حساب غير معروف'}</span>
                     {it.program_name && <span>{it.program_name}</span>}
-                    <span className={`badge ${it.has_embedding ? 'bg-amber-500/15 text-amber-600' : 'bg-slate-500/15'}`}>
+                    <span className={`badge ${it.has_embedding ? 'bg-(--status-warning-soft) text-(--status-warning)' : 'bg-slate-500/15'}`}>
                       {it.suggestion_name ? `ضمن مقترح: ${it.suggestion_name}` : it.has_embedding ? 'لم يبلغ حد الثقة' : 'بانتظار الفحص'}
                     </span>
                   </div>
@@ -591,11 +587,10 @@ export default function InteractionClassification() {
                             <option key={t.id} value={t.id}>{t.name_ar}</option>
                           ))}
                         </select>
-                        <button
-                          className="btn-primary !px-3 !py-1 !text-xs"
+                        <Button variant="primary" type="submit"
+                          className="!px-3 !py-1 !text-xs"
                           disabled={!assignmentTargets[it.id] || topicFeedback.isPending}
-                          onClick={() => topicFeedback.mutate({ id: it.id, correct: false, correctTopicId: assignmentTargets[it.id] })}
-                        >ربط</button>
+                          onClick={() => topicFeedback.mutate({ id: it.id, correct: false, correctTopicId: assignmentTargets[it.id] })}>ربط</Button>
                       </div>
                     )}
                   </div>
@@ -639,7 +634,7 @@ export default function InteractionClassification() {
                       <>
                         <span aria-hidden="true">·</span>
                         <span className="inline-flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full inline-block" style={{ background: it.program_color ?? '#888' }} />
+                          <span className="h-2 w-2 rounded-full inline-block" style={{ background: it.program_color ?? 'var(--text-subtle)' }} />
                           {it.program_name}
                         </span>
                       </>
@@ -654,7 +649,7 @@ export default function InteractionClassification() {
                   {it.stage === 2 ? (
                     <span className="num text-xs muted" title="درجة التشابه مع مركز الموضوع">{fmtPct(it.confidence)}</span>
                   ) : (
-                    <span className="text-xs text-emerald-600">مراجع بشريًا</span>
+                    <span className="text-xs text-(--status-success)">مراجع بشريًا</span>
                   )}
                 </div>
               </div>
@@ -664,8 +659,8 @@ export default function InteractionClassification() {
                 <DateTime value={it.posted_at} />
                 {canFeedback && (
                   <div className="ms-auto flex flex-wrap justify-end gap-1.5">
-                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-emerald-600" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: true })}><Check size={13} /> التصنيف صحيح</button>
-                    <button className="btn-ghost !px-2 !py-1 !text-xs !text-red-600" disabled={topicFeedback.isPending} onClick={() => confirmation.request({title:'رفض تصنيف التفاعل',description:`التفاعل ${it.id} سيُسجل كتصنيف خاطئ وفق قواعد المراجعة الحالية.`,confirmLabel:'رفض التصنيف',danger:true,allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>topicFeedback.mutateAsync({id:it.id,correct:false})})}><X size={13} /> التصنيف خاطئ</button>
+                    <Button variant="ghost" type="submit" className="!px-2 !py-1 !text-xs !text-(--status-success)" disabled={topicFeedback.isPending} onClick={() => topicFeedback.mutate({ id: it.id, correct: true })}><Check size={13} /> التصنيف صحيح</Button>
+                    <Button variant="ghost" type="submit" className="!px-2 !py-1 !text-xs !text-(--status-danger)" disabled={topicFeedback.isPending} onClick={() => confirmation.request({title:'رفض تصنيف التفاعل',description:`التفاعل ${it.id} سيُسجل كتصنيف خاطئ وفق قواعد المراجعة الحالية.`,confirmLabel:'رفض التصنيف',danger:true,allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>topicFeedback.mutateAsync({id:it.id,correct:false})})}><X size={13} /> التصنيف خاطئ</Button>
                     <select
                       className="input !w-44 !py-1 !text-xs"
                       value={moveTargets[it.id] ?? ''}
@@ -677,11 +672,10 @@ export default function InteractionClassification() {
                         <option key={topic.id} value={topic.id}>{topic.name_ar}</option>
                       ))}
                     </select>
-                    <button
-                      className="btn-ghost !px-2 !py-1 !text-xs"
+                    <Button variant="ghost" type="submit"
+                      className="!px-2 !py-1 !text-xs"
                       disabled={!moveTargets[it.id] || topicFeedback.isPending}
-                      onClick={() => confirmation.request({title:'نقل التفاعل إلى موضوع آخر',description:`نقل ${it.id} إلى «${topics?.items.find(t=>t.id===moveTargets[it.id])?.name_ar??moveTargets[it.id]}».`,confirmLabel:'نقل التفاعل',allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>topicFeedback.mutateAsync({id:it.id,correct:false,correctTopicId:moveTargets[it.id]})})}
-                    >نقل</button>
+                      onClick={() => confirmation.request({title:'نقل التفاعل إلى موضوع آخر',description:`نقل ${it.id} إلى «${topics?.items.find(t=>t.id===moveTargets[it.id])?.name_ar??moveTargets[it.id]}».`,confirmLabel:'نقل التفاعل',allowed:can=>can(PERMISSIONS.FEEDBACK_WRITE),execute:()=>topicFeedback.mutateAsync({id:it.id,correct:false,correctTopicId:moveTargets[it.id]})})}>نقل</Button>
                   </div>
                 )}
               </div>
@@ -699,7 +693,7 @@ export default function InteractionClassification() {
               اختر البرنامج ثم أضف اسمًا واضحًا ووصفًا يساعد على تصنيف التفاعلات بدقة.
             </p>
             <label className="mb-3 block text-xs font-medium">
-              البرنامج <span className="text-red-500">*</span>
+              البرنامج <span className="text-(--status-danger)">*</span>
               <select
                 className="input mt-1.5"
                 value={createProgramId}
@@ -722,11 +716,11 @@ export default function InteractionClassification() {
             </select>
             <div className="flex gap-2 justify-end">
               <ModalCloseButton type="button" className="btn-ghost" onClick={() => setCreating(false)}>إلغاء</ModalCloseButton>
-              <button className="btn-primary" disabled={!createProgramId || !nameAr.trim() || createTopic.isPending}>
+              <Button variant="primary" type="submit" disabled={!createProgramId || !nameAr.trim() || createTopic.isPending}>
                 {createTopic.isPending ? 'جارٍ الإنشاء…' : 'إنشاء الموضوع'}
-              </button>
+              </Button>
             </div>
-            {createTopic.error && <div className="text-xs text-red-600 mt-3">{(createTopic.error as ApiError).message}</div>}
+            {createTopic.error && <div className="text-xs text-(--status-danger) mt-3">{(createTopic.error as ApiError).message}</div>}
           </ModalSurface>
       )}
 
@@ -762,7 +756,7 @@ export default function InteractionClassification() {
                     <textarea className="input mt-1.5" rows={3} value={reviewDescription} onChange={(event) => setReviewDescription(event.target.value)} />
                   </label>
                   {(reviewAction.suggestion.similar_topics ?? []).some((topic) => topic.similarity >= 0.82) && (
-                    <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                    <div className="rounded-lg border border-(--status-warning)/40 bg-(--status-warning-soft) p-3 text-xs text-(--status-warning)">
                       يوجد موضوع معتمد قريب بنسبة مرتفعة. راجع خيار الدمج قبل إنشاء موضوع جديد لتجنب التكرار.
                     </div>
                   )}
@@ -775,12 +769,12 @@ export default function InteractionClassification() {
                 <p className="text-sm leading-6">سيُرفض المقترح ولن يظهر ضمن المواضيع المعتمدة، مع بقاء سجله محفوظًا للتدقيق.</p>
               )}
 
-              {reviewSuggestion.error && <div className="text-sm text-red-600">{(reviewSuggestion.error as ApiError).message}</div>}
+              {reviewSuggestion.error && <div className="text-sm text-(--status-danger)">{(reviewSuggestion.error as ApiError).message}</div>}
             </div>
             <div className="flex justify-end gap-2 border-t border-[var(--border)] bg-[var(--surface-2)] p-4">
               <ModalCloseButton className="btn-ghost" onClick={() => setReviewAction(null)} disabled={reviewSuggestion.isPending}>إلغاء</ModalCloseButton>
               <button
-                className={reviewAction.action === 'reject' ? 'btn-ghost !text-red-600' : 'btn-primary'}
+                className={reviewAction.action === 'reject' ? 'btn-ghost !text-(--status-danger)' : 'btn-primary'}
                 disabled={reviewSuggestion.isPending || (reviewAction.action === 'approve' && !reviewName.trim())}
                 onClick={() => reviewSuggestion.mutate({
                   id: reviewAction.suggestion.id,

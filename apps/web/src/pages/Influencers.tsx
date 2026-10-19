@@ -16,6 +16,7 @@ import { Delta, Kpi, StateBox } from '../components/influencers/shared';
 import '../components/influencers/influencers.css';
 import SearchLink from '../components/search/SearchLink';
 
+import { Button } from '../components/ui/Button';
 // The card template studio loads only when its tab is opened.
 const CardStudio = lazy(() => import('../components/influencers/card-studio/CardStudio'));
 
@@ -74,7 +75,7 @@ export default function Influencers() {
         <div className="flex flex-wrap items-center gap-2">
           <DateRangeFilter state={date} />
           <SearchLink q="influencer:true" label="بحث في منشورات المؤثرين" />
-          {canWrite && <button className="btn-primary" onClick={() => setAdding(true)}><Plus size={15} /> إضافة حسابات</button>}
+          {canWrite && <Button variant="primary" type="submit" onClick={() => setAdding(true)}><Plus size={15} /> إضافة حسابات</Button>}
         </div>
       </div>
 

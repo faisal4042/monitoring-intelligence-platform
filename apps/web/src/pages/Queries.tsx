@@ -13,6 +13,7 @@ import { queryActions, queryStateLabel, resumeDescription } from '../lib/diction
 import { PERMISSIONS } from '@mip/shared';
 import { FlaskConical, History, Pause, Pencil, Play, Plus, RotateCcw, SearchCode, Trash2 } from 'lucide-react';
 
+import { Button } from '../components/ui/Button';
 interface Row {
   id: string; name: string; description: string | null; status: string; program_name: string; program_color: string;
   compiled: string; version: number; total_units: number; total_relevant: number;
@@ -27,11 +28,11 @@ interface Version {
 }
 
 const TONE: Record<string, string> = {
-  ok: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  warn: 'bg-amber-500/15 text-amber-600',
+  ok: 'bg-(--status-success-soft) text-(--status-success)',
+  warn: 'bg-(--status-warning-soft) text-(--status-warning)',
   info: 'bg-brand-500/15 text-brand-600 dark:text-brand-400',
   muted: 'bg-slate-500/15 text-slate-600 dark:text-slate-400',
-  danger: 'bg-red-500/15 text-red-600 dark:text-red-400',
+  danger: 'bg-(--status-danger-soft) text-(--status-danger)',
 };
 
 export default function Queries() {
@@ -64,7 +65,7 @@ export default function Queries() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="flex items-center gap-2.5 text-xl font-bold"><SearchCode size={22} className="text-brand-600" /> الاستعلامات</h1>
-          <p className="text-sm muted">لا يصل استعلام إلى الإنتاج قبل اجتياز اختبار Sandbox بدقة ≥ 70%</p>
+          <p className="text-sm muted">لا يصل استعلام إلى الإنتاج قبل اجتياز اختبار بيئة التجربة بدقة ≥ 70%</p>
         </div>
         {can(PERMISSIONS.QUERIES_WRITE) && (
           <Link to="/queries/new" className="btn-primary"><Plus size={16} /> استعلام جديد</Link>
@@ -77,7 +78,7 @@ export default function Queries() {
       </label>
 
       {collect.data && (
-        <div className="card p-3 text-sm bg-emerald-500/5">
+        <div className="card p-3 text-sm bg-(--status-success)/5">
           تم الجمع ({collect.data.mode}): استُرجع <span className="num">{collect.data.retrieved}</span> ·
           أُضيف <span className="num">{collect.data.inserted}</span> ·
           مكرر <span className="num">{collect.data.duplicates}</span> ·
@@ -85,7 +86,7 @@ export default function Queries() {
         </div>
       )}
       {collect.error && (
-        <div className="card p-3 text-sm bg-red-500/10 text-red-600">{(collect.error as Error).message}</div>
+        <div className="card p-3 text-sm bg-(--status-danger-soft) text-(--status-danger)">{(collect.error as Error).message}</div>
       )}
 
       <AsyncState loading={pageReads.some(read => read.isLoading)} error={readError}
@@ -109,7 +110,7 @@ export default function Queries() {
                     </span>
                   </div>
                   {q.status === 'paused' && q.pause_reason && !q.deleted_at && (
-                    <p className="text-xs text-amber-600 mt-1">سبب الإيقاف: {q.pause_reason}</p>
+                    <p className="text-xs text-(--status-warning) mt-1">سبب الإيقاف: {q.pause_reason}</p>
                   )}
                   {q.deleted_at && <p className="text-xs muted mt-1">حُذف منطقيًا {fmtRelative(q.deleted_at)} — الإصدارات والمنشورات المرتبطة محفوظة.</p>}
                   <pre className="text-xs mt-2 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all"
@@ -118,32 +119,32 @@ export default function Queries() {
                 <div className="flex flex-wrap justify-end gap-2 shrink-0 max-w-64">
                   {actions.test && <Link to={`/queries/${q.id}/test`} className="btn-ghost !text-xs"><FlaskConical size={14} /> اختبار</Link>}
                   {actions.collect && (
-                    <button type="button" className="btn-primary !text-xs" disabled={collect.isPending}
-                            onClick={() => confirmation.request({title:'جمع بيانات الاستعلام',description:`الجمع الآن لاستعلام «${q.name}» قد يستهلك الميزانية حسب وضع التشغيل والإعدادات الحالية.`,confirmLabel:'جمع الآن',allowed:can=>can(PERMISSIONS.QUERIES_WRITE),execute:()=>collect.mutateAsync(q.id)})}><Play size={14} /> جمع الآن</button>
+                    <Button variant="primary" type="button" className="!text-xs" disabled={collect.isPending}
+                            onClick={() => confirmation.request({title:'جمع بيانات الاستعلام',description:`الجمع الآن لاستعلام «${q.name}» قد يستهلك الميزانية حسب وضع التشغيل والإعدادات الحالية.`,confirmLabel:'جمع الآن',allowed:can=>can(PERMISSIONS.QUERIES_WRITE),execute:()=>collect.mutateAsync(q.id)})}><Play size={14} /> جمع الآن</Button>
                   )}
                   {actions.edit && (
-                    <button type="button" className="btn-ghost !text-xs" onClick={() => setEditing(q)}><Pencil size={14} /> تعديل</button>
+                    <Button variant="ghost" type="button" className="!text-xs" onClick={() => setEditing(q)}><Pencil size={14} /> تعديل</Button>
                   )}
                   {actions.pause && (
-                    <button type="button" className="btn-ghost !text-xs"
+                    <Button variant="ghost" type="button" className="!text-xs"
                       onClick={() => confirmation.request({ title: 'إيقاف الاستعلام', description: `سيتوقف جمع «${q.name}» المجدول والمباشر فورًا، ويبقى موقوفًا بعد إعادة تشغيل الخدمات حتى يستأنفه مستخدم.`, confirmLabel: 'إيقاف', danger: true, allowed: can => can(PERMISSIONS.QUERIES_WRITE), execute: () => run(api.post(`/queries/${q.id}/pause`, { reason: 'إيقاف يدوي من صفحة الاستعلامات' }), `أُوقف «${q.name}».`) })}>
                       <Pause size={14} /> إيقاف
-                    </button>
+                    </Button>
                   )}
                   {actions.resume && (
-                    <button type="button" className="btn-ghost !text-xs"
+                    <Button variant="ghost" type="button" className="!text-xs"
                       onClick={() => confirmation.request({ title: 'استئناف الاستعلام', description: resumeDescription(q.name, q), confirmLabel: q.resume_to === 'active' ? 'استئناف الجمع' : 'إعادة إلى مسودة', allowed: can => can(PERMISSIONS.QUERIES_WRITE) && (q.resume_to !== 'active' || can(PERMISSIONS.QUERY_PROMOTE)), execute: () => run(api.post(`/queries/${q.id}/resume`), q.resume_to === 'active' ? `استُؤنف «${q.name}».` : `أُعيد «${q.name}» إلى مسودة.`) })}>
                       <RotateCcw size={14} /> استئناف
-                    </button>
+                    </Button>
                   )}
                   {actions.resumeBlockedReason && <span className="text-xs muted">{actions.resumeBlockedReason}</span>}
                   {actions.remove && (
-                    <button type="button" className="btn-ghost !text-xs text-red-600"
+                    <Button variant="ghost" type="button" className="!text-xs text-(--status-danger)"
                       onClick={() => confirmation.request({ title: 'حذف الاستعلام منطقيًا', description: `سيُخفى «${q.name}» ولن يدخل الجمع أو الجدولة مجددًا. تبقى إصداراته (${q.version_count}) واختباراته وكل المنشورات والتقارير المرتبطة به كما هي، ويُسجَّل الإجراء في سجل التدقيق.`, confirmLabel: 'حذف منطقي', danger: true, allowed: can => can(PERMISSIONS.QUERIES_WRITE), execute: () => run(api.del(`/queries/${q.id}`), `حُذف «${q.name}» منطقيًا.`) })}>
                       <Trash2 size={14} /> حذف
-                    </button>
+                    </Button>
                   )}
-                  <button type="button" className="btn-ghost !text-xs" onClick={() => setHistory(q)}><History size={14} /> الإصدارات</button>
+                  <Button variant="ghost" type="button" className="!text-xs" onClick={() => setHistory(q)}><History size={14} /> الإصدارات</Button>
                 </div>
               </div>
 
@@ -201,10 +202,10 @@ function EditQueryDialog({ query, onClose, onSaved }: { query: Row; onClose: () 
         <FieldInput className="input w-full num" type="number" min={10} max={100} value={maxResults} onChange={(e) => setMaxResults(e.target.value)} dir="ltr" />
       </FormField>
       <p className="text-xs muted">تعديل منطق الاستعلام نفسه يتم بإنشاء نسخة جديدة واختبارها، ولا تُحذف أو يُعاد ترقيم الإصدارات السابقة.</p>
-      {save.error && <p role="alert" className="text-sm text-red-600">{(save.error as Error).message}</p>}
+      {save.error && <p role="alert" className="text-sm text-(--status-danger)">{(save.error as Error).message}</p>}
       <div className="flex gap-2 justify-end">
         <ModalCloseButton type="button" className="btn-ghost" onClick={onClose}>إلغاء</ModalCloseButton>
-        <button className="btn-primary" disabled={save.isPending || unchanged || !validMax || name.trim().length < 2}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</button>
+        <Button variant="primary" type="submit" disabled={save.isPending || unchanged || !validMax || name.trim().length < 2}>{save.isPending ? 'جارٍ الحفظ…' : 'حفظ'}</Button>
       </div>
     </ModalSurface>
   );
@@ -228,7 +229,7 @@ function VersionsDialog({ query, onClose }: { query: Row; onClose: () => void })
             <li key={v.id} className="rounded p-3" style={{ background: 'var(--surface-2)' }}>
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="badge bg-[var(--surface-3)] num">v{v.version}</span>
-                {v.version === query.version && <span className="badge bg-emerald-500/15 text-emerald-600">الحالي</span>}
+                {v.version === query.version && <span className="badge bg-(--status-success-soft) text-(--status-success)">الحالي</span>}
                 <span className="muted">{fmtDateTime(v.created_at)}</span>
                 {v.created_by_name && <span className="muted">· {v.created_by_name}</span>}
                 {v.tested_precision !== null && <span className="muted">· دقة الاختبار <span className="num">{fmtPct(v.tested_precision)}</span></span>}

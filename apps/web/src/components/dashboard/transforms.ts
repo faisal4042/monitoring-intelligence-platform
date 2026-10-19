@@ -61,7 +61,7 @@ export function execKpis(src: {
   return [
     { key: 'total', label: 'التفاعلات المرصودة', hint: KPI_META.total.hint, kind: 'count',
       value: total?.available ? total.value : null, previous: total?.previous ?? null, spark: series('total'), unavailable: total && !total.available ? total.reason : undefined },
-    { key: 'news', label: 'الأخبار المجمعة', hint: 'أخبار المصادر المرصودة في الفترة حسب تاريخ النشر (أو الاكتشاف إن لم يتوفر). منفصلة عن منشورات X.', kind: 'count',
+    { key: 'news', label: 'الأخبار المجمعة', hint: 'أخبار المصادر المرصودة في الفترة حسب تاريخ النشر (أو الاكتشاف إن لم يتوفر). منفصلة عن منشورات إكس.', kind: 'count',
       value: src.news?.total ?? null, previous: src.news?.totalPrevious ?? null,
       sub: src.news ? `${fmtNum(src.news.relevant)} ذات صلة` : undefined,
       unavailable: src.can.news ? undefined : 'يتطلب صلاحية عرض الأخبار' },

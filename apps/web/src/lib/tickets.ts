@@ -8,14 +8,14 @@ export const TICKET_STATUS_TONE: Record<TicketStatus, string> = {
   open: 'warn', assigned: 'info', in_progress: 'info', pending: 'muted', escalated: 'bad', resolved: 'ok', closed: 'muted',
 };
 export const CHANNEL_LABELS: Record<string, string> = {
-  x_mention: 'منشور X عام', x_reply: 'رد على X', x_dm: 'رسائل X الخاصة', facebook_comment: 'تعليق فيسبوك', facebook_inbox: 'رسائل فيسبوك',
-  telegram: 'تيليجرام', youtube_comment: 'تعليق يوتيوب', youtube_video: 'فيديو يوتيوب', news_article: 'خبر', x_story: 'قصة متداولة على X',
+  x_mention: 'منشور إكس عام', x_reply: 'رد على إكس', x_dm: 'رسائل إكس الخاصة', facebook_comment: 'تعليق فيسبوك', facebook_inbox: 'رسائل فيسبوك',
+  telegram: 'تيليجرام', youtube_comment: 'تعليق يوتيوب', youtube_video: 'فيديو يوتيوب', news_article: 'خبر', x_story: 'قصة متداولة على إكس',
   email: 'البريد', other: 'أخرى',
 };
 /** Source groups for the tickets page filter (each is a list of channels). */
 export const SOURCE_FILTERS: Array<{key: string; ar: string; channels: string[] | null}> = [
-  {key: 'all', ar: 'كل المصادر', channels: null}, {key: 'x', ar: 'X', channels: ['x_mention', 'x_reply', 'x_dm']},
-  {key: 'news', ar: 'الأخبار', channels: ['news_article']}, {key: 'youtube', ar: 'YouTube', channels: ['youtube_video', 'youtube_comment']},
+  {key: 'all', ar: 'كل المصادر', channels: null}, {key: 'x', ar: 'إكس', channels: ['x_mention', 'x_reply', 'x_dm']},
+  {key: 'news', ar: 'الأخبار', channels: ['news_article']}, {key: 'youtube', ar: 'يوتيوب', channels: ['youtube_video', 'youtube_comment']},
   {key: 'story', ar: 'القصص', channels: ['x_story']},
 ];
 export const ACTION_LABELS: Record<string, string> = {

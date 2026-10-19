@@ -26,6 +26,7 @@ import ModalSurface, { ModalCloseButton } from '../components/ModalSurface';
 import Results from '../components/search/Results';
 import AnalyticsPanel from '../components/search/AnalyticsPanel';
 import SavedSearches from '../components/search/SavedSearches';
+import { Button } from '../components/ui/Button';
 import '../components/influencers/influencers.css';
 import '../components/search/search.css';
 
@@ -78,7 +79,7 @@ export default function AdvancedSearch() {
     setPanel(null);
   };
   const resetAll = () => { update({q:''},{period:{range:DEFAULT_DATE_RANGE}}); };
-  const copyLink = async () => { await navigator.clipboard?.writeText(location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); };
+  const copyLink = async () => { try { await navigator.clipboard?.writeText(location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard blocked: the address bar still has the link */ } };
   const filterCount = fieldConditionCount(state.q);
   const items = r ? uniqueRows(r.items) : [];
   const first = r && items.length ? (state.page - 1) * state.size + 1 : 0;
@@ -233,7 +234,7 @@ export default function AdvancedSearch() {
               let q = state.q; for (const c of [...conds].reverse()) if (c.node.type === 'field' || (c.node.type === 'not' && c.node.child.type === 'field')) q = removeSpan(q, c.span);
               runSearch(q);
             }}><FilterX size={15} aria-hidden="true" /> مسح شروط الحقول</button>
-            <button type="button" className="btn-primary" onClick={() => setPanel(null)}>عرض النتائج{r?.total != null && <> (<span className="num">{fmtNum(r.total)}</span>)</>}</button>
+            <Button variant="primary" type="button" onClick={() => setPanel(null)}>عرض النتائج{r?.total != null && <> (<span className="num">{fmtNum(r.total)}</span>)</>}</Button>
           </>}>
           <p className="as-note">يُضاف كل فلتر إلى الاستعلام فورًا ويظهر ضمن الشروط النشطة. تبقى القيم التي بدأت كتابتها محفوظة عند إغلاق اللوحة.</p>
           <FiltersPanel fields={fields.data.fields} tab={state.tab} q={state.q} onChange={runSearch} draft={filtersDraft} setDraft={setFiltersDraft} />

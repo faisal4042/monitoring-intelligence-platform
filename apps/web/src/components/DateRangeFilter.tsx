@@ -62,7 +62,7 @@ export default function DateRangeFilter({ state, allowAll = true }: { state: Dat
       )}
 
       {state.error
-        ? <span className="text-xs text-red-600" role="alert">{state.error}</span>
+        ? <span className="text-xs text-(--status-danger)" role="alert">{state.error}</span>
         : label && <span className="text-xs muted tabular-nums" title="بتوقيت الرياض">{label}</span>}
     </div>
   );

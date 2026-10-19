@@ -10,6 +10,7 @@ import {
   ACTION_LABELS, ACTION_NEEDS, CHANNEL_LABELS, EVENT_LABELS, REVIEW_REASON_LABELS, TICKET_STATUS_LABELS, TICKET_STATUS_TONE, type TicketDetail,
 } from '../../lib/tickets';
 
+import { Button } from '../ui/Button';
 interface Agent { id: string; full_name: string }
 
 /** Ticket detail with a single timeline (customer messages, agent replies and every recorded action, in time order). */
@@ -79,7 +80,7 @@ export default function TicketDrawer({ id, onClose }: { id: string; onClose: () 
                   {needs.priority && <label className="rc-field"><span>الأولوية</span><select className="input" value={priority} onChange={(e) => setPriority(e.target.value)}><option value="high">عالية</option><option value="normal">عادية</option></select></label>}
                   {needs.body && <label className="rc-field"><span>نص الرد (يُسجَّل داخليًا ولا يُرسل لأي منصة)</span><textarea className="input" rows={3} maxLength={20000} required value={body} onChange={(e) => setBody(e.target.value)} /></label>}
                   {(needs.reason || action === 'close') && <label className="rc-field"><span>السبب {needs.reason === 'required' || t.status === 'open' ? '(مطلوب)' : '(اختياري)'}</span><input className="input" maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} /></label>}
-                  <div className="rc-actions"><button className="btn-primary" disabled={!ready || act.isPending}>{act.isPending ? 'جارٍ التنفيذ…' : `تأكيد: ${ACTION_LABELS[action]}`}</button><button type="button" className="btn-ghost" onClick={() => setAction(null)}>إلغاء</button></div>
+                  <div className="rc-actions"><Button variant="primary" type="submit" disabled={!ready || act.isPending}>{act.isPending ? 'جارٍ التنفيذ…' : `تأكيد: ${ACTION_LABELS[action]}`}</Button><Button variant="ghost" type="button" onClick={() => setAction(null)}>إلغاء</Button></div>
                   {act.error && <p className="rc-error" role="alert">{(act.error as ApiError).message}</p>}
                 </form>
               )}
@@ -99,11 +100,11 @@ export default function TicketDrawer({ id, onClose }: { id: string; onClose: () 
                     {x.m.text ? <p dir="auto">{x.m.text.replace(/\n?https:\/\/\S+\s*$/, '')}</p> : <p className="rc-null">لا يتوفر نص لهذه الرسالة</p>}
                     {/^(news|youtube)$/.test(x.m.provider) && /https:\/\/\S+\s*$/.exec(x.m.text ?? '') && (
                       <div className="td-post-links"><a className="rc-link" href={/https:\/\/\S+\s*$/.exec(x.m.text!)![0].trim()} target="_blank" rel="noreferrer noopener">
-                        <ExternalLink size={13} aria-hidden="true" /> {x.m.provider === 'news' ? 'فتح الخبر' : 'فتح على YouTube'}</a></div>)}
+                        <ExternalLink size={13} aria-hidden="true" /> {x.m.provider === 'news' ? 'فتح الخبر' : 'فتح على يوتيوب'}</a></div>)}
                     {x.m.post_id && (
                       <div className="td-post-links">
                         {can('posts:read') && <Link className="rc-link" to={`/live?detail=${x.m.post_id}&detailSection=interaction`}><FileText size={13} aria-hidden="true" /> فتح المنشور في MIP</Link>}
-                        {x.m.post_url && <a className="rc-link" href={x.m.post_url} target="_blank" rel="noreferrer noopener"><ExternalLink size={13} aria-hidden="true" /> على X</a>}
+                        {x.m.post_url && <a className="rc-link" href={x.m.post_url} target="_blank" rel="noreferrer noopener"><ExternalLink size={13} aria-hidden="true" /> على إكس</a>}
                         {x.m.post_collected_at && <span className="td-collected">جُمع {fmtDateTime(x.m.post_collected_at)}</span>}
                         {x.m.post_status === 'filtered_out' && <span className="rc-status-pill tone-muted">مستبعد من التصنيف</span>}
                         {x.m.post_status === 'duplicate' && <span className="rc-status-pill tone-muted">محتوى مكرر</span>}

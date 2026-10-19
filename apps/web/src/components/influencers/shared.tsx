@@ -4,6 +4,7 @@ import { useTheme } from '../../lib/theme';
 import { change } from '../../lib/influencers';
 import { fmtNum } from '../../lib/format';
 
+import { Button } from '../ui/Button';
 export function Pill({ tone, children, title }: { tone?: 'ok' | 'muted' | 'warn' | 'bad' | 'info'; children: ReactNode; title?: string }) {
   return <span className={`inf-pill ${tone && tone !== 'muted' ? `inf-pill--${tone}` : ''}`} title={title}>{children}</span>;
 }
@@ -16,7 +17,7 @@ export function StateBox({ loading, error, empty, emptyText, onRetry, height = 1
   if (error) return (
     <div className="inf-state inf-state--error" role="alert">
       <span className="flex items-center gap-2"><AlertTriangle size={16} aria-hidden="true" />{(error as Error).message || 'تعذّر تحميل البيانات'}</span>
-      {onRetry && <button className="btn-ghost" onClick={onRetry}><RotateCcw size={14} /> إعادة المحاولة</button>}
+      {onRetry && <Button variant="ghost" type="submit" onClick={onRetry}><RotateCcw size={14} /> إعادة المحاولة</Button>}
     </div>
   );
   if (empty) return <div className="inf-state">{emptyText ?? 'لا توجد بيانات لهذه الفلاتر والفترة.'}</div>;

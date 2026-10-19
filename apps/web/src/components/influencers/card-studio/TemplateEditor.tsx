@@ -13,6 +13,7 @@ import type { CardAsset } from '../../../lib/influencer-cards/templates-api';
 import { ColorField, RangeField, SelectField, TextField, ToggleField } from './fields';
 import { validateCardAssetFile } from '../../../lib/influencer-cards/upload-policy';
 
+import { Button } from '../../ui/Button';
 export type EditorTab = 'colors' | 'fonts' | 'brand' | 'layout' | 'content' | 'text' | 'output';
 export const EDITOR_TABS: Array<{ key: EditorTab; label: string }> = [
   { key: 'colors', label: 'الألوان' }, { key: 'fonts', label: 'الخطوط' }, { key: 'brand', label: 'الشعار والخلفية' },
@@ -66,7 +67,7 @@ function AssetPicker({ assets, kind, value, onPick, onUpload, disabled }: {
   const list = assets.filter((a) => a.kind === kind);
   return (
     <div className="studio-field" style={{ gridColumn: '1 / -1' }}>
-      <span style={{ fontWeight: 600 }}>{kind === 'logo' ? 'الشعار' : 'صورة الخلفية'}</span>
+      <span style={{ fontWeight: 400 }}>{kind === 'logo' ? 'الشعار' : 'صورة الخلفية'}</span>
       <div className="studio-assets" role="group" aria-label={kind === 'logo' ? 'الشعارات المتاحة' : 'صور الخلفية المتاحة'}>
         <button type="button" className="studio-asset" aria-pressed={!value} disabled={disabled} onClick={() => onPick(null)}>بدون</button>
         {list.map((a) => (
@@ -78,9 +79,9 @@ function AssetPicker({ assets, kind, value, onPick, onUpload, disabled }: {
       </div>
       {!disabled && (
         <div className="flex items-center gap-2">
-          <button type="button" className="btn-ghost" disabled={busy} onClick={() => input.current?.click()} data-testid={`upload-${kind}`}>
+          <Button variant="ghost" type="button" disabled={busy} onClick={() => input.current?.click()} data-testid={`upload-${kind}`}>
             <Upload size={14} /> {busy ? 'جارٍ الرفع…' : 'رفع صورة'}
-          </button>
+          </Button>
           <small className="muted">PNG أو JPEG أو WebP، حتى 1 ميغابايت بعد التحويل، 16–4096 بكسل. لا يُقبل SVG.</small>
           <input ref={input} type="file" hidden accept="image/png,image/jpeg,image/webp" data-testid={`upload-${kind}-input`}
             onChange={async (e) => {
@@ -93,11 +94,11 @@ function AssetPicker({ assets, kind, value, onPick, onUpload, disabled }: {
       )}
       {pending && preview && <div className="flex flex-wrap items-center gap-2" data-testid={`pending-${kind}`}>
         <img src={preview} alt="معاينة الصورة قبل الرفع" style={{ maxWidth: 180, maxHeight: 100, objectFit: 'contain' }} />
-        <button className="btn-primary" disabled={busy || disabled} onClick={async () => {
+        <Button variant="primary" type="submit" disabled={busy || disabled} onClick={async () => {
           setBusy(true); setError(null);
           try { await onUpload(pending); setPending(null); } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
-        }}>اعتماد رفع الصورة</button>
-        <button className="btn-ghost" disabled={busy} onClick={() => setPending(null)}>إلغاء الرفع</button>
+        }}>اعتماد رفع الصورة</Button>
+        <Button variant="ghost" type="submit" disabled={busy} onClick={() => setPending(null)}>إلغاء الرفع</Button>
       </div>}
       {error && <small className="studio-error" role="alert">{error}</small>}
     </div>

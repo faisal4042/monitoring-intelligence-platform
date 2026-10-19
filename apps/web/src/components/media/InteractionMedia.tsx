@@ -37,7 +37,7 @@ export function InteractionMedia({ post, onLightbox, full = false }: { post: Med
       if (motion && preview) return <div className="ic-media-item" key={i}>
         {xId ? <button type="button" className="ic-media-play" onClick={() => setPlaying(true)} aria-label="تشغيل الفيديو">
           <img src={preview} alt="معاينة الفيديو" loading="lazy"/><span className="ic-play-badge" aria-hidden="true"><Play size={18} fill="currentColor"/></span></button>
-          : <a className="ic-media-play" href={onX} target="_blank" rel="noreferrer" aria-label="تشغيل الفيديو على X">
+          : <a className="ic-media-play" href={onX} target="_blank" rel="noreferrer" aria-label="تشغيل الفيديو على إكس">
           <img src={preview} alt="معاينة الفيديو" loading="lazy"/><span className="ic-play-badge" aria-hidden="true"><Play size={18} fill="currentColor"/></span></a>}
       </div>;
       return <div className="ic-media-item" key={i}>

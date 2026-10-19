@@ -30,7 +30,7 @@ export default function AgentStatusControl() {
     <button className={`agent-status-button agent-status--${status}`} aria-haspopup="menu" aria-expanded={open}
       aria-label={`حالتي: ${statusLabel(status)}. تغيير الحالة`} onClick={()=>setOpen(o=>!o)} disabled={me.setStatus.isPending}>
       <span className="agent-status-dot" aria-hidden="true"/>
-      <span className="agent-status-text">{statusLabel(status)}</span>
+      <span className="agent-status-text"><span className="agent-status-prefix">حالتي:</span> {statusLabel(status)}</span>
       {since&&<span className="agent-status-time" title="المدة في الحالة الحالية">{duration(since,now)}</span>}
       <ChevronDown size={14} aria-hidden="true"/>
     </button>
@@ -39,7 +39,7 @@ export default function AgentStatusControl() {
         <span className="agent-status-dot" aria-hidden="true"/>{statusLabel(s)}
         {s==='available'&&<span className="text-xs muted ms-auto">يستقبل الإسناد</span>}
       </button>)}
-      {me.setStatus.error&&<p role="alert" className="text-xs text-red-600 px-3 pb-2">{me.setStatus.error.message}</p>}
+      {me.setStatus.error&&<p role="alert" className="text-xs text-(--status-danger) px-3 pb-2">{me.setStatus.error.message}</p>}
     </div>}
   </div>;
 }

@@ -23,6 +23,7 @@ import {statusLabel} from '../lib/workforce';
 import InteractionCard from '../components/queue/InteractionCard';
 import {SOURCE_KIND_LABELS,SourceBadge,SourceFilter,SourceIcon,TicketNumbers,isSourceCard,sourceKeyOf,sourceOrigin,sourceText,sourceTitle} from '../components/queue/SourceParts';
 
+import { Button } from '../components/ui/Button';
 const SECTION_ICON={general:MessagesSquare,influencer:UserRound,story:Sparkles} as const;
 const FILTER_KEYS=['basis','programId','status','employeeId','teamId','classification','sentiment','source','search','kind'] as const;
 const pref=(key:string,fallback:string)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
@@ -88,7 +89,7 @@ function SupervisorQueue() {
   return <div className="space-y-4" dir="rtl"><QueueDraftNotice/>
     <header className="queue-header">
       <div className="min-w-0">
-        <p className="eyebrow">MONITORING QUEUE</p>
+        <p className="eyebrow">العمل اليومي</p>
         <h1 className="flex items-center gap-2"><Inbox size={22}/>{supervise?'طابور الرصد':'مهامي'}</h1>
       </div>
       {needsAction!==null&&<span className={`queue-chip ${needsAction?'queue-chip--action':''}`} title={supervise?'غير مسند أو مصعّد':'مسند إليك ولم يكتمل'}>
@@ -101,9 +102,9 @@ function SupervisorQueue() {
         onClick={()=>{setCompact(c=>{savePref('mip.queue.density',c?'comfortable':'compact');return !c;});}}>{compact?<Rows2 size={17}/>:<Rows3 size={17}/>}</button>
       <button className={showFilters?'btn-primary':'btn-ghost'} aria-expanded={showFilters} aria-controls="queue-filters"
         onClick={()=>setShowFilters(v=>{savePref('mip.queue.filters',v?'closed':'open');return !v;})}><SlidersHorizontal size={16}/>الفلاتر</button>
-      <Link className="btn-ghost" to="/queue/board"><MonitorDot size={16}/>لوحة الفرق</Link>
-      <Link className="btn-ghost" to="/queue/settings"><Settings2 size={16}/>إعدادات الموظفين</Link>
-      {can(P.USERS_READ)&&<Link className="btn-ghost" to="/teams"><UsersRound size={16}/>الفرق</Link>}
+      <Link className="btn-ghost queue-header-link" to="/queue/board"><MonitorDot size={16}/>لوحة الفرق</Link>
+      <Link className="btn-ghost queue-header-link" to="/queue/settings"><Settings2 size={16}/>إعدادات الموظفين</Link>
+      {can(P.USERS_READ)&&<Link className="btn-ghost queue-header-link" to="/teams"><UsersRound size={16}/>الفرق</Link>}
     </header>
 
     <nav onKeyDown={navigateTabs} role="tablist" aria-label="أقسام الطابور" className="queue-tabs">
@@ -129,8 +130,8 @@ function SupervisorQueue() {
     <div className={`queue-layout ${showFilters?'':'is-collapsed'} ${compact?'queue-compact':''}`}>
       <section aria-label={`عناصر ${QUEUE_SECTION_LABELS[section].ar}`} className="space-y-2.5 min-w-0">
         {date.error&&<p role="alert">{date.error}</p>}
-        {summary.error&&<p role="alert" className="card p-4">تعذر تحميل أعداد الطابور: {summary.error.message}<button className="btn-ghost" onClick={()=>summary.refetch()}>إعادة تحميل الأعداد</button></p>}
-        {list.error&&<p role="alert" className="card p-4 text-red-600">{list.error.message}<button className="btn-ghost" onClick={()=>list.refetch()}>إعادة المحاولة</button></p>}
+        {summary.error&&<p role="alert" className="card p-4">تعذر تحميل أعداد الطابور: {summary.error.message}<Button variant="ghost" type="submit" onClick={()=>summary.refetch()}>إعادة تحميل الأعداد</Button></p>}
+        {list.error&&<p role="alert" className="card p-4 text-(--status-danger)">{list.error.message}<Button variant="ghost" type="submit" onClick={()=>list.refetch()}>إعادة المحاولة</Button></p>}
         {list.isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
         {list.isSuccess&&!items.length&&<div className="card p-10 text-center">
           <Inbox size={34} className="mx-auto mb-3 text-brand-600"/><h2 className="font-bold">لا توجد عناصر هنا</h2>
@@ -143,11 +144,11 @@ function SupervisorQueue() {
         <div className="card p-4 space-y-3">
           <div className="flex items-center justify-between"><h2 className="font-bold text-sm">الفلاتر</h2>
             {FILTER_KEYS.some(k=>params.get(k))&&<button className="text-xs text-brand-600 underline" onClick={()=>{setSearch('');setParams(old=>{const next=new URLSearchParams(old);FILTER_KEYS.forEach(k=>next.delete(k));next.delete('page');next.delete('cursor');next.delete('item');return next;});}}>مسح الكل</button>}</div>
-          <form onSubmit={e=>{e.preventDefault();set('search',search.trim());}}><label className="queue-field">بحث<input className="input" maxLength={200} placeholder={isStory?'في عناوين القصص…':'في نص التفاعل…'} value={search} onChange={e=>setSearch(e.target.value)}/></label><button className="btn-ghost" type="submit">تطبيق البحث</button>{search!==(params.get('search')??'')&&<p className="text-xs muted">اضغط تطبيق البحث لعرض نتائج النص الجديد.</p>}</form>
+          <form onSubmit={e=>{e.preventDefault();set('search',search.trim());}}><label className="queue-field">بحث<input className="input" maxLength={200} placeholder={isStory?'في عناوين القصص…':'في نص التفاعل…'} value={search} onChange={e=>setSearch(e.target.value)}/></label><Button variant="ghost" type="submit">تطبيق البحث</Button>{search!==(params.get('search')??'')&&<p className="text-xs muted">اضغط تطبيق البحث لعرض نتائج النص الجديد.</p>}</form>
           <label className="queue-field">البرنامج<select className="input" value={params.get('programId')??''} onChange={e=>set('programId',e.target.value)}><option value="">كل البرامج</option>{(options?.programs??catalog?.items??[]).map(p=><option key={p.id} value={p.id}>{p.name_ar}</option>)}</select></label>
           <div className="queue-field">الفترة<DateRangeFilter state={date}/></div>
           <label className="queue-field">أساس الفترة<select className="input" value={params.get('basis')??'entered'} onChange={e=>set('basis',e.target.value==='entered'?'':e.target.value)}><option value="entered">دخول الطابور</option><option value="posted">{isStory?'أول ظهور':'تاريخ النشر'}</option></select></label>
-          {!isStory&&<label className="queue-field">مصدر التفاعل<select className="input" value={params.get('source')??''} onChange={e=>set('source',e.target.value)}><option value="">كل المصادر (X)</option>{Object.entries(SOURCE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}
+          {!isStory&&<label className="queue-field">مصدر التفاعل<select className="input" value={params.get('source')??''} onChange={e=>set('source',e.target.value)}><option value="">كل المصادر (إكس)</option>{Object.entries(SOURCE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}
           <label className="queue-field">حالة المعالجة<select className="input" value={params.get('status')??''} onChange={e=>set('status',e.target.value)}><option value="">كل الحالات</option>{QUEUE_STATUSES.map(s=><option key={s} value={s}>{QUEUE_STATUS_LABELS[s]}</option>)}</select></label>
           {supervise&&<><label className="queue-field">الموظف<select className="input" value={params.get('employeeId')??''} onChange={e=>set('employeeId',e.target.value)}><option value="">كل الموظفين</option>{members.map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select></label>
             <label className="queue-field">الفريق<select className="input" value={params.get('teamId')??''} onChange={e=>set('teamId',e.target.value)}><option value="">كل فرقي</option>{options?.teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label></>}
@@ -162,7 +163,7 @@ function SupervisorQueue() {
           <ul className="queue-workload space-y-0.5">{summary.data.workload.map(w=><li key={w.id+w.team_id}>
             <button aria-pressed={params.get('employeeId')===w.id} onClick={()=>set('employeeId',params.get('employeeId')===w.id?'':w.id)}>
               <span className="min-w-0"><strong className="block text-sm truncate">{w.full_name}</strong><span className="block text-xs muted truncate"><span className={`agent-status-dot agent-status--${w.agent_status}`} aria-hidden="true"/> {statusLabel(w.agent_status)} · {w.team_name}</span></span>
-              <span className="queue-workload-nums self-center"><span title="في الصندوق">{w.open}</span><span className="text-(--status-danger)" title="مصعّد">{w.escalated}</span><span className="text-emerald-600" title="مكتمل اليوم">{w.completed_today}</span></span>
+              <span className="queue-workload-nums self-center"><span title="في الصندوق">{w.open}</span><span className="text-(--status-danger)" title="مصعّد">{w.escalated}</span><span className="text-(--status-success)" title="مكتمل اليوم">{w.completed_today}</span></span>
             </button></li>)}</ul>}
         </div>}
       </aside>}
