@@ -161,7 +161,7 @@ export default function QueryBuilder() {
               {(programs?.items ?? []).map((p) => <option key={p.id} value={p.id}>{p.name_ar}</option>)}
             </FieldSelect>
             </FormField>
-            {can(PERMISSIONS.ADMIN_SYSTEM) && <Link to="/programs" className="inline-block text-sm mt-2 text-brand-600">إضافة برنامج / إدارة البرامج</Link>}
+            {can(PERMISSIONS.ADMIN_SYSTEM) && <Link to="/programs" className="inline-flex items-center min-h-8 text-sm mt-1 text-brand-600">إضافة برنامج / إدارة البرامج</Link>}
           </div>
 
           <div>

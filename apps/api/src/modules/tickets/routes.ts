@@ -9,6 +9,7 @@ import {PERMISSIONS as P} from '@mip/shared';
 import {audit} from '../../lib/audit.js';
 import {HttpError} from '../../lib/errors.js';
 import {parse, idParams} from '../queue/validation.js';
+import {dateBoundsFromQuery} from '../../lib/date-range.js';
 import {TICKET_ACTION_LABELS, TICKET_STATUSES, TICKET_STATUS_LABELS, TICKET_ACTIONS, type Actor} from './state-machine.js';
 import {CHANNELS, CHANNEL_POLICY} from './conversation-identity.js';
 import {getTicket, listTickets, ticketForPost, ticketsActivated, transition, TicketError} from './service.js';
@@ -40,13 +41,16 @@ export default async function ticketRoutes(app: FastifyInstance) {
     const q = parse(z.object({
       status: z.string().max(200).optional(), programId: z.string().uuid().optional(), assignee: z.string().max(60).optional(),
       channel: z.string().max(300).optional(), review: z.enum(['1', 'true']).optional(), q: z.string().max(40).optional(),
+      range: z.string().max(20).optional(), from: z.string().max(30).optional(), to: z.string().max(30).optional(),
       cursor: z.string().max(400).optional(), limit: z.coerce.number().int().min(1).max(100).optional(),
     }).strict(), req.query);
+    // Optional read-only window on last_activity_at; absent params keep the full history (preset 'all').
+    const dates = q.range || q.from || q.to ? dateBoundsFromQuery({range: q.range, from: q.from, to: q.to}) : undefined;
     const status = q.status?.split(',').filter((s) => (TICKET_STATUSES as readonly string[]).includes(s));
     // One channel or a source group (e.g. x_mention,x_reply); unknown names are ignored.
     const channels = q.channel?.split(',').filter((c) => (CHANNELS as readonly string[]).includes(c));
     if (q.assignee && !['me', 'unassigned'].includes(q.assignee)) parse(z.string().uuid(), q.assignee);
-    return wrap(() => listTickets(actorOf(req), {...q, status, channels, review: !!q.review}));
+    return wrap(() => listTickets(actorOf(req), {...q, status, channels, review: !!q.review, dates: dates ? {from: dates.from, to: dates.to} : undefined}));
   });
 
   app.get('/by-post/:id', {preHandler: [app.requirePermission(...READ)]}, async (req) => {

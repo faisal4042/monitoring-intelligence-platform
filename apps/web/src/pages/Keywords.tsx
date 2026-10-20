@@ -178,22 +178,22 @@ export default function Keywords() {
                       title={!k.is_active ? 'معطّلة' : k.match_count > 0 ? `طابق ${k.match_count} — ضجيج ${fmtPct(noise)}` : 'لم يُقاس بعد'}
                     >
                       {write && k.is_active
-                        ? <button type="button" className="hover:underline" onClick={() => setEditingKeyword(k)} title="تعديل الكلمة">{k.term}</button>
+                        ? <button type="button" className="hover:underline py-1 -my-1" onClick={() => setEditingKeyword(k)} title="تعديل الكلمة">{k.term}</button>
                         : k.term}
                       {noisy && <span className="num text-xs">{fmtPct(noise)}</span>}
                       {k.alias_count > 0 && <span className="num text-xs opacity-60">+{k.alias_count}</span>}
                       {write && k.is_active && (
                         <button
                           type="button"
-                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition hover:text-(--status-danger)"
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition hover:text-(--status-danger) p-1.5 -m-1"
                           onClick={() => confirmation.request({ title: 'تعطيل كلمة رصد', description: `ستُعطَّل «${k.term}» في «${g.name_ar}» وتُستبعد من الاستعلامات التلقائية عند المزامنة التالية. يمكن إعادة تفعيلها لاحقًا، ولا يُحذف سجلها.`, confirmLabel: 'تعطيل الكلمة', danger: true, allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setKeywordActive(k, false).catch((e) => { notice.error(e); throw e; }) })}
                           title="تعطيل" aria-label={`تعطيل ${k.term}`}
-                        ><X size={11} /></button>
+                        ><X size={13} /></button>
                       )}
                       {write && !k.is_active && (
-                        <button type="button" className="hover:text-(--status-success)" title="إعادة التفعيل" aria-label={`إعادة تفعيل ${k.term}`}
+                        <button type="button" className="hover:text-(--status-success) p-1.5 -m-1" title="إعادة التفعيل" aria-label={`إعادة تفعيل ${k.term}`}
                           onClick={() => confirmation.request({ title: 'إعادة تفعيل كلمة', description: `ستعود «${k.term}» إلى «${g.name_ar}» وتدخل الاستعلامات التلقائية عند المزامنة التالية.`, confirmLabel: 'إعادة التفعيل', allowed: can => can(PERMISSIONS.KEYWORDS_WRITE), execute: () => setKeywordActive(k, true).catch((e) => { notice.error(e); throw e; }) })}
-                        ><RotateCcw size={11} /></button>
+                        ><RotateCcw size={13} /></button>
                       )}
                     </span>
                   );

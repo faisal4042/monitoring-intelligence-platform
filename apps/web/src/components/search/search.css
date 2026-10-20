@@ -42,7 +42,7 @@
 .as-syntax { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; font-size: var(--fs-table); color: var(--text-subtle); min-width: 0; }
 .as-syntax.is-error { color: var(--status-danger); font-weight: 400; }
 .as-bar-hint code, .as-bar-hint kbd { font-size: var(--fs-caption); padding: .05rem .35rem; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); font-family: inherit; }
-.as-link-btn { display: inline-flex; align-items: center; gap: .3rem; font-size: var(--fs-table); font-weight: 400; color: var(--accent-ink); white-space: nowrap; border-radius: var(--radius-sm); padding: .1rem .25rem; }
+.as-link-btn { display: inline-flex; align-items: center; gap: .3rem; min-height: 2rem; font-size: var(--fs-table); font-weight: 400; color: var(--accent-ink); white-space: nowrap; border-radius: var(--radius-sm); padding: .25rem .4rem; }
 .dark .as-link-btn { color: var(--color-brand-200); }
 .as-link-btn:hover { text-decoration: underline; }
 .as-examples { position: relative; flex: none; }

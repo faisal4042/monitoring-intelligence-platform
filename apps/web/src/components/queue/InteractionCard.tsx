@@ -20,7 +20,7 @@ import TicketHistoryDialog from './TicketHistoryDialog';
 // The card renderer is heavy; load it only when an export is opened.
 const CardExportDialog = lazy(() => import('../influencers/CardExportDialog'));
 import {useAuth} from '../../lib/auth';
-import {INTENT_LABELS, SENTIMENT_LABELS, SOURCE_LABELS, sourceOf, workTimer, type QueueItem, type ReviewCatalog} from '../../lib/queue';
+import {INTENT_LABELS, SENTIMENT_LABELS, SOURCE_LABELS, sourceOf, workTimer, type QueueItem, type QueueOptions, type ReviewCatalog} from '../../lib/queue';
 import {fmtCompact, fmtDateTime, fmtNum, fmtRelative} from '../../lib/format';
 import Avatar from '../Avatar';
 import {contentDirection} from '../../lib/content-direction';
@@ -55,7 +55,12 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
   const canClose = live && (working || (supervise && item.status === 'escalated'));
   const canEscalate = live && ['assigned', 'in_progress'].includes(item.status) && (mine || supervise);
   const canNote = !item.merged_into_id && (mine || supervise);
-  const canClaim = live && item.status === 'new' && can(P.QUEUE_WORK) && (selfClaim || supervise);
+  // Self-claim is an agent action (the server requires agent membership); a supervisor
+  // takes new work through an ordinary audited assignment to themselves instead.
+  const canClaim = live && item.status === 'new' && can(P.QUEUE_WORK) && selfClaim && !supervise;
+  const {data: options} = useQuery({queryKey: ['queue-options'], queryFn: () => api.get<QueueOptions>('/queue/options'), enabled: supervise, staleTime: 60_000});
+  const canSelfAssign = live && item.status === 'new' && supervise
+    && !!options?.members.some((m) => m.id === user?.id && m.team_id === item.team_id);
   const link = src ? sourceUrl(item) : story ? null : item.url;
   const timer = workTimer(item, now, warnMinutes);
   const ticket = item.tickets?.[0];
@@ -99,7 +104,7 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
             {!story && !src && item.username && <span className="ic-handle" dir="ltr">@{item.username}</span>}</span>
           <span className="ic-figures">{figures.filter(Boolean).join(' · ')}</span>
         </span>
-        <span className="ic-when" title={at ? fmtDateTime(at) : undefined}><Zap size={15} aria-hidden="true"/>{at ? fmtRelative(at) : '—'}</span>
+        <span className="ic-when" title={at ? `${story ? 'آخر ظهور' : 'تاريخ النشر'}: ${fmtDateTime(at)}` : undefined}><Zap size={15} aria-hidden="true"/>{at ? `${story ? 'آخر ظهور' : 'نُشر'} ${fmtRelative(at)}` : '—'}</span>
       </span>
       {body && <span ref={textRef} className={`ic-text ${expanded ? 'is-expanded' : ''}`} dir={contentDirection(body)}>{body}</span>}
       {!story && !src && item.root_text && <span className="ic-root">
@@ -117,11 +122,12 @@ export default function InteractionCard({item, now, warnMinutes, selected, onOpe
     {/* One primary action (claim, else close), the details, and everything else under «المزيد» — only what is allowed now. */}
     <div className="ic-actions" role="toolbar" aria-label="إجراءات التفاعل">
       {canClaim ? <Button variant="primary" size="sm" icon={<Hand size={16} aria-hidden="true"/>} loading={act.isPending} onClick={() => run('claim')}>استلام</Button>
+        : canSelfAssign ? <Button variant="primary" size="sm" icon={<Hand size={16} aria-hidden="true"/>} loading={act.isPending} onClick={() => run('assign', {assigneeId: user!.id})}>إسناد لنفسي</Button>
         : canClose && <Button variant="primary" size="sm" icon={<CheckCircle2 size={16} aria-hidden="true"/>} aria-pressed={closing || undefined}
             onClick={() => { act.reset(); setPanel(null); setClosing(true); }}>إغلاق التفاعل</Button>}
       <Button variant="ghost" size="sm" icon={<Maximize2 size={15} aria-hidden="true"/>} onClick={onOpen}>التفاصيل</Button>
       <OverflowMenu items={([
-        canClaim && canClose ? {key: 'close', label: 'إغلاق التفاعل', icon: <CheckCircle2 size={16}/>, onSelect: () => { act.reset(); setPanel(null); setClosing(true); }} : null,
+        (canClaim || canSelfAssign) && canClose ? {key: 'close', label: 'إغلاق التفاعل', icon: <CheckCircle2 size={16}/>, onSelect: () => { act.reset(); setPanel(null); setClosing(true); }} : null,
         canEscalate ? {key: 'escalate', label: 'تصعيد', icon: <TriangleAlert size={16}/>, onSelect: () => toggle('escalate')} : null,
         canNote ? {key: 'note', label: 'ملاحظة داخلية', icon: <StickyNote size={16}/>, onSelect: () => toggle('note')} : null,
         supervise && live ? {key: 'priority', label: item.priority === 'high' ? 'إلغاء الأولوية العالية' : 'أولوية عالية', icon: <Flame size={16}/>, onSelect: () => toggle('priority')} : null,

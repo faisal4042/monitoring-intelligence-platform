@@ -170,7 +170,8 @@ export const REPORT_TYPES: ReportType[] = [
   },
   {
     key: 'agents_queue', ar: 'تقرير الموظفين (الطابور)', en: 'Agents (Queue)', section: 'agents', needs: 'core',
-    descriptionAr: 'لكل موظف: العناصر المسندة والمنجزة ووسيط انتظار الطابور وزمن المعالجة، من الطابور الحالي. الإنتاجية = العناصر المنجزة في الفترة.',
+    // The period applies to entered_at, and statuses/assignee are the CURRENT state — say exactly that, no more.
+    descriptionAr: 'لكل موظف (المسؤول الحالي): العناصر التي دخلت الطابور في الفترة وحالتها الآن، مع وسيط انتظار الطابور وزمن المعالجة. ليست إنتاجية إغلاق في الفترة؛ لعدّ الإغلاقات بفترتها استخدم تقرير عناصر الطابور بفلتر الحالة.',
     dataPermissions: ['queue:view_all'],
     from: `queue_items q JOIN users ua ON ua.id = q.assignee_id`, dateExpr: 'q.entered_at', dateLabelAr: 'وقت دخول الطابور',
     orderBy: '1', groupBy: 'ua.full_name',

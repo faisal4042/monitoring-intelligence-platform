@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Eye, FileDown, Info, Save } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { PERMISSIONS as P } from '@mip/shared';
+import { type QueueOptions } from '../../lib/queue';
 import { fmtDateTime, fmtNum } from '../../lib/format';
 import {
   EXPORTS_OFF_TEXT, FILTER_LABELS, FILTER_OPTIONS, FORMAT_LABELS, PERIOD_PRESETS, tablesReady,
@@ -43,6 +46,10 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
   useEffect(() => { setPreview(null);setPreviewPage(1); }, [JSON.stringify(req)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const programs = useQuery({queryKey: ['programs'], queryFn: () => api.get<{items: Program[]}>('/programs'), enabled: type.filters.includes('program'), staleTime: 300_000});
+  // The employee filter needs a people list; the queue options directory already serves supervisors, so no role is widened.
+  const { can } = useAuth();
+  const canPickAssignee = can(P.QUEUE_SUPERVISE);
+  const members = useQuery({queryKey: ['queue-options'], queryFn: () => api.get<QueueOptions>('/queue/options'), enabled: type.filters.includes('assignee') && canPickAssignee, staleTime: 300_000});
   const previewM = useMutation({mutationFn: (input:ReportRequest) => api.post<Preview>('/reports/preview', input), onSuccess: (data,input) => {if(JSON.stringify(input)===requestKey.current)setPreview(data);}});
   const exportM = useMutation({
     mutationFn: () => api.post('/reports/exports', {request: req, options: {format: state.format, ...(state.format === 'json' || state.format === 'jsonl' ? {jsonMode: state.jsonMode} : {}), ...(state.zip && ['csv', 'tsv', 'jsonl'].includes(state.format) ? {zip: true} : {})},
@@ -65,6 +72,7 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
   const toggleCol = (key: string) => setReq({columns: selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key]});
   const groups = useMemo(() => [...new Set(columns.map((c) => c.group))], [columns]);
   const optionsFor = (f: string) => f === 'program' ? (programs.data?.items ?? []).map((p) => ({value: p.id, ar: p.name_ar}))
+    : f === 'assignee' ? (members.data?.members ?? []).filter((m, i, all) => all.findIndex((n) => n.id === m.id) === i).map((m) => ({value: m.id, ar: m.full_name}))
     : f === 'status' ? (type.key === 'queue_items' ? FILTER_OPTIONS.queueStatus : FILTER_OPTIONS.ticketStatus) : FILTER_OPTIONS[f] ?? [];
   const error = (previewM.error ?? exportM.error ?? templateM.error) as ApiError | null;
   const custom = req.period.range === 'custom';
@@ -86,7 +94,7 @@ export default function ReportBuilder({ catalog, type, state, setState, onExport
             <label className="rc-field"><span>إلى</span><input type="date" className="input num" value={req.period.to ?? ''} onChange={(e) => setReq({period: {...req.period, to: e.target.value}})} /></label>
           </>}
         </div>
-        {type.filters.filter((f) => f !== 'review' && f !== 'topic' && f !== 'assignee').map((f) => {
+        {type.filters.filter((f) => f !== 'review' && f !== 'topic').map((f) => {
           const opts = optionsFor(f);
           if (!opts.length) return null;
           const val = (req.filters[f as keyof ReportFilters] as string[] | undefined) ?? [];

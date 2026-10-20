@@ -31,6 +31,9 @@
 .rc-crumb h2 { font-size: var(--fs-section); font-weight: 400; color: var(--text); }
 .rc-link { color: var(--accent-ink); font-weight: 400; border-radius: var(--radius-sm); text-decoration: none; }
 .rc-link:hover { text-decoration: underline; }
+/* Ticket-number links sit in dense table rows: widen the hit area without changing row height. */
+.rc-link.num { display: inline-flex; align-items: center; min-height: 1.75rem; padding: .15rem .35rem; margin: -.15rem -.35rem; }
+button.rc-link { display: inline-flex; align-items: center; gap: .3rem; min-height: 2rem; }
 
 /* ── Report cards ── */
 .rc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .8rem; }

@@ -57,7 +57,7 @@ export default function ReportsCenter() {
 
     {!c ? catalog.error ? <AsyncState error={catalog.error} errorMessage="تعذر تحميل مركز التقارير. تحقق من الاتصال وصلاحية الوصول." onRetry={()=>catalog.refetch()} />
       : <div className="rc-loading-layout" role="status" aria-label="جارٍ تحميل مركز التقارير" aria-busy="true"><div className="rc-kpis">{[1,2,3,4,5].map(n=><div key={n} className="rc-skeleton" />)}</div><div className="rc-skeleton" /></div>
-      : <main className="rc-main" id="rc-content">
+      : <section className="rc-main" id="rc-content">
         {view==='overview' && <>
           <ReportOverview catalog={c} history={history} onHistory={()=>navigate('exports')} />
           <CatalogView c={c} category={category} setCategory={setCategory} search={search} setSearch={setSearch} searchRef={searchRef} onOpen={open} />
@@ -74,7 +74,7 @@ export default function ReportsCenter() {
           setBuilder({type,state:{request:t.definition.request,format:t.definition.options.format,jsonMode:t.definition.options.jsonMode??'flat',zip:!!t.definition.options.zip}});navigate('catalog');
         }} />}
         {view==='schedules' && <SchedulesView c={c} />}
-      </main>}
+      </section>}
     <footer className="rc-footer"><span><CheckCircle2 size={14} aria-hidden="true" />الصلاحيات مطبّقة على التقارير والبيانات</span><span><Clock3 size={14} aria-hidden="true" />جميع الأوقات بتوقيت الرياض</span></footer>
   </div>;
 }

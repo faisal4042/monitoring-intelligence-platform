@@ -102,13 +102,13 @@ export function useServerClock(serverNow:string|undefined,tickMs=1000) {
 /**
  * The live timer a card shows for open work: waiting for assignment, or time
  * in the assignee's box since the server-recorded assignment (there is no
- * "start" step; legacy in_progress items count the same way). Box time turns
- * amber past the configured minutes — a visual cue, not an SLA.
+ * "start" step; legacy in_progress items count the same way). Both waiting and
+ * box time turn amber past the configured minutes — a visual cue, not an SLA.
  */
 export function workTimer(item:Pick<QueueItem,'status'|'entered_at'|'assigned_at'|'started_at'|'last_reopened_at'>,now:string|undefined,warnMinutes:number) {
   const since=item.status==='new'?item.last_reopened_at??item.entered_at:['assigned','in_progress'].includes(item.status)?item.assigned_at:null;
   if(!since||!now)return null;
   const label=item.status==='new'?'بانتظار الإسناد':'في الصندوق منذ';
-  const warn=item.status!=='new'&&Date.parse(now)-Date.parse(since)>=warnMinutes*60000;
+  const warn=Date.parse(now)-Date.parse(since)>=warnMinutes*60000;
   return {label,text:duration(since,now),warn};
 }

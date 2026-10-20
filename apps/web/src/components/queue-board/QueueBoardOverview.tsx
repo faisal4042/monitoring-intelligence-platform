@@ -45,6 +45,12 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
   ].filter(f => params.has(f.key));
   const clear = () => { setParams(old => { const next = new URLSearchParams(old); for (const k of ['teamId', 'programId', 'employeeId', 'range', 'from', 'to']) next.delete(k); return next; }, { replace: true }); setSearch(''); setPage(1); };
   const act = (a: BoardAgent, kind: BoardAction) => { if (!manage) return; setSelectedId(null); onAction(a, kind, date.apiQuery); };
+  // From the figure to the items behind it: the queue list with the same scope filters and the board's own thresholds.
+  const drill = (extra: Record<string, string>) => {
+    const p = new URLSearchParams({ range: 'all', ...extra });
+    for (const k of ['teamId', 'programId', 'employeeId'] as const) { const v = params.get(k); if (v) p.set(k, v); }
+    return `/queue?${p.toString()}`;
+  };
   return <div className="queue-board" dir="rtl">
     <header className="qb-header">
       <div><span className="dash-eyebrow">إدارة العمليات</span><h1><MonitorDot size={23} />لوحة فرق الرصد</h1><p>نظرة سريعة على وضع الفريق، حمل الصناديق والتذاكر التي تحتاج تدخلًا.</p></div>
@@ -71,12 +77,12 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
     {board.isPending && !date.error && <div className="qb-kpis" role="status" aria-label="جارٍ تحميل اللوحة">{Array.from({ length: 6 }, (_, i) => <div className="dash-skeleton" key={i} style={{ height: 116 }} />)}</div>}
     {d && <>
       <section className="qb-kpis" aria-label="مؤشرات الطابور الآن">
-        <Kpi title="بانتظار الإسناد" value={d.backlog.waiting} icon={Inbox} note={`${fmtNum(d.backlog.waiting_high)} عالية الأولوية · أقدم ${minutesText(d.backlog.oldest_waiting_min)}`} />
-        <Kpi title="تجاوز حد الانتظار" value={d.backlog.starving} icon={Clock3} critical={d.backlog.starving > 0} note={`انتظار ${d.starvationMinutes} دقيقة فأكثر`} />
-        <Kpi title="المتأخر في الصناديق" value={d.backlog.overdue} icon={AlertTriangle} critical={d.backlog.overdue > 0} note={`أكثر من ${d.warnMinutes} دقيقة منذ الإسناد`} />
-        <Kpi title="في صناديق الموظفين" value={d.backlog.in_boxes} icon={UsersRound} note="مسندة وجارٍ العمل عليها الآن" />
-        <Kpi title="التذاكر المصعّدة" value={d.backlog.escalated} icon={ArrowLeft} critical={d.backlog.escalated > 0} note="تحتاج متابعة المسار التصعيدي" />
-        <Kpi title="المغلق اليوم" value={d.backlog.closedToday} icon={CheckCircle2} note="تفاعلات دون تكرار · اليوم بتوقيت الرياض" />
+        <Kpi title="بانتظار الإسناد" value={d.backlog.waiting} icon={Inbox} note={`${fmtNum(d.backlog.waiting_high)} عالية الأولوية · أقدم ${minutesText(d.backlog.oldest_waiting_min)}`} to={drill({view: 'unassigned'})} />
+        <Kpi title="تجاوز حد الانتظار" value={d.backlog.starving} icon={Clock3} critical={d.backlog.starving > 0} note={`انتظار ${d.starvationMinutes} دقيقة فأكثر`} to={drill({view: 'unassigned', bucket: 'starving'})} />
+        <Kpi title="المتأخر في الصناديق" value={d.backlog.overdue} icon={AlertTriangle} critical={d.backlog.overdue > 0} note={`أكثر من ${d.warnMinutes} دقيقة منذ الإسناد`} to={drill({view: 'open', bucket: 'overdue'})} />
+        <Kpi title="في صناديق الموظفين" value={d.backlog.in_boxes} icon={UsersRound} note="مسندة وجارٍ العمل عليها الآن" to={drill({view: 'open', bucket: 'boxed'})} />
+        <Kpi title="التذاكر المصعّدة" value={d.backlog.escalated} icon={ArrowLeft} critical={d.backlog.escalated > 0} note="تحتاج متابعة المسار التصعيدي" to={drill({view: 'open', status: 'escalated'})} />
+        <Kpi title="المغلق اليوم" value={d.backlog.closedToday} icon={CheckCircle2} note="تفاعلات دون تكرار · اليوم بتوقيت الرياض" to={drill({view: 'closed', range: 'today'})} />
       </section>
       {!d.autoAssignEnabled && <div className="qb-notice"><AlertTriangle size={15} /><span>الإسناد التلقائي متوقف على مستوى النظام.</span>{manage && <Link to="/queue/settings">مراجعة الإعدادات</Link>}</div>}
       <Panel id="board-agents" title="فريق الرصد" eyebrow="الوضع التشغيلي" info="الحالة التشغيلية والحمل من الخادم. آخر نبضة اتصال ليست آخر نشاط، ولا تثبت اتصالًا لحظيًا." actions={<span className="qb-total">{fmtNum(d.agents.length)} موظف</span>}>
@@ -122,8 +128,10 @@ export default function QueueBoardOverview({ onAction }: { onAction: (agent: Boa
   </div>;
 }
 
-function Kpi({ title, value, note, critical, icon: Icon }: { title: string; value: number; note: string; critical?: boolean; icon: typeof Inbox }) {
-  return <article className={`qb-kpi card ${critical ? 'is-critical' : ''}`}><div className="qb-kpi-heading"><span>{title}</span><Icon size={17} /></div><strong className="qb-kpi-value">{fmtNum(value)}</strong><p>{note}</p>{critical && <span className="sr-only">تحتاج متابعة</span>}</article>;
+function Kpi({ title, value, note, critical, icon: Icon, to }: { title: string; value: number; note: string; critical?: boolean; icon: typeof Inbox; to?: string }) {
+  return <article className={`qb-kpi card ${critical ? 'is-critical' : ''}`}><div className="qb-kpi-heading"><span>{title}</span><Icon size={17} /></div><strong className="qb-kpi-value">{fmtNum(value)}</strong><p>{note}</p>
+    {to && <Link className="qb-kpi-link" to={to}>فتح في الطابور<ChevronLeft size={13} aria-hidden="true" /></Link>}
+    {critical && <span className="sr-only">تحتاج متابعة</span>}</article>;
 }
 function Status({ agent: a, now }: { agent: BoardAgent; now?: string }) {
   return <span className="qb-status"><span className={`wf-status-chip agent-status--${a.status}`}><span className="agent-status-dot" aria-hidden="true" />{statusLabel(a.status)}</span><span className="qb-secondary">{a.status_since && now ? duration(a.status_since, now) : 'مدة غير متاحة'}</span></span>;

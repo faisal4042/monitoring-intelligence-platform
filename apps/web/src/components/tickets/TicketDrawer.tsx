@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Clock3, ExternalLink, FileText, Hash, MessageSquareText, Ticket, UserRound, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownLeft, ArrowUpRight, Clock3, ExternalLink, FileText, Hash, MessageSquareText, StickyNote, Ticket, UserRound, X } from 'lucide-react';
 import ModalSurface, { ModalCloseButton } from '../ModalSurface';
 import { api, ApiError } from '../../lib/api';
 import { fmtDateTime, fmtNum } from '../../lib/format';
@@ -92,9 +92,12 @@ export default function TicketDrawer({ id, onClose }: { id: string; onClose: () 
             <ol className="td-timeline">
               {timeline.map((x, i) => x.kind === 'message' ? (
                 <li key={`m${x.m.id}`} className={`td-msg td-${x.m.direction}`}>
-                  <span className="td-icon" aria-hidden="true">{x.m.direction === 'inbound' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}</span>
+                  <span className="td-icon" aria-hidden="true">{x.m.direction === 'inbound' ? <ArrowDownLeft size={14} /> : x.m.direction === 'internal_note' ? <StickyNote size={14} /> : <ArrowUpRight size={14} />}</span>
                   <div className="td-body">
-                    <div className="td-meta"><b>{x.m.direction === 'inbound' ? 'العميل' : x.m.agent_name ?? 'الموظف'}</b><time>{fmtDateTime(x.m.event_at)}</time>
+                    <div className="td-meta"><b>{x.m.direction === 'inbound' ? 'العميل' : x.m.direction === 'internal_note' ? `ملاحظة داخلية — ${x.m.agent_name ?? 'الموظف'}` : x.m.agent_name ?? 'الموظف'}</b><time>{fmtDateTime(x.m.event_at)}</time>
+                      {/* An in-app reply (provider mip) is an internal record only; a provider-ingested outbound was actually delivered on its platform. */}
+                      {x.m.direction === 'internal_note' && <span className="rc-status-pill tone-muted">لا تصل للعميل</span>}
+                      {x.m.direction !== 'inbound' && x.m.direction !== 'internal_note' && x.m.provider === 'mip' && <span className="rc-status-pill tone-muted">رد مسجّل داخليًا — لم يُرسل للعميل</span>}
                       {x.m.disposition === 'late_review' && <span className="rc-status-pill tone-bad">متأخرة — مراجعة</span>}
                       <span className="td-id num" title="معرف الرسالة لدى المزود"><Hash size={11} aria-hidden="true" />{x.m.provider_message_id.slice(-10)}</span></div>
                     {x.m.text ? <p dir="auto">{x.m.text.replace(/\n?https:\/\/\S+\s*$/, '')}</p> : <p className="rc-null">لا يتوفر نص لهذه الرسالة</p>}

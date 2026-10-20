@@ -45,6 +45,13 @@ export interface TicketRow {
   closed_at: string | null; message_count: number; needs_review: boolean; review_reason: string | null; assignee_id: string | null;
   assignee_name: string | null; program_name: string | null; program_color: string | null; customer_handle: string | null; customer_name: string | null;
   first_response_at: string | null; version: number;
+  /** X account enrichment (null for non-X customers or unknown accounts). */
+  profile_image_url: string | null; followers_count: number | null; following_count: number | null;
+  tweet_count: number | null; is_verified: boolean | null; author_bio: string | null;
+  /** Latest inbound customer message (post/comment/article text) — the card's content, like the queue. */
+  last_message_text: string | null;
+  /** The queue card managing this ticket (bulk actions route through it when links are active). */
+  queue_item_id: string | null; queue_item_version: number | null; queue_item_status: string | null;
 }
 export interface TicketDetail {
   ticket: TicketRow & Record<string, any>;

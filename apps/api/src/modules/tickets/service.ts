@@ -40,7 +40,7 @@ export function ticketScope(actor: Actor, alias = 't') {
                            WHERE tm.user_id = ${actor.id}::uuid AND tm.left_at IS NULL))))`;
 }
 
-export interface TicketFilters { status?: string[]; programId?: string; assignee?: string; channels?: string[]; review?: boolean; q?: string; cursor?: string; limit?: number }
+export interface TicketFilters { status?: string[]; programId?: string; assignee?: string; channels?: string[]; review?: boolean; q?: string; cursor?: string; limit?: number; dates?: {from: string; to: string} }
 export async function listTickets(actor: Actor, f: TicketFilters) {
   const limit = Math.min(Math.max(f.limit ?? 50, 1), 100);
   let cursor: {at: string; id: string} | null = null;
@@ -48,23 +48,49 @@ export async function listTickets(actor: Actor, f: TicketFilters) {
   const rows = await sql`
     SELECT t.id, t.ticket_number, t.status, t.priority, t.channel, t.opened_at, t.last_activity_at, t.closed_at, t.message_count,
       t.needs_review, t.review_reason, t.assignee_id, u.full_name AS assignee_name, p.name_ar AS program_name, p.color AS program_color,
-      ci.handle AS customer_handle, ci.display_name AS customer_name, t.first_response_at, t.version
+      ci.handle AS customer_handle, ci.display_name AS customer_name, t.first_response_at, t.version,
+      a.profile_image_url, a.followers_count, a.following_count, a.tweet_count, a.is_verified, a.description AS author_bio,
+      lm.text AS last_message_text,
+      qi.id AS queue_item_id, qi.version AS queue_item_version, qi.status AS queue_item_status
     FROM tickets t
     JOIN customer_identities ci ON ci.id = t.customer_identity_id
     LEFT JOIN users u ON u.id = t.assignee_id
     LEFT JOIN programs p ON p.id = t.program_id
+    -- Read-only X account enrichment for the card (avatar, figures, bio); non-X customers stay null.
+    LEFT JOIN LATERAL (
+      SELECT au.profile_image_url, au.followers_count, au.following_count, au.tweet_count, au.is_verified, au.description
+      FROM authors au
+      WHERE ci.provider = 'x' AND ci.handle IS NOT NULL AND lower(au.username) = lower(ci.handle)
+      ORDER BY au.last_seen_at DESC NULLS LAST LIMIT 1
+    ) a ON true
+    -- The interaction's own content for the card, like the queue: the latest inbound customer message.
+    LEFT JOIN LATERAL (
+      SELECT COALESCE(m.body, po.text) AS text
+      FROM ticket_messages m
+      LEFT JOIN posts po ON po.id = m.post_id AND po.posted_at = m.post_posted_at
+      WHERE m.ticket_id = t.id AND m.direction = 'inbound'
+      ORDER BY m.event_at DESC, m.id DESC LIMIT 1
+    ) lm ON true
+    -- The queue card that manages this ticket (when links are active): bulk actions route through it.
+    LEFT JOIN LATERAL (
+      SELECT q2.id, q2.version, q2.status
+      FROM queue_item_tickets qit JOIN queue_items q2 ON q2.id = qit.queue_item_id
+      WHERE qit.ticket_id = t.id ORDER BY q2.entered_at DESC LIMIT 1
+    ) qi ON true
     WHERE ${ticketScope(actor)}
       AND (${f.status?.length ? sql`t.status = ANY(${f.status})` : sql`true`})
       AND (${f.programId ? sql`t.program_id = ${f.programId}::uuid` : sql`true`})
       AND (${f.channels?.length ? sql`t.channel = ANY(${f.channels})` : sql`true`})
       AND (${f.review ? sql`t.needs_review` : sql`true`})
+      AND (${f.dates ? sql`t.last_activity_at >= ${f.dates.from}::timestamptz AND t.last_activity_at < ${f.dates.to}::timestamptz` : sql`true`})
       AND (${f.assignee === 'me' ? sql`t.assignee_id = ${actor.id}::uuid` : f.assignee === 'unassigned' ? sql`t.assignee_id IS NULL` : f.assignee ? sql`t.assignee_id = ${f.assignee}::uuid` : sql`true`})
       AND (${f.q ? (/^#?[0-9]+$/.test(f.q.trim()) ? sql`t.ticket_number = ${f.q.trim().replace(/^#/, '')}` : sql`t.ticket_number ILIKE ${f.q.replace(/[%_\\]/g, '') + '%'}`) : sql`true`})
       AND (${cursor ? sql`(t.last_activity_at, t.id) < (${cursor.at}::timestamptz, ${cursor.id}::uuid)` : sql`true`})
     ORDER BY t.last_activity_at DESC, t.id DESC LIMIT ${limit + 1}`;
   const items = rows.slice(0, limit);
   const last = items.at(-1);
-  return {items, nextCursor: rows.length > limit && last ? Buffer.from(JSON.stringify({at: new Date(last.last_activity_at).toISOString(), id: last.id})).toString('base64url') : null};
+  return {items, queueLinked: await queueLinksActive(),
+    nextCursor: rows.length > limit && last ? Buffer.from(JSON.stringify({at: new Date(last.last_activity_at).toISOString(), id: last.id})).toString('base64url') : null};
 }
 
 async function loadVisible(actor: Actor, id: string) {

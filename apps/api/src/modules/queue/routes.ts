@@ -26,6 +26,10 @@ const querySchema=z.object({
   classification:z.enum(['complaint','inquiry','suggestion','praise','news','experience','warning','issue','request','other']).optional(),
   sentiment:z.enum(['very_positive','positive','neutral','negative','very_negative']).optional(),
   search:z.string().max(200).optional(),limit:z.coerce.number().int().min(1).max(100).default(40),cursor:z.string().max(1200).optional(),
+  // oldest: the longest-waiting first (the default work order) · newest · priority: high first, then the oldest.
+  sort:z.enum(['oldest','newest','priority']).default('oldest'),
+  // Team-board drill-down buckets, matching its live thresholds (visual cues, not SLAs).
+  bucket:z.enum(['starving','overdue','boxed']).optional(),
 }).strict();
 type Query=z.infer<typeof querySchema>;
 const reviewSchema=z.object({
@@ -37,7 +41,8 @@ const reviewSchema=z.object({
 }).strict();
 const statsSchema=z.object({range:z.string().optional(),from:z.string().optional(),to:z.string().optional(),
   section:z.enum(QUEUE_SECTIONS).optional(),teamId:uuid.optional(),employeeId:uuid.optional()}).strict();
-const cursorSchema=z.object({at:z.string().min(10).max(40),id:uuid,through:z.string().min(10).max(40)}).strict();
+// p: the priority rank (0 high, 1 normal) of the last row — only the priority sort's keyset needs it.
+const cursorSchema=z.object({at:z.string().min(10).max(40),id:uuid,through:z.string().min(10).max(40),p:z.number().int().min(0).max(1).optional()}).strict();
 /**
  * Cards: every item once. A merged story unit is gone (its story lives on in
  * the surviving unit); a post inside a story is worked through the story and
@@ -76,7 +81,12 @@ function filter(actor:QueueActor,q:Query) {
       :sql`true`}))
     -- Outcome of the current closure (the latest review cycle).
     AND (${q.outcome??null}::text IS NULL OR EXISTS (SELECT 1 FROM queue_reviews rv WHERE rv.queue_item_id=q.id
-      AND rv.cycle=q.reopen_count+1 AND rv.outcome=${q.outcome??null}))`;
+      AND rv.cycle=q.reopen_count+1 AND rv.outcome=${q.outcome??null}))
+    -- Board drill-down: the same live thresholds the team board counts with.
+    AND (${q.bucket??null}::text IS NULL
+      OR (${q.bucket==='boxed'} AND q.status IN ('assigned','in_progress'))
+      OR (${q.bucket==='starving'} AND q.status='new' AND coalesce(q.last_reopened_at,q.entered_at)<=now()-make_interval(mins=>coalesce((SELECT value::text::int FROM settings WHERE key='queue.starvation_minutes'),45)))
+      OR (${q.bucket==='overdue'} AND q.status IN ('assigned','in_progress') AND q.assigned_at<=now()-make_interval(mins=>coalesce((SELECT value::text::int FROM settings WHERE key='queue.wait_warning_minutes'),60))))`;
 }
 // Source can disappear under retention/redaction; operational history survives.
 const joins=sql`LEFT JOIN posts p ON p.id=q.post_id AND p.posted_at=q.post_posted_at AND NOT p.is_redacted
@@ -127,6 +137,14 @@ export default async function queueRoutes(app:FastifyInstance) {
     const upper=cursor?.through??through;
     if(q.ticket&&!(await queueLinksActive()))return {items:[],nextCursor:null};
     const tickets=(await queueLinksActive())?ticketColumnsWith:noTicketColumns;
+    // Keyset pagination per sort. High priority maps to rank 0 so every keyset compares ascending tuples.
+    if(q.sort==='priority'&&cursor&&cursor.p==null)throw badRequest('مؤشر الصفحة غير صالح');
+    const pri=sql`CASE WHEN q.priority='high' THEN 0 ELSE 1 END`;
+    const order=q.sort==='newest'?sql`q.entered_at DESC,q.id DESC`:q.sort==='priority'?sql`${pri},q.entered_at,q.id`:sql`q.entered_at,q.id`;
+    const keyset=!cursor?sql`true`
+      :q.sort==='newest'?sql`(q.entered_at,q.id)<(${cursor.at}::timestamptz,${cursor.id}::uuid)`
+      :q.sort==='priority'?sql`(${pri},q.entered_at,q.id)>(${cursor.p??0}::int,${cursor.at}::timestamptz,${cursor.id}::uuid)`
+      :sql`(q.entered_at,q.id)>(${cursor.at}::timestamptz,${cursor.id}::uuid)`;
     const rows=await sql`SELECT q.*,q.entered_at::text AS cursor_at,p.text,p.x_author_id,p.url,p.is_reply,p.is_quote,
       a.username,a.display_name,a.profile_image_url,a.followers_count,c.intent,c.relevance,s.label AS sentiment,
       -- AI classification confidences, shown beside the ticket number on the card.
@@ -142,10 +160,11 @@ export default async function queueRoutes(app:FastifyInstance) {
       FROM queue_items q ${joins} ${storyJoins} LEFT JOIN authors a ON a.id=p.author_id ${rootJoins} LEFT JOIN topics tpc ON tpc.id=c.topic_id
       LEFT JOIN users u ON u.id=q.assignee_id JOIN teams t ON t.id=q.team_id
       WHERE ${filter(req.user,q)} AND q.entered_at<=${upper}::timestamptz
-        AND (${cursor?.at??null}::timestamptz IS NULL OR (q.entered_at,q.id)>(${cursor?.at??null}::timestamptz,${cursor?.id??null}::uuid))
-      ORDER BY q.entered_at,q.id LIMIT ${q.limit+1}`;
+        AND ${keyset}
+      ORDER BY ${order} LIMIT ${q.limit+1}`;
     const more=rows.length>q.limit;const items=rows.slice(0,q.limit);const last=items.at(-1);
-    return {items:redactRows(items),nextCursor:more&&last?Buffer.from(JSON.stringify({at:last.cursor_at,id:last.id,through:upper})).toString('base64url'):null};
+    return {items:redactRows(items),nextCursor:more&&last?Buffer.from(JSON.stringify({at:last.cursor_at,id:last.id,through:upper,
+      ...(q.sort==='priority'?{p:last.priority==='high'?0:1}:{})})).toString('base64url'):null};
   });
   app.get('/items/:id',read,async req=>{
     const {id}=parse(idParams,req.params);

@@ -11,6 +11,12 @@
 
 
 .lm-cards{display:grid;gap:.65rem;padding:.75rem;background:var(--surface-2)}
+/* Selection checkboxes: readable size, teal accent, and a label-wide hit area (they were 13px natives). */
+.lm-selection input[type=checkbox],.lm-cards input[type=checkbox],.lm-table input[type=checkbox]{width:1.125rem;height:1.125rem;accent-color:var(--accent);cursor:pointer;flex:0 0 auto}
+.lm-selection label{min-height:2rem;padding-block:.25rem}
+.lm-actions button,.lm-actions a{min-height:2rem;display:inline-flex;align-items:center;gap:.25rem}
+.lm-cards header a{padding-block:.3rem;margin-block:-.3rem}
+@media(pointer:coarse){.lm-selection input[type=checkbox],.lm-cards input[type=checkbox],.lm-table input[type=checkbox]{width:1.375rem;height:1.375rem}.lm-selection label{min-height:2.5rem}}
 .lm-clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.75;font-size: var(--fs-body);overflow-wrap:anywhere}.lm-tags{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;font-size: var(--fs-caption)}.lm-actions{display:flex;flex-wrap:wrap;gap:.5rem .9rem;align-items:center;font-size: var(--fs-caption)}.lm-actions button:not(.btn-primary):not(.btn-ghost),.lm-actions a{color:var(--accent-ink)}.lm-fulltext{white-space:pre-wrap;line-height:1.8;overflow-wrap:anywhere}
 .lm-loading-state{display:grid;gap:.65rem;padding:1rem;background:var(--surface-2);color:var(--text-muted);font-size: var(--fs-table)}.lm-state{display:grid;justify-items:center;gap:.6rem}.lm-state svg{color:var(--text-muted)}
 @media(max-width:500px){.lm-cards{padding:.5rem;gap:.6rem}}

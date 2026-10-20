@@ -227,11 +227,11 @@ export default function TopicManagement() {
       </div>
 
       <div className="card flex flex-wrap items-center gap-2 p-3">
-        <select className="input max-w-52" value={programId} onChange={(event) => { setProgramId(event.target.value); setSelectedId(null); }}>
+        <select className="input max-w-52" aria-label="تصفية المواضيع حسب البرنامج" value={programId} onChange={(event) => { setProgramId(event.target.value); setSelectedId(null); }}>
           <option value="">كل البرامج</option>
           {(programs?.items ?? []).map((program) => <option key={program.id} value={program.id}>{program.name_ar}</option>)}
         </select>
-        <input className="input min-w-52 flex-1" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث بالاسم أو الوصف أو الكلمات…" />
+        <input className="input min-w-52 flex-1" aria-label="بحث في المواضيع" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="بحث بالاسم أو الوصف أو الكلمات…" />
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={reviewOnly} onChange={(event) => setReviewOnly(event.target.checked)} /> تحتاج مراجعة</label>
         <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={includeArchived} onChange={(event) => setIncludeArchived(event.target.checked)} /> عرض المؤرشفة</label>
       </div>
@@ -319,8 +319,8 @@ export default function TopicManagement() {
                     {!selected.keywords.length && <span className="text-xs muted">لا توجد كلمات مرتبطة.</span>}
                   </div>
                   {canManage && selected.is_active && <div className="mt-3 flex flex-wrap gap-2">
-                    <input className="input min-w-48 flex-1" value={keywordTerm} onChange={(event) => setKeywordTerm(event.target.value)} placeholder="كلمة أو عبارة…" />
-                    <select className="input !w-28" value={keywordKind} onChange={(event) => setKeywordKind(event.target.value as TopicKeyword['kind'])}>
+                    <input className="input min-w-48 flex-1" aria-label="كلمة أو عبارة جديدة للموضوع" value={keywordTerm} onChange={(event) => setKeywordTerm(event.target.value)} placeholder="كلمة أو عبارة…" />
+                    <select className="input !w-28" aria-label="نوع الكلمة" value={keywordKind} onChange={(event) => setKeywordKind(event.target.value as TopicKeyword['kind'])}>
                       <option value="alias">مرادف</option><option value="include">تضمين</option><option value="exclude">استبعاد</option>
                     </select>
                     <Button variant="ghost" type="submit" disabled={keywordTerm.trim().length < 2 || addKeyword.isPending} onClick={() => addKeyword.mutate()}>إضافة</Button>

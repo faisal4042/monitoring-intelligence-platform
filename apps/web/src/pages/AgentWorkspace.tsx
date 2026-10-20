@@ -9,7 +9,7 @@ import {useCursorNavigation} from '../lib/useCursorNavigation';
 import {useLocation} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 
-import {Inbox,CheckCircle2,BarChart3,MessagesSquare,UserRound,Sparkles,Flame,RefreshCw} from 'lucide-react';
+import {Inbox,CheckCircle2,BarChart3,MessagesSquare,UserRound,Sparkles,Flame,RefreshCw,Hand} from 'lucide-react';
 import {QUEUE_SECTIONS,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueSection,type QueueStatus} from '@mip/shared';
 import {api} from '../lib/api';
 import {INTENT_LABELS,SENTIMENT_LABELS,duration,useServerClock,type QueueItem,type QueueSummary,type ReviewCatalog} from '../lib/queue';
@@ -23,9 +23,10 @@ import QueueDrawer from '../components/QueueDrawer';
 import Avatar from '../components/Avatar';
 
 import { Button } from '../components/ui/Button';
-type Tab='box'|'closed'|'performance';
+type Tab='box'|'claim'|'closed'|'performance';
 const TABS:Array<{key:Tab;label:string;icon:typeof Inbox}>=[
-  {key:'box',label:'صندوقي',icon:Inbox},{key:'closed',label:'المغلقة',icon:CheckCircle2},{key:'performance',label:'أدائي',icon:BarChart3},
+  {key:'box',label:'صندوقي',icon:Inbox},{key:'claim',label:'غير المسند',icon:Hand},
+  {key:'closed',label:'المغلقة',icon:CheckCircle2},{key:'performance',label:'أدائي',icon:BarChart3},
 ];
 const LANE_ICON={general:MessagesSquare,influencer:UserRound,story:Sparkles} as const;
 
@@ -36,7 +37,11 @@ const LANE_ICON={general:MessagesSquare,influencer:UserRound,story:Sparkles} as 
 export default function AgentWorkspace() {
   const {can}=useAuth();
   const [params,setParams]=useBrowsingParams();const location=useLocation();
-  const tab=(['box','closed','performance'].includes(params.get('tab')??'')?params.get('tab'):'box') as Tab;
+  // The claim tab exists only while self-claim is on; a stale URL falls back to the box.
+  const {data:catalog}=useQuery({queryKey:['queue-review-catalog'],queryFn:()=>api.get<ReviewCatalog>('/queue/review-catalog')});
+  const selfClaim=!!catalog?.selfClaim;
+  const tabs=TABS.filter(t=>t.key!=='claim'||selfClaim);
+  const tab=(tabs.some(t=>t.key===(params.get('tab')??''))?params.get('tab'):'box') as Tab;
   const set=(key:string,value:string,push=false)=>setParams(old=>{const n=new URLSearchParams(old);value?n.set(key,value):n.delete(key);return n;},{replace:!push,state:location.state});
   const me=useMyWorkforce();
   const selected=params.get('item');
@@ -48,15 +53,51 @@ export default function AgentWorkspace() {
     </div></div>
     <MyStrip/>
     <nav onKeyDown={navigateTabs} role="tablist" aria-label="أقسام مهامي" className="queue-tabs">
-      {TABS.map(t=><button key={t.key} role="tab" aria-selected={t.key===tab} className="queue-tab"
+      {tabs.map(t=><button key={t.key} role="tab" aria-selected={t.key===tab} className="queue-tab"
         onClick={()=>setParams(old=>{const n=new URLSearchParams(old);n.set('tab',t.key);n.delete('item');n.delete('cursor');n.delete('page');return n;})}>
         <t.icon size={16}/>{t.label}{t.key==='box'&&me.data?<span className="queue-tab-count">{me.data.open+me.data.escalatedOpen}</span>:null}
       </button>)}
     </nav>
-    {tab==='box'&&<MyBox onOpen={id=>set('item',id,true)} selected={selected}/>}
-    {tab==='closed'&&<MyClosed onOpen={id=>set('item',id,true)} selected={selected}/>}
+    {tab==='box'&&<MyBox onOpen={id=>set('item',id,true)} onClose={()=>set('item','',true)} selected={selected}/>}
+    {tab==='claim'&&selfClaim&&<MyClaimable onOpen={id=>set('item',id,true)} onClose={()=>set('item','',true)} selected={selected}/>}
+    {tab==='closed'&&<MyClosed onOpen={id=>set('item',id,true)} onClose={()=>set('item','',true)} selected={selected}/>}
     {tab==='performance'&&<MyPerformance/>}
-    {selected&&<QueueDrawer key={selected} id={selected} onClose={()=>set('item','',true)}/>}
+  </div>;
+}
+
+/** The drawer, with previous/next wired to the ordered list it was opened from. */
+function ListDrawer({items,selected,onOpen,onClose}:{items:QueueItem[];selected:string|null;onOpen:(id:string)=>void;onClose:()=>void}) {
+  if(!selected)return null;
+  const idx=items.findIndex(i=>i.id===selected);
+  return <QueueDrawer key={selected} id={selected} onClose={onClose}
+    nav={{prevId:idx>0?items[idx-1].id:null,nextId:idx>=0&&idx<items.length-1?items[idx+1].id:null,onOpen}}/>;
+}
+
+/**
+ * Unassigned work the agent may take (self-claim on, own team only). Server
+ * order: high priority first, then the longest waiting. A colleague may win
+ * the race: the card shows the conflict message and the list refreshes.
+ */
+function MyClaimable({onOpen,onClose,selected}:{onOpen:(id:string)=>void;onClose:()=>void;selected:string|null}) {
+  const warn=useCatalogWarn();
+  const qs='range=all&view=unassigned&sort=priority&limit=40';
+  const navigation=useCursorNavigation('agent-claim:'+qs);
+  const list=useQuery({queryKey:['queue','items','claimable',navigation.cursor],
+    queryFn:({signal})=>api.get<{items:QueueItem[];nextCursor:string|null}>(`/queue/items?${qs}${navigation.cursor?'&cursor='+encodeURIComponent(navigation.cursor):''}`,signal),
+    refetchInterval:15000,refetchIntervalInBackground:false});
+  const summary=useQuery({queryKey:['queue','summary','mine'],queryFn:()=>api.get<QueueSummary>('/queue/summary?range=all&view=mine'),refetchInterval:15000,refetchIntervalInBackground:false});
+  const now=useServerClock(summary.data?.serverNow,30000);
+  const items=uniqueRows(list.data?.items??[]);
+  return <div className="space-y-3">
+    <p className="text-xs muted">عناصر فريقك التي لم تُسنَد بعد، الأولوية العالية أولًا ثم الأطول انتظارًا. إذا سبقك زميل لعنصر تظهر رسالة تعارض — حدّث القائمة وتابع.</p>
+    {list.error&&<p role="alert" className="card p-4 text-(--status-danger)">{list.error.message}<Button variant="ghost" type="submit" onClick={()=>list.refetch()}>إعادة المحاولة</Button></p>}
+    {list.isLoading&&<div className="card p-8 text-center muted">جارٍ التحميل…</div>}
+    {list.isSuccess&&!items.length&&<div className="card p-10 text-center">
+      <Hand size={34} className="mx-auto mb-3 text-brand-600"/><h2 className="font-bold">لا يوجد عناصر غير مسندة الآن</h2>
+      <p className="muted text-sm mt-2">عندما يصل تفاعل جديد لفريقك يظهر هنا لاستلامه.</p></div>}
+    <ul className="space-y-2.5">{items.map(i=><li key={i.id}><WorkCard item={i} now={now} warn={warn} selected={i.id===selected} onOpen={()=>onOpen(i.id)}/></li>)}</ul>
+    <CursorPager shown={items.length} {...navigation} nextCursor={list.data?.nextCursor} busy={list.isFetching} error={!!list.error} onNext={()=>navigation.next(list.data!.nextCursor!)} onPrevious={navigation.previous} onFirst={navigation.first}/>
+    <ListDrawer items={items} selected={selected} onOpen={onOpen} onClose={onClose}/>
   </div>;
 }
 
@@ -92,7 +133,7 @@ function useCatalogWarn() {
   return data?.waitWarningMinutes??60;
 }
 
-function MyBox({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|null}) {
+function MyBox({onOpen,onClose,selected}:{onOpen:(id:string)=>void;onClose:()=>void;selected:string|null}) {
   const [params,setParams]=useBrowsingParams();
   const lane=(QUEUE_SECTIONS as readonly string[]).includes(params.get('lane')??'')?params.get('lane') as QueueSection:null;
   const program=params.get('programId')??'';const intent=params.get('classification')??'';const kind=params.get('kind')??'';
@@ -133,6 +174,7 @@ function MyBox({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|null}
     <p className="text-xs muted">التصفح حسب الأقدم، مع تقديم الأولوية العالية داخل الصفحة. أعداد المسارات تشمل صندوقك كله.</p>
     <ul className="space-y-2.5">{items.map(i=><li key={i.id}><WorkCard item={i} now={now} warn={warn} selected={i.id===selected} onOpen={()=>onOpen(i.id)}/></li>)}</ul>
     <CursorPager shown={items.length} {...navigation} nextCursor={list.data?.nextCursor} busy={list.isFetching} error={!!list.error} onNext={()=>navigation.next(list.data!.nextCursor!)} onPrevious={navigation.previous} onFirst={navigation.first}/>
+    <ListDrawer items={items} selected={selected} onOpen={onOpen} onClose={onClose}/>
   </div>;
 }
 
@@ -140,7 +182,7 @@ function WorkCard({item,now,warn,selected,onOpen,closed}:{item:QueueItem;now?:st
   return <InteractionCard item={item} now={now} warnMinutes={warn} selected={selected} onOpen={onOpen} closed={closed}/>;
 }
 
-function MyClosed({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|null}) {
+function MyClosed({onOpen,onClose,selected}:{onOpen:(id:string)=>void;onClose:()=>void;selected:string|null}) {
   const date=useDateRange(undefined,{resetKeys:['cursor','page','item']});const warn=useCatalogWarn();
   const qs=`${date.apiQuery}&view=closed&limit=40`;
   const navigation=useCursorNavigation('agent-closed:'+qs);
@@ -155,6 +197,7 @@ function MyClosed({onOpen,selected}:{onOpen:(id:string)=>void;selected:string|nu
     {list.isSuccess&&!items.length&&<div className="card p-8 text-center muted">لا توجد تفاعلات أغلقتها في هذه الفترة.</div>}
     <ul className="space-y-2.5">{items.map(i=><li key={i.id}><WorkCard item={i} warn={warn} closed selected={i.id===selected} onOpen={()=>onOpen(i.id)}/></li>)}</ul>
     <CursorPager shown={items.length} {...navigation} nextCursor={list.data?.nextCursor} busy={list.isFetching} error={!!list.error||!!date.error} onNext={()=>navigation.next(list.data!.nextCursor!)} onPrevious={navigation.previous} onFirst={navigation.first}/>
+    <ListDrawer items={items} selected={selected} onOpen={onOpen} onClose={onClose}/>
   </div>;
 }
 

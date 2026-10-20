@@ -286,6 +286,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 ::selection { background: color-mix(in srgb, var(--ithra-teal) 30%, transparent); }
 input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color: var(--ithra-teal); }
+/* Native boxes render 13px by default — too small to see or tap. Hidden switch inputs override this later in the file. */
+input[type='checkbox'], input[type='radio'] { width: 1.125rem; height: 1.125rem; flex: 0 0 auto; }
+@media (pointer: coarse) { input[type='checkbox'], input[type='radio'] { width: 1.375rem; height: 1.375rem; } }
 
 .card {
   background: var(--surface-raised);
@@ -395,6 +398,9 @@ input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color:
   gap: 0.25rem;
   border-radius: 999px;
   padding: 0.125rem 0.5rem;
+}
+/* A badge that is itself a control needs a tappable height; static badges keep the slim pill. */
+button.badge, a.badge { min-height: 1.75rem; padding-block: 0.25rem;
   font-size: var(--fs-caption);
   line-height: 1rem;
   font-weight: 400;
@@ -1040,8 +1046,14 @@ input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color:
 .queue-header h1 { font-size: var(--fs-page-title); font-weight: var(--fw-strong); }
 .queue-chip { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .25rem .65rem; font-size: var(--fs-caption); font-weight: 400; background: var(--surface-3); color: var(--text); }
 .queue-chip--action { background: var(--status-danger-soft); color: var(--status-danger); }
+/* «وصل جديد»: a quiet notice instead of reordering the list under the supervisor's hands. */
+.queue-fresh { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: .55rem .8rem; border: 1px solid var(--border); border-radius: .75rem; background: var(--accent-soft); color: var(--accent-ink); font-size: var(--fs-table); }
+.queue-fresh-actions { display: inline-flex; gap: .5rem; margin-inline-start: auto; }
+.queue-saved-view { display: inline-flex; align-items: center; gap: .1rem; }
+.queue-saved-view .queue-tag { cursor: pointer; }
+.queue-saved-view-x { inline-size: 1.75rem; block-size: 1.75rem; min-block-size: 1.75rem; }
 .queue-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-.queue-tab { position: relative; display: inline-flex; align-items: center; gap: .5rem; padding: .6rem .9rem; font-size: var(--fs-body); font-weight: 400; color: var(--text-muted); white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s, border-color .15s; }
+.queue-tab { position: relative; display: inline-flex; align-items: center; gap: .5rem; padding: .55rem .85rem; font-size: var(--fs-body); font-weight: 400; color: var(--text-muted); white-space: nowrap; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s, border-color .15s; }
 .queue-tab:hover { color: var(--text); }
 .queue-tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 .queue-tab-count { min-width: 1.4rem; padding: .05rem .4rem; border-radius: 999px; background: var(--surface-3); color: var(--text); font-size: var(--fs-caption); text-align: center; font-variant-numeric: tabular-nums; }
@@ -1051,6 +1063,7 @@ input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color:
 .queue-status strong { font-variant-numeric: tabular-nums; }
 .queue-status[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
 .queue-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18.5rem; gap: 1rem; align-items: start; }
+.queue-list { display: flex; flex-direction: column; gap: .625rem; }
 .queue-layout.is-collapsed { grid-template-columns: minmax(0, 1fr); }
 .queue-aside { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 1rem; max-height: calc(100vh - 6rem); overflow-y: auto; }
 .queue-aside .input { width: 100%; }
@@ -1129,7 +1142,7 @@ input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color:
 
 /* Definition tooltip */
 .dash-info { position: relative; display: inline-flex; vertical-align: middle; }
-.dash-info-btn { display: inline-grid; place-items: center; width: 1.15rem; height: 1.15rem; border-radius: 99px; color: var(--text-subtle); }
+.dash-info-btn { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; margin: -.3rem -.2rem; border-radius: 99px; color: var(--text-subtle); }
 .dash-info-btn:hover, .dash-info-btn[aria-expanded="true"] { color: var(--color-brand-600); background: var(--accent-soft); }
 .dash-info-pop { position: absolute; z-index: 30; top: calc(100% + 6px); inset-inline-start: -.5rem; width: max-content; max-width: min(18rem, 80vw); padding: .55rem .7rem;
   background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
@@ -1327,10 +1340,16 @@ button.dash-meter-row:hover { background: var(--surface-2); }
 .dash-filters-row { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
 .dash-filters-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .dash-chips { display: flex; gap: .3rem; flex-wrap: wrap; min-width: 0; }
-.dash-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .38rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: var(--fs-table); font-weight: var(--fw-strong); color: var(--text); transition: background .15s, border-color .15s; }
+.dash-chip { display: inline-flex; align-items: center; min-height: 2rem; gap: .4rem; padding: .38rem .75rem; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); font-size: var(--fs-table); font-weight: var(--fw-strong); color: var(--text); transition: background .15s, border-color .15s; }
 .dash-chip:hover { background: var(--surface-3); }
 .dash-chip[aria-checked="true"] { background: var(--selected-bg); border-color: transparent; color: var(--selected-fg); }
 .dash-chip--sm { padding: .26rem .6rem; font-size: var(--fs-caption); }
+/* Touch screens: small controls rise to the 40px target the design contract sets (DESIGN.md §Components). */
+@media (pointer: coarse) {
+  .dash-chip, .dash-chip--sm, .agent-status-button, .ic-read-more, .post-read-more, .ic-text-expand { min-height: 2.5rem; }
+  .dash-info-btn { width: 2.25rem; height: 2.25rem; margin: -.55rem -.45rem; }
+  .rc-link.num { min-height: 2.25rem; }
+}
 .dash-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 99px; flex: none; background: var(--color-brand-500); }
 .dash-inline-field { display: inline-flex; align-items: center; gap: .4rem; font-size: var(--fs-table); }
 .dash-inline-field .input { padding-block: .3rem; width: auto; }
@@ -1377,7 +1396,7 @@ button.dash-meter-row:hover { background: var(--surface-2); }
 
 /* ── Queue workforce: availability, box capacity, board and settings ── */
 .agent-status { position: relative; }
-.agent-status-button { white-space: nowrap; display: inline-flex; align-items: center; gap: .45rem; padding: .4rem .7rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-table); font-weight: 400; cursor: pointer; transition: background .15s, border-color .15s; }
+.agent-status-button { white-space: nowrap; display: inline-flex; align-items: center; min-height: 2rem; gap: .45rem; padding: .4rem .7rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-table); font-weight: 400; cursor: pointer; transition: background .15s, border-color .15s; }
 .agent-status-button:hover { background: var(--surface-3); }
 .agent-status-time { color: var(--text-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
 .agent-status-dot { display: inline-block; flex: 0 0 auto; width: .6rem; height: .6rem; border-radius: 999px; background: var(--wf-dot, var(--border-strong)); }
@@ -1449,6 +1468,25 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .tk-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
 .tk-number { display: flex; gap: .4rem; align-items: center; }
 .tk-number .input { width: 9rem; font-variant-numeric: tabular-nums; }
+.tk-date { display: flex; align-items: center; gap: .4rem; }
+/* Bulk selection on the tickets list: a page-select row, a sticky action toolbar, a confirm panel and a result note. */
+.tk-selectbar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; padding: .35rem .25rem; font-size: var(--fs-caption); }
+.tk-selectbar label { display: inline-flex; align-items: center; gap: .45rem; min-height: 2rem; cursor: pointer; }
+.tk-bulkbar { position: sticky; top: .5rem; z-index: 5; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-sm); margin-bottom: .6rem; }
+.tk-bulk-count { font-size: var(--fs-table); color: var(--text); padding-inline-end: .35rem; font-variant-numeric: tabular-nums; }
+.tk-bulk-panel { padding: .9rem 1rem; margin-bottom: .6rem; display: grid; gap: .7rem; }
+.tk-bulk-title { font-size: var(--fs-table); color: var(--text-muted); }
+.tk-bulk-fields { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; }
+.tk-bulk-fields .rc-field { min-width: 14rem; }
+.tk-bulk-reason { flex: 1; min-width: 16rem; }
+.tk-bulk-run { display: flex; gap: .5rem; }
+.tk-bulk-results { padding: .7rem 1rem; margin-bottom: .6rem; font-size: var(--fs-table); border-inline-start: 3px solid var(--status-success); }
+.tk-bulk-results.has-fail { border-inline-start-color: var(--status-danger); }
+.tk-bulk-fail { color: var(--status-danger); margin-top: .25rem; overflow-wrap: anywhere; }
+/* The per-card checkbox sits on the card corner, outside the main button, like the live list's selection. */
+.tk-selectable { position: relative; }
+.tk-select { position: absolute; inset-block-start: .85rem; inset-inline-end: .85rem; z-index: 2; }
+.tk-selectable .ic-when { margin-inline-end: 1.9rem; }
 .td-queue-note { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
 
 /* Source identity on every queue card: a coloured stripe on the leading edge and a badge (X, story, news, YouTube). Colours: --src-* tokens. */
@@ -1473,7 +1511,7 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .ic-card:hover { box-shadow: 0 4px 16px rgb(15 40 60 / .08); }
 .ic-card.is-selected { box-shadow: 0 0 0 2px var(--accent); }
 .ic-card.is-high { background: color-mix(in srgb, var(--status-warning) 4%, var(--surface-raised)); }
-.ic-main { display: flex; flex-direction: column; gap: .6rem; width: 100%; text-align: start; padding: 1rem 1.1rem .5rem; cursor: pointer; background: transparent; }
+.ic-main { display: flex; flex-direction: column; gap: .5rem; width: 100%; text-align: start; padding: .85rem 1rem .4rem; cursor: pointer; background: transparent; }
 .ic-head { display: flex; align-items: flex-start; gap: .75rem; }
 .ic-avatar { position: relative; flex-shrink: 0; }
 .ic-avatar .queue-source-icon { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
@@ -1486,15 +1524,16 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .ic-name { font-size: var(--fs-card); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .ic-handle, .ic-figures { font-size: var(--fs-caption); color: var(--text-muted); }
 .ic-figures { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ic-when { display: inline-flex; align-items: center; gap: .3rem; font-size: var(--fs-table); color: var(--status-info); white-space: nowrap; }
-.ic-text { display: block; font-size: var(--fs-card); line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+/* Time is metadata, not a state: muted, per the status-colours-for-states rule. */
+.ic-when { display: inline-flex; align-items: center; gap: .3rem; font-size: var(--fs-table); color: var(--text-muted); white-space: nowrap; }
+.ic-text { display: block; font-size: var(--fs-card); line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .ic-root { display: block; position: relative; background: var(--surface-3); border-radius: .5rem; padding: 2rem .9rem .7rem; }
 .ic-root-head { position: absolute; inset-block-start: 0; inset-inline: 0; display: flex; align-items: center; gap: .6rem; padding-inline-end: .8rem; }
 .ic-root-tag { background: var(--selected-bg); color: var(--selected-fg); font-size: var(--fs-caption); font-weight: 400; padding: .25rem .7rem; border-start-start-radius: .5rem; border-end-end-radius: .4rem; }
 .ic-root-who { font-size: var(--fs-caption); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .ic-root-time { font-size: var(--fs-caption); font-weight: 400; color: var(--text-muted); }
 .ic-root-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-body); line-height: 1.85; }
-.ic-actions { display: flex; align-items: center; gap: .5rem; padding: .35rem 1.1rem .7rem; flex-wrap: wrap; }
+.ic-actions { display: flex; align-items: center; gap: .5rem; padding: .3rem 1rem .55rem; flex-wrap: wrap; }
 .ic-primary { display: inline-flex; align-items: center; gap: .35rem; font-size: var(--fs-body); font-weight: 400; padding: .35rem .7rem; border-radius: .5rem; color: var(--text); }
 .ic-primary:hover:not(:disabled) { background: var(--accent-soft); color: var(--text); }
 .ic-icons { display: inline-flex; align-items: center; gap: .15rem; flex-wrap: wrap; }
@@ -1511,7 +1550,7 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .ic-input { flex: 1; min-width: 12rem; }
 .ic-panel-close { position: absolute; inset-block-start: .45rem; inset-inline-end: .45rem; color: var(--text-muted); }
 .ic-error { color: var(--status-danger); font-size: var(--fs-table); margin-top: .4rem; } .ic-error--bar { margin: 0 1.1rem .6rem; }
-.ic-foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; border-top: 1px solid var(--border); padding: .6rem 1.1rem; font-size: var(--fs-caption); }
+.ic-foot { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; border-top: 1px solid var(--border); padding: .5rem 1rem; font-size: var(--fs-caption); }
 .ic-ticket { color: var(--accent-ink); font-weight: 400; font-variant-numeric: tabular-nums; }
 .ic-foot-meta { display: flex; align-items: center; gap: .3rem .9rem; flex-wrap: wrap; color: var(--text-muted); }
 .ic-count { display: inline-flex; align-items: center; gap: .25rem; color: var(--accent-ink); font-weight: 400; }
@@ -1519,13 +1558,22 @@ a.queue-ticket-number:hover { text-decoration: underline; }
 .ic-clock.is-late { color: var(--status-danger); font-weight: 400; }
 .ic-assignee { font-weight: 400; color: var(--text); }
 .ic-card .ic-text.is-expanded { display: block; -webkit-line-clamp: unset; overflow: visible; }
-.ic-read-more { display: block; margin: -.2rem auto .2rem; color: var(--accent-ink); font-size: var(--fs-caption); font-weight: var(--fw-strong); cursor: pointer; background: transparent; }
+.ic-read-more { display: flex; align-items: center; justify-content: center; min-height: 2rem; padding: .2rem .6rem; margin: -.2rem auto .2rem; color: var(--accent-ink); font-size: var(--fs-caption); font-weight: var(--fw-strong); cursor: pointer; background: transparent; border-radius: var(--radius-sm); }
 .ic-queue-media { padding: 0 1.1rem .4rem; }
 .ic-history-dialog { max-width: 560px; }
 .ic-history-body { max-height: 65vh; overflow-y: auto; padding-inline-end: .25rem; }
 .history-media { margin-top: .6rem; }
 .ic-read-more:hover { color: var(--color-brand-600); text-decoration: underline; }
-.queue-compact .ic-text { -webkit-line-clamp: 2; } .queue-compact .ic-root { display: none; }
+/* Compact density: two text lines, no conversation root, no inline media or account figures, 36px avatar, tight paddings. */
+.queue-compact .ic-text { -webkit-line-clamp: 2; }
+.queue-compact .ic-root, .queue-compact .ic-queue-media, .queue-compact .ic-figures { display: none; }
+.queue-compact .ic-main { padding: .6rem .85rem .3rem; gap: .4rem; }
+.queue-compact .ic-actions { padding: .2rem .85rem .45rem; }
+.queue-compact .ic-foot { padding: .4rem .85rem; }
+.queue-compact .ic-head { gap: .6rem; }
+/* Avatar sets its size inline from a prop; the density override must outrank it. */
+.queue-compact .ic-avatar > :first-child { width: 2.25rem !important; height: 2.25rem !important; }
+.queue-compact .queue-list { gap: .45rem; }
 @media (max-width: 640px) { .ic-channel { margin-inline-start: 0; } .ic-when { font-size: var(--fs-caption); } }
 /* «إغلاق التفاعل» dialog */
 .ic-dialog { width: min(40rem, calc(100vw - 2rem)); margin: 12vh auto 0; padding: 1.4rem 1.5rem 1.2rem; display: flex; flex-direction: column; gap: 1rem; }

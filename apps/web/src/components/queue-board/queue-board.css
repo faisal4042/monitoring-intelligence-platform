@@ -23,6 +23,9 @@
 .qb-kpi-heading svg { flex-shrink:0; opacity:.7; }
 .qb-kpi-value { display:block; font-size: var(--fs-kpi); line-height:1.5; font-weight:var(--fw-strong); font-variant-numeric:tabular-nums; }
 .qb-kpi p { font-size: var(--fs-caption); line-height:1.5; color:var(--text-muted); }
+/* From the figure to its items: a quiet link, 2rem tall for the touch target. */
+.qb-kpi-link { display:inline-flex; align-items:center; gap:.2rem; min-height:2rem; margin-block-start:.15rem; font-size: var(--fs-caption); color:var(--accent-ink); }
+.qb-kpi-link:hover { text-decoration:underline; }
 .qb-kpi.is-critical::before { background:var(--status-warning); opacity:1; }
 .qb-kpi.is-critical { background:color-mix(in srgb,var(--status-warning) 4%,var(--surface)); }
 .qb-kpi.is-critical .qb-kpi-value { color:var(--status-warning); }

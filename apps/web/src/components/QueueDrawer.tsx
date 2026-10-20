@@ -4,7 +4,7 @@ import ModalSurface, { ModalCloseButton } from './ModalSurface';
 import {useEffect,useState} from 'react';
 import {useQuery,useMutation,useQueryClient} from '@tanstack/react-query';
 
-import {X,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight,Flame} from 'lucide-react';
+import {X,ArrowUpRight,StickyNote,Sparkles,UserRound,TriangleAlert,ExternalLink,ArrowLeftRight,Flame,ChevronUp,ChevronDown} from 'lucide-react';
 import {PERMISSIONS as P,QUEUE_SECTION_LABELS,QUEUE_STATUS_LABELS,type QueueAction} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
@@ -18,14 +18,27 @@ import {statusLabel} from '../lib/workforce';
 import {XVideoFrame,xPostIdOf} from './live/VideoEmbed';
 import VideoPlayer from './media/VideoPlayer';
 import {SOURCE_KIND_LABELS,SOURCE_OPEN_LABELS,SourceBadge,SourceIcon,TicketNumbers,isSourceCard,sourceOrigin,sourceText,sourceTitle,sourceUrl} from './queue/SourceParts';
+import {potentialTicketNumbers} from '../lib/ticket-detect';
 
-import { Button } from './ui/Button';
-export default function QueueDrawer({id,onClose}:{id:string;onClose:()=>void}) {
-  const {user}=useAuth();
-  return <QueueDrawerContent key={`${user?.id}:${id}`} id={id} onClose={onClose}/>;
+/** Digits that follow the organisation's ticket convention, surfaced as unverified candidates only (no CRM integration exists). */
+function PotentialTicketRefs({text}:{text:string|null|undefined}) {
+  const refs=potentialTicketNumbers(text);
+  if(!refs.length)return null;
+  return <p className="text-sm flex flex-wrap items-center gap-1.5">
+    <span className="muted">أرقام تذاكر محتملة في النص (غير متحقق منها):</span>
+    {refs.map(r=><span key={r} className="queue-tag" title="رقم بصيغة تذاكر الجهة (يبدأ بـ2). لا يوجد تحقق عبر تكامل رسمي؛ تحقق يدويًا قبل الاعتماد."><bdi className="num">#{r}</bdi></span>)}
+  </p>;
 }
 
-function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
+import { Button } from './ui/Button';
+/** Previous/next within the list the drawer was opened from; drafts persist per item, so switching loses nothing. */
+export interface DrawerNav {prevId:string|null;nextId:string|null;onOpen:(id:string)=>void}
+export default function QueueDrawer({id,onClose,nav}:{id:string;onClose:()=>void;nav?:DrawerNav}) {
+  const {user}=useAuth();
+  return <QueueDrawerContent key={`${user?.id}:${id}`} id={id} onClose={onClose} nav={nav}/>;
+}
+
+function QueueDrawerContent({id,onClose,nav}:{id:string;onClose:()=>void;nav?:DrawerNav}) {
   const {user,can}=useAuth();const qc=useQueryClient();const supervise=can(P.QUEUE_SUPERVISE);
   const draftKey=['queue-draft',user?.id,id];
   const stored=qc.getQueryData<Record<string,unknown>>(draftKey);
@@ -60,6 +73,17 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
   const serverNow=useServerClock(clock?.serverNow);
 
   const openItem=(other:string)=>setParams(old=>{const next=new URLSearchParams(old);next.set('item',other);return next;});
+  // Arrow keys walk the list while no form control is focused (processing speed; buttons stay the accessible path).
+  useEffect(()=>{if(!nav)return;
+    const handler=(event:KeyboardEvent)=>{
+      if(event.altKey||event.ctrlKey||event.metaKey||event.shiftKey)return;
+      const target=event.target as HTMLElement|null;
+      if(target&&(['INPUT','TEXTAREA','SELECT'].includes(target.tagName)||target.isContentEditable))return;
+      if(event.key==='ArrowDown'&&nav.nextId){event.preventDefault();nav.onOpen(nav.nextId);}
+      else if(event.key==='ArrowUp'&&nav.prevId){event.preventDefault();nav.onOpen(nav.prevId);}
+    };
+    window.addEventListener('keydown',handler);return()=>window.removeEventListener('keydown',handler);
+  },[nav?.prevId,nav?.nextId]);
   const mine=item?.assignee_id===user?.id;
   const work=((mine&&can(P.QUEUE_WORK))||supervise)&&!item?.merged_into_id;
   const story=item?.interaction_type==='story';
@@ -68,7 +92,13 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
   return <ModalSurface label={story ? 'تفاصيل القصة' : 'تفاصيل التفاعل'} onClose={discard.close} busy={change.isPending || priority.isPending || transfer.isPending} overlayClassName="queue-drawer" panelClassName="card p-5 space-y-5">
       {confirmation.dialog}{discard.dialog}<header className="flex justify-between items-center gap-3">
         <h2 className="text-xl font-bold flex items-center gap-2">{story?<><Sparkles size={20}/>تفاصيل القصة</>:'تفاصيل التفاعل'}</h2>
-        <ModalCloseButton  className="icon-button" aria-label="إغلاق التفاصيل" onClick={discard.close}><X size={18}/></ModalCloseButton>
+        <span className="flex items-center gap-1">
+          {nav&&<>
+            <button className="icon-button" aria-label="التفاعل السابق في القائمة" title="السابق (سهم أعلى)" disabled={!nav.prevId} onClick={()=>nav.prevId&&nav.onOpen(nav.prevId)}><ChevronUp size={18}/></button>
+            <button className="icon-button" aria-label="التفاعل التالي في القائمة" title="التالي (سهم أسفل)" disabled={!nav.nextId} onClick={()=>nav.nextId&&nav.onOpen(nav.nextId)}><ChevronDown size={18}/></button>
+          </>}
+          <ModalCloseButton  className="icon-button" aria-label="إغلاق التفاصيل" onClick={discard.close}><X size={18}/></ModalCloseButton>
+        </span>
       </header>
       {isLoading&&<p>جارٍ التحميل…</p>}{error&&<p role="alert" className="text-(--status-danger)">{error.message}</p>}
       {item&&<>
@@ -107,6 +137,7 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
             <iframe src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(item.source_snapshot.videoId)}`} title={sourceTitle(item)} loading="lazy"
               allow="encrypted-media; picture-in-picture; fullscreen" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/></div>}
           {sourceText(item)&&<p className="whitespace-pre-wrap leading-8">{sourceText(item)}</p>}
+          <PotentialTicketRefs text={sourceText(item)}/>
           <div className="text-xs muted">نُشر: {fmtDateTime(item.source_snapshot?.publishedAt)} · دخل الطابور: {fmtDateTime(item.entered_at)}</div>
           {sourceUrl(item)&&<a className="btn-ghost" href={sourceUrl(item)!} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/>{SOURCE_OPEN_LABELS[item.interaction_type]}</a>}
         </article>:<article className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3">
@@ -119,6 +150,7 @@ function QueueDrawerContent({id,onClose}:{id:string;onClose:()=>void}) {
           {item.parent_story_title&&<p className="text-sm"><span className="queue-tag queue-tag--story"><Sparkles size={11}/>ضمن قصة</span> {item.parent_story_title}
             {item.story_item_id&&supervise&&<button className="ms-2 underline text-brand-600 text-xs" onClick={()=>openItem(item.story_item_id!)}>فتح القصة</button>}</p>}
           <p className="whitespace-pre-wrap leading-8">{item.text??'المصدر غير متاح بعد انتهاء الاحتفاظ أو الحجب. السجل التشغيلي محفوظ.'}</p>
+          <PotentialTicketRefs text={item.text}/>
           <div className="text-sm muted">المصدر: X · {SOURCE_LABELS[sourceOf(item)]} · التصنيف: {item.intent?INTENT_LABELS[item.intent]??item.intent:'—'} · المشاعر: <span className={sentiment?.cls}>{sentiment?.text??'—'}</span> · الموضوع: {item.topic_name??'غير مرتبط بموضوع'}</div>
           <div className="text-xs muted">نُشر: {fmtDateTime(item.post_posted_at)} · دخل الطابور: {fmtDateTime(item.entered_at)}</div>
           <div className="grid grid-cols-2 gap-2">{item.media?.map((m,i)=>m.type==='photo'&&m.url?<img key={i} src={m.url} alt="وسائط التفاعل" className="rounded-lg max-h-56 object-contain"/>

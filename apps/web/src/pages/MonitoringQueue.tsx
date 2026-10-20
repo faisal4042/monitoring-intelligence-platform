@@ -7,7 +7,7 @@ import {useCursorNavigation} from '../lib/useCursorNavigation';
 import {useLocation} from 'react-router-dom';
 import {useQuery} from '@tanstack/react-query';
 import {Link} from 'react-router-dom';
-import {Inbox,RefreshCw,UsersRound,SlidersHorizontal,Rows3,Rows2,Sparkles,UserRound,MessagesSquare,TriangleAlert,MonitorDot,Settings2,Flame} from 'lucide-react';
+import {Inbox,RefreshCw,UsersRound,SlidersHorizontal,Rows3,Rows2,Sparkles,UserRound,MessagesSquare,TriangleAlert,MonitorDot,Settings2,Flame,X,Bookmark} from 'lucide-react';
 import {PERMISSIONS as P,QUEUE_SECTIONS,QUEUE_SECTION_LABELS,QUEUE_STATUSES,QUEUE_STATUS_LABELS,type QueueSection,type QueueStatus} from '@mip/shared';
 import {api} from '../lib/api';
 import {useAuth} from '../lib/auth';
@@ -25,7 +25,7 @@ import {SOURCE_KIND_LABELS,SourceBadge,SourceFilter,SourceIcon,TicketNumbers,isS
 
 import { Button } from '../components/ui/Button';
 const SECTION_ICON={general:MessagesSquare,influencer:UserRound,story:Sparkles} as const;
-const FILTER_KEYS=['basis','programId','status','employeeId','teamId','classification','sentiment','source','search','kind'] as const;
+const FILTER_KEYS=['basis','programId','status','employeeId','teamId','classification','sentiment','source','search','kind','sort','bucket'] as const;
 const pref=(key:string,fallback:string)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
 const savePref=(key:string,value:string)=>{try{localStorage.setItem(key,value);}catch{/* private mode */}};
 
@@ -36,7 +36,7 @@ export default function MonitoringQueue() {
 }
 
 function SupervisorQueue() {
-  const {can}=useAuth();const supervise=true;
+  const {can,user}=useAuth();const supervise=true;
   const [params,setParams]=useBrowsingParams();const location=useLocation();const date=useDateRange(undefined,{resetKeys:['page','cursor','item']});
   const [search,setSearch]=useState(params.get('search')??'');
   // Open by default on wide screens; on phones the list comes first.
@@ -85,8 +85,25 @@ function SupervisorQueue() {
   // Cards tick every 30s from the server's clock (summary refreshes it).
   const now=useServerClock(summary.data?.serverNow,30000);const warnMinutes=reviewCatalog?.waitWarningMinutes??60;
   const updatedAt=list.dataUpdatedAt?new Date(Math.max(list.dataUpdatedAt,summary.dataUpdatedAt)).toISOString():null;
+  // «وصل جديد»: with the default oldest-first order, fresh arrivals land on the last page,
+  // so a quiet notice announces them instead of the list reordering under the supervisor's hands.
+  const unassignedNow=summary.data?.views[section].unassigned;
+  const [freshBase,setFreshBase]=useState<number|null>(null);
+  useEffect(()=>{setFreshBase(null);},[section]);
+  useEffect(()=>{if(unassignedNow!=null)setFreshBase(b=>b==null||unassignedNow<b?unassignedNow:b);},[unassignedNow]);
+  const fresh=unassignedNow!=null&&freshBase!=null?unassignedNow-freshBase:0;
+  // Saved views: the current filters, tabs and sort under a name — per user, on this device only (no schema).
+  const viewsKey=`mip.queue.views.${user?.id??'anon'}`;
+  const [savedViews,setSavedViews]=useState<Array<{name:string;qs:string}>>(()=>{try{return JSON.parse(localStorage.getItem(viewsKey)??'[]');}catch{return [];}});
+  const [viewName,setViewName]=useState('');
+  const persistViews=(next:Array<{name:string;qs:string}>)=>{setSavedViews(next);try{localStorage.setItem(viewsKey,JSON.stringify(next));}catch{/* private mode */}};
+  const saveCurrentView=()=>{const name=viewName.trim();if(!name)return;
+    const p=new URLSearchParams();
+    for(const k of [...FILTER_KEYS,'view','section','range','from','to'])if(params.get(k))p.set(k,params.get(k)!);
+    persistViews([...savedViews.filter(v=>v.name!==name),{name,qs:p.toString()}].slice(0,12));setViewName('');};
+  const applySavedView=(qs:string)=>{setSearch(new URLSearchParams(qs).get('search')??'');setParams(()=>new URLSearchParams(qs));};
 
-  return <div className="space-y-4" dir="rtl"><QueueDraftNotice/>
+  return <div className="space-y-3" dir="rtl"><QueueDraftNotice/>
     <header className="queue-header">
       <div className="min-w-0">
         <p className="eyebrow">العمل اليومي</p>
@@ -127,8 +144,17 @@ function SupervisorQueue() {
     </div>
     {!isStory&&<SourceFilter value={params.get('kind')??''} onChange={kinds=>set('kind',kinds)} withStories={false}/>}
 
+    {fresh>0&&view!=='closed'&&<div className="queue-fresh" role="status">
+      <Sparkles size={15} aria-hidden="true"/>تفاعلات جديدة وصلت للطابور: {fresh}
+      <span className="queue-fresh-actions">
+        <Button variant="ghost" size="sm" onClick={()=>{setFreshBase(unassignedNow??null);
+          setParams(old=>{const next=new URLSearchParams(old);next.set('view','unassigned');next.set('sort','newest');next.delete('status');next.delete('item');next.delete('cursor');next.delete('page');return next;});}}>عرض الأحدث</Button>
+        <Button variant="ghost" size="sm" onClick={()=>setFreshBase(unassignedNow??null)}>إخفاء</Button>
+      </span>
+    </div>}
+
     <div className={`queue-layout ${showFilters?'':'is-collapsed'} ${compact?'queue-compact':''}`}>
-      <section aria-label={`عناصر ${QUEUE_SECTION_LABELS[section].ar}`} className="space-y-2.5 min-w-0">
+      <section aria-label={`عناصر ${QUEUE_SECTION_LABELS[section].ar}`} className="queue-list min-w-0">
         {date.error&&<p role="alert">{date.error}</p>}
         {summary.error&&<p role="alert" className="card p-4">تعذر تحميل أعداد الطابور: {summary.error.message}<Button variant="ghost" type="submit" onClick={()=>summary.refetch()}>إعادة تحميل الأعداد</Button></p>}
         {list.error&&<p role="alert" className="card p-4 text-(--status-danger)">{list.error.message}<Button variant="ghost" type="submit" onClick={()=>list.refetch()}>إعادة المحاولة</Button></p>}
@@ -148,6 +174,7 @@ function SupervisorQueue() {
           <label className="queue-field">البرنامج<select className="input" value={params.get('programId')??''} onChange={e=>set('programId',e.target.value)}><option value="">كل البرامج</option>{(options?.programs??catalog?.items??[]).map(p=><option key={p.id} value={p.id}>{p.name_ar}</option>)}</select></label>
           <div className="queue-field">الفترة<DateRangeFilter state={date}/></div>
           <label className="queue-field">أساس الفترة<select className="input" value={params.get('basis')??'entered'} onChange={e=>set('basis',e.target.value==='entered'?'':e.target.value)}><option value="entered">دخول الطابور</option><option value="posted">{isStory?'أول ظهور':'تاريخ النشر'}</option></select></label>
+          <label className="queue-field">الترتيب<select className="input" value={params.get('sort')??''} onChange={e=>set('sort',e.target.value)}><option value="">الأقدم أولًا (أطول انتظارًا)</option><option value="newest">الأحدث أولًا</option><option value="priority">الأولوية العالية أولًا</option></select></label>
           {!isStory&&<label className="queue-field">مصدر التفاعل<select className="input" value={params.get('source')??''} onChange={e=>set('source',e.target.value)}><option value="">كل المصادر (إكس)</option>{Object.entries(SOURCE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>}
           <label className="queue-field">حالة المعالجة<select className="input" value={params.get('status')??''} onChange={e=>set('status',e.target.value)}><option value="">كل الحالات</option>{QUEUE_STATUSES.map(s=><option key={s} value={s}>{QUEUE_STATUS_LABELS[s]}</option>)}</select></label>
           {supervise&&<><label className="queue-field">الموظف<select className="input" value={params.get('employeeId')??''} onChange={e=>set('employeeId',e.target.value)}><option value="">كل الموظفين</option>{members.map(m=><option key={m.id} value={m.id}>{m.full_name}</option>)}</select></label>
@@ -155,12 +182,29 @@ function SupervisorQueue() {
           {!isStory&&<><label className="queue-field">التصنيف<select className="input" value={params.get('classification')??''} onChange={e=>set('classification',e.target.value)}><option value="">كل التصنيفات</option>{Object.entries(INTENT_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
             <label className="queue-field">المشاعر<select className="input" value={params.get('sentiment')??''} onChange={e=>set('sentiment',e.target.value)}><option value="">كل المشاعر</option>{Object.entries(SENTIMENT_LABELS).map(([k,v])=><option key={k} value={k}>{v.text}</option>)}</select></label></>}
         </div>
+        <div className="card p-4 space-y-2">
+          <h2 className="font-bold text-sm flex items-center gap-1.5"><Bookmark size={14} aria-hidden="true"/>طرق عرض محفوظة</h2>
+          {!savedViews.length&&<p className="text-xs muted">احفظ الفلاتر والفرز الحاليين باسم لتعود إليها بنقرة. تُحفظ على هذا الجهاز لحسابك فقط.</p>}
+          {savedViews.length>0&&<ul className="flex flex-wrap gap-1.5">{savedViews.map(v=><li key={v.name} className="queue-saved-view">
+            <button className="queue-tag" title="تطبيق طريقة العرض" onClick={()=>applySavedView(v.qs)}>{v.name}</button>
+            <button className="icon-button queue-saved-view-x" aria-label={`حذف طريقة العرض ${v.name}`} onClick={()=>persistViews(savedViews.filter(x=>x.name!==v.name))}><X size={12}/></button>
+          </li>)}</ul>}
+          <form className="flex gap-2" onSubmit={e=>{e.preventDefault();saveCurrentView();}}>
+            <input className="input flex-1 min-w-0" maxLength={40} value={viewName} onChange={e=>setViewName(e.target.value)} placeholder="اسم طريقة العرض" aria-label="اسم طريقة العرض"/>
+            <Button variant="ghost" type="submit" disabled={!viewName.trim()}>حفظ</Button>
+          </form>
+        </div>
         {/* Short and always relevant to a supervisor, so it sits above the longer filter list. */}
         {supervise&&<div className="card p-4 order-first">
           <h2 className="font-bold text-sm mb-1">عبء الموظفين</h2>
           <p className="text-xs muted mb-2">في الصندوق · مصعّد · مغلق اليوم دون تكرار</p>
           {!summary.data?.workload.length?<p className="text-xs muted">لا يوجد أعضاء في فرقك بعد.</p>:
-          <ul className="queue-workload space-y-0.5">{summary.data.workload.map(w=><li key={w.id+w.team_id}>
+          <ul className="queue-workload space-y-0.5">
+            <li><button aria-pressed={view==='unassigned'} onClick={()=>setParams(old=>{const next=new URLSearchParams(old);next.set('view','unassigned');next.delete('status');next.delete('item');next.delete('cursor');next.delete('page');return next;})}>
+              <span className="min-w-0"><strong className="block text-sm truncate">غير مسند</strong><span className="block text-xs muted truncate">بانتظار الإسناد في {QUEUE_SECTION_LABELS[section].ar}</span></span>
+              <span className="queue-workload-nums self-center"><span title="بانتظار الإسناد">{unassignedNow??'—'}</span></span>
+            </button></li>
+            {summary.data.workload.map(w=><li key={w.id+w.team_id}>
             <button aria-pressed={params.get('employeeId')===w.id} onClick={()=>set('employeeId',params.get('employeeId')===w.id?'':w.id)}>
               <span className="min-w-0"><strong className="block text-sm truncate">{w.full_name}</strong><span className="block text-xs muted truncate"><span className={`agent-status-dot agent-status--${w.agent_status}`} aria-hidden="true"/> {statusLabel(w.agent_status)} · {w.team_name}</span></span>
               <span className="queue-workload-nums self-center"><span title="في الصندوق">{w.open}</span><span className="text-(--status-danger)" title="مصعّد">{w.escalated}</span><span className="text-(--status-success)" title="مكتمل اليوم">{w.completed_today}</span></span>
@@ -168,7 +212,9 @@ function SupervisorQueue() {
         </div>}
       </aside>}
     </div>
-    {selected&&<QueueDrawer key={selected} id={selected} onClose={()=>set('item','',true)}/>}
+    {selected&&(()=>{const idx=items.findIndex(i=>i.id===selected);
+      return <QueueDrawer key={selected} id={selected} onClose={()=>set('item','',true)}
+        nav={{prevId:idx>0?items[idx-1].id:null,nextId:idx>=0&&idx<items.length-1?items[idx+1].id:null,onOpen:other=>set('item',other,true)}}/>;})()}
   </div>;
 }
 
